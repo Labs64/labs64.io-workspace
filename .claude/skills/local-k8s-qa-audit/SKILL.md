@@ -13,6 +13,8 @@ Every module and every third-party tool in the local stack is expected to be **f
 
 Act as senior QA Engineer + Kubernetes Engineer + Solution Architect simultaneously.
 
+> **TEMPORARY EXCEPTION (until further notice):** `labs64.io-checkout`, `labs64.io-payment-gateway`, and `labs64.io-customer-portal` are currently under active development and not fully implemented. **Still deploy them as part of the stack** (Steps 1–3, 5–7 apply normally — install their charts, audit their k8s resources, config, and docs like everything else) but **exclude them from Step 4 functional/e2e validation** — don't run their API smoke tests or fail the audit over their functional gaps. Remove this exception once the user says these modules are ready for full functional coverage again.
+
 ## Step 1 — Discover the ecosystem fresh (don't reuse a stale module list)
 
 - Read root `AGENTS.md` and every `<module>/AGENTS.md` before touching anything — conventions and each module's own documented data/event flow live there.
@@ -31,6 +33,7 @@ Pod readiness, liveness/readiness probes, restart counts, CrashLoopBackOff, imag
 
 ## Step 4 — Functional validation
 
+- **Skip checkout, payment-gateway, and customer-portal here** per the temporary exception noted above — deploy them, but don't run their functional/e2e checks until the user lifts the exception.
 - API Gateway routing (Traefik) — e.g. `gateway.localhost/swagger-ui/`.
 - AuthN/AuthZ + OIDC flow — e.g. `just e2e-auth-test` (no-token → 401, valid → pass, wrong-scope → 403). The OIDC provider is part of the local stack's shared tooling; validate the flow works, don't re-evaluate where it's deployed.
 - Service-to-service communication, event/queue processing.
@@ -90,3 +93,4 @@ One Markdown report at `.claude/reports/`, named `QA_AUDIT_REPORT_YYYYMMDD.md` (
 | Re-evaluating where shared dev infra (e.g. the OIDC provider) should live | That's a one-time architecture decision, not a recurring audit task — just validate it works |
 | Flagging OTLP export errors as a bug when no collector is deployed in the active profile | Check which `up` profile is running first |
 | Overwriting a previous audit's report | Name the report `QA_AUDIT_REPORT_YYYYMMDD.md` with today's date |
+| Running e2e/functional checks against checkout, payment-gateway, or customer-portal | Temporary exception (see Overview) — deploy them, but skip their Step 4 functional validation until the user lifts it |
