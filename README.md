@@ -1,12 +1,12 @@
-# Labs64.IO - Meta Workspace
+# Labs64.IO - Workspace
 
 This repository serves as the **master workspace** for the entire Labs64.IO ecosystem. Instead of managing 9+ independent Git repositories, this workspace provides a unified `justfile` and DevContainer to orchestrate them all.
 
 ## 🚀 Quick Start
 
-1. **Clone the Meta Repo:**
+1. **Clone the Workspace Repo:**
    ```bash
-   git clone git@github.com:Labs64/labs64.io-meta.git labs64.io
+   git clone git@github.com:Labs64/labs64.io-workspace.git labs64.io
    cd labs64.io
    ```
 
