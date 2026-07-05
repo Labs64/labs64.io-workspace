@@ -1,4 +1,6 @@
-# Labs64.IO - Workspace
+<p align="center"><img src="https://raw.githubusercontent.com/Labs64/.github/refs/heads/master/assets/labs64-io-ecosystem.png"></p>
+
+# Labs64.IO :: Workspace
 
 This repository serves as the **master workspace** for the entire Labs64.IO ecosystem. Instead of managing 9+ independent Git repositories, this workspace provides a unified `justfile` and DevContainer to orchestrate them all.
 
