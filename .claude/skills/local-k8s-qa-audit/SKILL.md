@@ -19,7 +19,7 @@ Act as senior QA Engineer + Kubernetes Engineer + Solution Architect simultaneou
 - Run `graphify query "<question>"` for architecture/relationship questions (shared graph covers all repos).
 - Enumerate modules with `ls -d labs64.io-*/` and **audit every module found** — do not hardcode a fixed module list here, the ecosystem grows.
 - Read `labs64.io-helm-charts/DEVELOPERS.md` and its `justfile` for the actual local commands/topology.
-- **Important**: If the cluster is stopped or images are missing from `localhost:5005`, you must first run `k3d cluster create --config k3d/labs64io.yaml`, then `just build-images`, and finally `just local-up`. Ensure any necessary local secrets are configured in `labs64.io-helm-charts/overrides/<module>/values.secrets.local.yaml` if the cluster fails to pull secrets.
+- **Important**: For a clean cluster test, run `just down` to destroy the existing environment, then run `just cluster-create` to start the registry, `just build-images` to push images, and finally `just up`. If the cluster is simply stopped, you can just run `just up`. Ensure any necessary local secrets are configured in `labs64.io-helm-charts/overrides/<module>/values.secrets.local.yaml` if the cluster fails to pull secrets.
 
 ## Step 2 — Kubernetes audit
 
@@ -32,10 +32,10 @@ Pod readiness, liveness/readiness probes, restart counts, CrashLoopBackOff, imag
 ## Step 4 — Functional validation
 
 - API Gateway routing (Traefik) — e.g. `gateway.localhost/swagger-ui/`.
-- AuthN/AuthZ + OIDC flow — e.g. `just labs64io-e2e-auth` (no-token → 401, valid → pass, wrong-scope → 403). The OIDC provider is part of the local stack's shared tooling; validate the flow works, don't re-evaluate where it's deployed.
+- AuthN/AuthZ + OIDC flow — e.g. `just e2e-auth-test` (no-token → 401, valid → pass, wrong-scope → 403). The OIDC provider is part of the local stack's shared tooling; validate the flow works, don't re-evaluate where it's deployed.
 - Service-to-service communication, event/queue processing.
 - For each module with a multi-hop data or event flow (queue → service → downstream steps), check its own `AGENTS.md`/docs for the flow it claims to implement, then verify actual runtime behavior matches — request/response tracing, log correlation, whatever confirms the real path. Don't assume a flow shape; every module can differ.
-- Observability: confirm metrics/traces/logs actually reach Prometheus/Tempo/Loki via the OTel Collector. A bare `local-up` profile without the collector deployed will show expected OTLP export errors — check which profile is running before flagging this as a defect.
+- Observability: confirm metrics/traces/logs actually reach Prometheus/Tempo/Loki via the OTel Collector. A bare `up` profile without the collector deployed will show expected OTLP export errors — check which profile is running before flagging this as a defect.
 
 ## Step 5 — Configuration review
 
@@ -62,7 +62,7 @@ Helm chart consistency, manifest YAML quality, naming conventions, reuse opportu
 
 ## Deliverable
 
-One Markdown report at `.claude/reports/0`, named `QA_AUDIT_REPORT_YYYYMMDD.md` (today's date) so successive audits don't overwrite each other — with these sections in order:
+One Markdown report at `.claude/reports/`, named `QA_AUDIT_REPORT_YYYYMMDD.md` (today's date). If a file with the same name already exists for today, add an incremental suffix (e.g., `QA_AUDIT_REPORT_YYYYMMDD_1.md`) so successive audits don't overwrite each other. The report should contain these sections in order:
 
 1. **Executive Summary** — health, deployment status, major findings, readiness assessment
 2. **Test Results** — executed / passed / failed / skipped, plus assumptions made
@@ -88,5 +88,5 @@ One Markdown report at `.claude/reports/0`, named `QA_AUDIT_REPORT_YYYYMMDD.md` 
 | Restricting the audit to a fixed list of named modules | Enumerate `labs64.io-*/` dynamically and audit everything found |
 | Assuming one module's event/data flow shape applies to another | Check each module's own `AGENTS.md`/docs for its documented flow before verifying it |
 | Re-evaluating where shared dev infra (e.g. the OIDC provider) should live | That's a one-time architecture decision, not a recurring audit task — just validate it works |
-| Flagging OTLP export errors as a bug when no collector is deployed in the active profile | Check which `local-up` profile is running first |
+| Flagging OTLP export errors as a bug when no collector is deployed in the active profile | Check which `up` profile is running first |
 | Overwriting a previous audit's report | Name the report `QA_AUDIT_REPORT_YYYYMMDD.md` with today's date |
