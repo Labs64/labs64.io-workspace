@@ -1,0 +1,20 @@
+# Ignore all Labs64.IO microservice repositories
+/labs64.io-auditflow/
+/labs64.io-checkout/
+/labs64.io-customer-portal/
+/labs64.io-devops/
+/labs64.io-docs/
+/labs64.io-docs-internal/
+/labs64.io-gateway/
+/labs64.io-helm-charts/
+/labs64.io-payment-gateway/
+
+# Ignore graphify outputs, IDE folders, etc.
+.DS_Store
+.idea/
+.vscode
+graphify-out/
+
+# Ignore .claude except skills
+.claude/*
+!.claude/skills/
