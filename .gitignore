@@ -18,3 +18,4 @@ graphify-out/
 # Ignore .claude except skills
 .claude/*
 !.claude/skills/
+/.mimocode/.cron-lock
