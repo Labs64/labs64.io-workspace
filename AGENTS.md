@@ -9,7 +9,7 @@ Open-source digital commerce platform — polyglot microservices ecosystem. 9 in
 ## Quick orientation
 
 | What you need | Where to look |
-|---------------|---------------|
+| --- | --- |
 | Work on a module | `<module>/AGENTS.md` (always read before changes) |
 | Understand architecture | `graphify query "<question>"` |
 | Deploy to Kubernetes | `labs64.io-helm-charts/` + `labs64.io-devops/` |
@@ -35,7 +35,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 ## Shared conventions
 
 | Convention | Detail |
-|------------|--------|
+| --- | --- |
 | Java | 25, Maven 3.6.3+, Spring Boot 4.x, OpenAPI-first |
 | Python | 3.13, FastAPI, Uvicorn |
 | Vue | 3, Composition API, Vite, Pinia, Bootstrap 5 |
@@ -47,7 +47,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 ## Where to make common changes
 
 | Goal | Where |
-|------|-------|
+| --- | --- |
 | AuditFlow API contract | `labs64.io-auditflow/auditflow-api/src/main/resources/openapi/openapi-audit-v1.yaml` |
 | Add AuditFlow sink | `labs64.io-auditflow/auditflow-sink/sinks/<name>.py` |
 | Checkout API contract | `labs64.io-checkout/checkout-be/src/main/resources/openapi/` |
