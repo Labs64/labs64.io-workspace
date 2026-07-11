@@ -24,7 +24,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 
 1. **Never edit OpenAPI-generated Java** under `target/`. Change the YAML spec and rebuild.
 2. **Never hardcode credentials.** Environment variables or K8s Secrets only.
-3. **Preserve non-root user `l64user`** (uid/gid 1064) in all Dockerfiles.
+3. **Preserve non-root user `l64user`** (uid/gid 1064) in all Dockerfiles (exception: nginx-based UI frontends may use UID 101).
 4. **Observability is infrastructure-owned.** Never add OpenTelemetry SDK/starter dependencies or SDK bootstrap to services; the OTel Java Agent (bundled in images) / `opentelemetry-instrument` (entrypoint) provide instrumentation, toggled purely by deployment env (`observability.enabled` in Helm, obs compose overlay). Business telemetry goes through each service's thin `BusinessTelemetry` abstraction. See `labs64.io-helm-charts/OBSERVABILITY.md` (canonical model).
 5. **Keep transformer/sink ID validation regex consistent** across Java and Python (`^[a-zA-Z0-9_]+$`).
 6. **Chart versions must match** between Helm `Chart.yaml` and ArgoCD ApplicationSet pin.
