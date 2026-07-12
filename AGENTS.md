@@ -43,7 +43,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Docker | All images run as `l64user` (uid/gid 1064) |
 | Tests | JUnit 5 (Java), pytest (Python), Vitest (Vue) |
 | Task runner | `just` — check each repo's justfile |
-| Observability | Infrastructure-owned; runtime auto-instrumentation (OTel Java Agent / opentelemetry-instrument) → OTel Collector → Tempo (traces) / VictoriaLogs k8s · Loki compose (logs) / Prometheus (metrics) → Grafana; Java metrics via Micrometer `/actuator/prometheus`. Canonical model: `labs64.io-helm-charts/OBSERVABILITY.md` |
+| Observability | Infrastructure-owned; runtime auto-instrumentation (OTel Java Agent / opentelemetry-instrument) → OTel Collector → Tempo (traces) / Loki compose (logs) / Prometheus (metrics) → Grafana; Java metrics via Micrometer `/actuator/prometheus`. Canonical model: `labs64.io-helm-charts/OBSERVABILITY.md` |
 
 ## Where to make common changes
 
