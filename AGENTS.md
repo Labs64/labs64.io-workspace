@@ -31,6 +31,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 7. **Network policies are restrictive** — new services need explicit ingress from traefik.
 8. **Each repo has its own git history** — never cross-commit between repositories.
 9. **Run `graphify update .`** after significant code changes.
+10. **Database-per-service.** Each service owns its logical database(s). Never share database credentials or connect to another service's database. New services must declare egress NetworkPolicies restricting outbound traffic to only their designated databases. See `labs64.io-helm-charts/DATABASES.md`.
 
 ## Shared conventions
 
