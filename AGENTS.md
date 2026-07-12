@@ -52,7 +52,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Add AuditFlow sink | `labs64.io-auditflow/auditflow-sink/sinks/<name>.py` |
 | Checkout API contract | `labs64.io-checkout/checkout-be/src/main/resources/openapi/` |
 | Payment Gateway PSP | `labs64.io-payment-gateway/payment-gateway-be/src/main/java/.../psp/providers/` |
-| Traefik auth behavior | `labs64.io-gateway/traefik-authproxy/` |
+| Traefik auth behavior | `labs64.io-authproxy/traefik-authproxy/` |
 | Helm chart templates | `labs64.io-helm-charts/charts/<chart>/templates/` |
 | Terraform infrastructure | `labs64.io-devops/terraform/` |
 | Network policies | `labs64.io-devops/kubernetes/network-policies/` |
