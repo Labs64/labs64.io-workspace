@@ -3,7 +3,7 @@ GITHUB_ORG := "git@github.com:Labs64"
 
 # Clone all ecosystem repositories
 clone-all:
-    #!/usr/bin/env bash
+    #!/bin/bash
     for repo in {{REPOS}}; do
         if [ ! -d "$repo" ]; then
             echo "Cloning $repo..."
@@ -15,7 +15,7 @@ clone-all:
 
 # Pull latest master/main on all repositories
 pull-all:
-    #!/usr/bin/env bash
+    #!/bin/bash
     for repo in {{REPOS}}; do
         if [ -d "$repo" ]; then
             echo "Pulling $repo..."
@@ -25,7 +25,7 @@ pull-all:
 
 # Show git status across all repositories
 status-all:
-    #!/usr/bin/env bash
+    #!/bin/bash
     for repo in {{REPOS}}; do
         if [ -d "$repo" ]; then
             echo "=== $repo ==="
