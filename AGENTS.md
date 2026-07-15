@@ -58,7 +58,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Helm chart templates | `labs64.io-helm-charts/charts/<chart>/templates/` |
 | Terraform infrastructure | `labs64.io-devops/terraform/` |
 | Network policies | `labs64.io-devops/kubernetes/network-policies/` |
-| Add a regression/authz test for a module | `labs64.io-tests/tests/<module>/` (see `gatekeeper` skill) |
+| Add/audit/run tests for a module | `labs64.io-tests/tests/<module>/` (see `test-suite-steward` skill) |
 
 ## Knowledge graph
 
