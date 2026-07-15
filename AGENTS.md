@@ -17,6 +17,7 @@ Open-source digital commerce platform — polyglot microservices ecosystem. 9 in
 | Write an RFC | `labs64.io-docs-internal/rfc/RFC_TEMPLATE.md` |
 | Set up local k8s | `labs64.io-helm-charts/DEVELOPERS.md` |
 | Understand observability | `labs64.io-helm-charts/OBSERVABILITY.md` |
+| Run/add regression & integration tests | `labs64.io-tests/` (`AGENTS.md` first — contract-first, gateway-edge only) |
 
 ## Critical guardrails
 
@@ -41,7 +42,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Python | 3.13, FastAPI, Uvicorn |
 | Vue | 3, Composition API, Vite, Pinia, Bootstrap 5 |
 | Docker | All images run as `l64user` (uid/gid 1064) |
-| Tests | JUnit 5 (Java), pytest (Python), Vitest (Vue) |
+| Tests | JUnit 5 (Java), pytest (Python), Vitest (Vue); black-box API-edge regression in `labs64.io-tests/` (Robot Framework) |
 | Task runner | `just` — check each repo's justfile |
 | Observability | Infrastructure-owned; runtime auto-instrumentation (OTel Java Agent / opentelemetry-instrument) → OTel Collector → Tempo (traces) / Loki compose (logs) / Prometheus (metrics) → Grafana; Java metrics via Micrometer `/actuator/prometheus`. Canonical model: `labs64.io-helm-charts/OBSERVABILITY.md` |
 
@@ -57,6 +58,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Helm chart templates | `labs64.io-helm-charts/charts/<chart>/templates/` |
 | Terraform infrastructure | `labs64.io-devops/terraform/` |
 | Network policies | `labs64.io-devops/kubernetes/network-policies/` |
+| Add a regression/authz test for a module | `labs64.io-tests/tests/<module>/` (see `gatekeeper` skill) |
 
 ## Knowledge graph
 
