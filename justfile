@@ -33,6 +33,10 @@ status-all:
         fi
     done
 
+# Build and push all module images to local registry (localhost:5005)
+build module="all":
+	./scripts/build-images.sh {{module}}
+
 # Start the entire local cluster
-up:
-    cd labs64.io-helm-charts && just build-images && just up
+up: build
+    cd labs64.io-helm-charts && just up
