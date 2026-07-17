@@ -4,6 +4,13 @@ set -euo pipefail
 TARGET=${1:-all}
 REGISTRY="localhost:5005"
 
+BUILD_ACTION="--push"
+if [[ "$TARGET" != "commons" ]] && ! curl -s "http://${REGISTRY}/v2/" > /dev/null; then
+    echo "INFO: Local registry at ${REGISTRY} is not reachable."
+    echo "Images will be loaded into the local Docker daemon instead of being pushed."
+    BUILD_ACTION="--load"
+fi
+
 build_commons() {
     echo "=== Building commons library ==="
     (
@@ -18,9 +25,8 @@ build_traefik_authproxy() {
     (
         echo "= Build Auth Proxy ="
         cd ./labs64.io-authproxy/traefik-authproxy
-        docker build -t ${REGISTRY}/traefik-authproxy:latest .
+        docker build $BUILD_ACTION -t ${REGISTRY}/traefik-authproxy:latest .
     )
-    docker push ${REGISTRY}/traefik-authproxy:latest
 }
 
 build_auditflow() {
@@ -34,21 +40,18 @@ build_auditflow() {
         echo "= Build Backend ="
         cd ./labs64.io-auditflow/auditflow-be
         mvn -B clean package -DskipTests -q
-        docker build -t ${REGISTRY}/auditflow:latest .
+        docker build $BUILD_ACTION -t ${REGISTRY}/auditflow:latest .
     )
     (
         echo "= Build Transformer ="
         cd ./labs64.io-auditflow/auditflow-transformer
-        docker build -t ${REGISTRY}/auditflow-transformer:latest .
+        docker build $BUILD_ACTION -t ${REGISTRY}/auditflow-transformer:latest .
     )
     (
         echo "= Build Sink ="
         cd ./labs64.io-auditflow/auditflow-sink
-        docker build -t ${REGISTRY}/auditflow-sink:latest .
+        docker build $BUILD_ACTION -t ${REGISTRY}/auditflow-sink:latest .
     )
-    docker push ${REGISTRY}/auditflow:latest
-    docker push ${REGISTRY}/auditflow-transformer:latest
-    docker push ${REGISTRY}/auditflow-sink:latest
 }
 
 build_checkout() {
@@ -57,15 +60,13 @@ build_checkout() {
         echo "= Build Backend ="
         cd ./labs64.io-checkout/checkout-be
         mvn -B clean package -DskipTests -q
-        docker build -t ${REGISTRY}/checkout:latest .
+        docker build $BUILD_ACTION -t ${REGISTRY}/checkout:latest .
     )
     (
         echo "= Build Frontend ="
         cd ./labs64.io-checkout/checkout-fe
-        docker build -t ${REGISTRY}/checkout-ui:latest .
+        docker build $BUILD_ACTION -t ${REGISTRY}/checkout-ui:latest .
     )
-    docker push ${REGISTRY}/checkout:latest
-    docker push ${REGISTRY}/checkout-ui:latest
 }
 
 build_payment_gateway() {
@@ -74,9 +75,8 @@ build_payment_gateway() {
         echo "= Build Backend ="
         cd ./labs64.io-payment-gateway/payment-gateway-be
         mvn -B clean package -DskipTests -q
-        docker build -t ${REGISTRY}/payment-gateway:latest .
+        docker build $BUILD_ACTION -t ${REGISTRY}/payment-gateway:latest .
     )
-    docker push ${REGISTRY}/payment-gateway:latest
 }
 
 build_customer_portal() {
@@ -84,9 +84,8 @@ build_customer_portal() {
     (
         echo "= Build Frontend ="
         cd ./labs64.io-customer-portal/customer-portal-fe
-        docker build -t ${REGISTRY}/customer-portal-ui:latest .
+        docker build $BUILD_ACTION -t ${REGISTRY}/customer-portal-ui:latest .
     )
-    docker push ${REGISTRY}/customer-portal-ui:latest
 }
 
 case "$TARGET" in
@@ -123,5 +122,9 @@ case "$TARGET" in
         ;;
 esac
 
-echo "=== All requested images built and pushed ==="
-curl -s http://${REGISTRY}/v2/_catalog || echo "Warning: could not connect to local registry at http://${REGISTRY}"
+if [[ "$BUILD_ACTION" == "--push" ]]; then
+    echo "=== All requested images built and pushed ==="
+    curl -s http://${REGISTRY}/v2/_catalog || true
+else
+    echo "=== All requested images built and loaded locally ==="
+fi
