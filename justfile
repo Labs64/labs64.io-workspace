@@ -39,7 +39,17 @@ status-all:
 
 # Build and push all module images to local registry (localhost:5005)
 build module="all":
-    @./scripts/build-images.sh {{module}}
+    @echo "=== Building dev container ==="
+    @docker build -t labs64io-builder -f scripts/Dockerfile.builder scripts/
+    @echo "=== Running build in dev container ==="
+    @export MODULE='{{module}}'; \
+    docker run --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
+        -v $(pwd):/workspace \
+        -v labs64-m2-cache:/root/.m2 \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -w /workspace \
+        labs64io-builder \
+        ./scripts/build-images.sh "${MODULE:-all}"
 
 # Start the entire local cluster
 up: build
