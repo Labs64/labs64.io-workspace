@@ -11,12 +11,27 @@ if [[ "$TARGET" != "commons" ]] && ! curl -s "http://${REGISTRY}/v2/" > /dev/nul
     BUILD_ACTION="--load"
 fi
 
+build_image() {
+    local tag=$1
+    shift
+    docker build -t "$tag" "$@"
+    if [[ "$BUILD_ACTION" == "--push" ]]; then
+        docker push "$tag"
+    fi
+}
+
+
 build_commons() {
     echo "=== Building commons library ==="
     (
         echo "= Build Java auth-context starter ="
         cd ./labs64.io-commons/auth-context-java
-        mvn -B clean install -DskipTests -q
+        mvn -B -T 1C clean install -DskipTests -q
+    )
+    (
+        echo "= Build Java openapi spring boot starter ="
+        cd ./labs64.io-commons/openapi-spring-boot-starter
+        mvn -B -T 1C clean install -DskipTests -q
     )
 }
 
@@ -25,7 +40,7 @@ build_traefik_authproxy() {
     (
         echo "= Build Auth Proxy ="
         cd ./labs64.io-authproxy/traefik-authproxy
-        docker build $BUILD_ACTION -t ${REGISTRY}/traefik-authproxy:latest .
+        build_image ${REGISTRY}/traefik-authproxy:latest .
     )
 }
 
@@ -34,23 +49,23 @@ build_auditflow() {
     (
         echo "= Build API ="
         cd ./labs64.io-auditflow/auditflow-api
-        mvn -B clean install -DskipTests -q
+        mvn -B -T 1C clean install -DskipTests -q
     )
     (
         echo "= Build Backend ="
         cd ./labs64.io-auditflow/auditflow-be
-        mvn -B clean package -DskipTests -q
-        docker build $BUILD_ACTION -t ${REGISTRY}/auditflow:latest .
+        mvn -B -T 1C clean package -DskipTests -q
+        build_image ${REGISTRY}/auditflow:latest .
     )
     (
         echo "= Build Transformer ="
         cd ./labs64.io-auditflow/auditflow-transformer
-        docker build $BUILD_ACTION -t ${REGISTRY}/auditflow-transformer:latest .
+        build_image ${REGISTRY}/auditflow-transformer:latest .
     )
     (
         echo "= Build Sink ="
         cd ./labs64.io-auditflow/auditflow-sink
-        docker build $BUILD_ACTION -t ${REGISTRY}/auditflow-sink:latest .
+        build_image ${REGISTRY}/auditflow-sink:latest .
     )
 }
 
@@ -59,23 +74,27 @@ build_checkout() {
     (
         echo "= Build Backend ="
         cd ./labs64.io-checkout/checkout-be
-        mvn -B clean package -DskipTests -q
-        docker build $BUILD_ACTION -t ${REGISTRY}/checkout:latest .
+        mvn -B -T 1C clean package -DskipTests -q
+        build_image ${REGISTRY}/checkout:latest .
     )
     (
         echo "= Build Frontend ="
         cd ./labs64.io-checkout/checkout-fe
-        docker build $BUILD_ACTION -t ${REGISTRY}/checkout-ui:latest .
+        build_image ${REGISTRY}/checkout-ui:latest .
     )
 }
 
 build_payment_gateway() {
     echo "=== Building payment-gateway image ==="
     (
-        echo "= Build Backend ="
+        echo "= Build Payment Gateway and Providers ="
+        cd ./labs64.io-payment-gateway
+        mvn -B -T 1C clean install -DskipTests -q
+    )
+    (
+        echo "= Build Backend Image ="
         cd ./labs64.io-payment-gateway/payment-gateway-be
-        mvn -B clean package -DskipTests -q
-        docker build $BUILD_ACTION -t ${REGISTRY}/payment-gateway:latest .
+        build_image ${REGISTRY}/payment-gateway:latest .
     )
 }
 
@@ -84,7 +103,7 @@ build_customer_portal() {
     (
         echo "= Build Frontend ="
         cd ./labs64.io-customer-portal/customer-portal-fe
-        docker build $BUILD_ACTION -t ${REGISTRY}/customer-portal-ui:latest .
+        build_image ${REGISTRY}/customer-portal-ui:latest .
     )
 }
 
