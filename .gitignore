@@ -9,14 +9,24 @@
 /labs64.io-helm-charts/
 /labs64.io-payment-gateway/
 
-# Ignore graphify outputs, IDE folders, etc.
-.DS_Store
-.idea/
-.vscode
-graphify-out/
-
-# Ignore .claude except skills
+# --- AI Tooling ---
 .claude/*
 .agents/*
 !.agents/skills/
 /.mimocode/.cron-lock
+
+# --- Environment ---
+.env
+
+# --- IDE / OS ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Graphify ---
+graphify-out/
+
+# --- Logs ---
+*.log
