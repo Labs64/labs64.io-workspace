@@ -73,5 +73,5 @@ graphify update .             # refresh after code changes
 
 ## Superpowers
 
-- **Plans:** `.claude/superpowers/plans/YYYY-MM-DD-{session-slug}.md`
-- **Specs:** `.claude/superpowers/specs/YYYY-MM-DD-{session-slug}.md`
+- **Plans:** `.agents/superpowers/plans/YYYY-MM-DD-{session-slug}.md`
+- **Specs:** `.agents/superpowers/specs/YYYY-MM-DD-{session-slug}.md`

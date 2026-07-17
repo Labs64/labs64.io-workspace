@@ -60,7 +60,7 @@ graphify update .              # refresh after code changes
 ```
 
 ### 🤖 AI Skills
-The workspace is equipped with custom AI agent skills located in `.claude/skills/` to automate complex ecosystem workflows. Available skills include:
+The workspace is equipped with custom AI agent skills located in `.agents/skills/` to automate complex ecosystem workflows. Available skills include:
 - `openapi-first-change`: For safely updating OpenAPI specifications.
 - `helm-config-binding-check`: For verifying Helm chart config mapping.
 - `local-k8s-qa-audit`: For auditing local Kubernetes deployments.
