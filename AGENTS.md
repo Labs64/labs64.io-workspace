@@ -4,7 +4,7 @@ Guidance for AI agents working in the Labs64.IO workspace. Read this before maki
 
 ## What this is
 
-Open-source digital commerce platform — polyglot microservices ecosystem. 9 independent git repos, shared Helm charts, ArgoCD deployment. **Not a monorepo.**
+Open-source digital commerce platform — polyglot microservices ecosystem. 10 independent git repos, shared Helm charts, ArgoCD deployment. **Not a monorepo.**
 
 ## Quick orientation
 
@@ -58,6 +58,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Helm chart templates | `labs64.io-helm-charts/charts/<chart>/templates/` |
 | Terraform infrastructure | `labs64.io-devops/terraform/` |
 | Network policies | `labs64.io-devops/kubernetes/network-policies/` |
+| Website / Marketing Content | `labs64.io-website/` |
 | Add/audit/run tests for a module | `labs64.io-tests/tests/<module>/` (see `test-suite-steward` skill) |
 
 ## Knowledge graph
