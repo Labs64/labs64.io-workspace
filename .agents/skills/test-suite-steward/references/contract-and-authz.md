@@ -3,7 +3,7 @@
 Gatekeeper mechanism, preserved from the skill this one replaces. Treats each module's OpenAPI
 spec — specifically its `x-labs64-auth` annotations — as the single source of truth for both
 **what to test** and **what auth the test should expect**. Those same annotations already drive
-Cedar policy generation at the authproxy edge, so this reads the same contract the enforcement
+Cerbos policy generation at the authproxy edge, so this reads the same contract the enforcement
 layer reads, not a parallel guess at it.
 
 ## When to use this
@@ -46,7 +46,7 @@ layer reads, not a parallel guess at it.
 | Annotation | Test cases to ensure exist |
 |---|---|
 | `public: true` | One case asserting success with **no** Authorization header. For a public route that lives on a resource whose *other* verbs are protected, also assert it stays 200 when called *with* an unrelated-scope token — proving "public" isn't accidentally gated. |
-| `tenant: true`, `scopes: [s1, ...]` | The full deny/allow matrix, one test case each: **(1)** unauthenticated → 401; **(2)** malformed/invalid credential → 401 (not 403 — proves the token is rejected *before* any Cedar decision); **(3)** wrong scope — a valid token carrying a *different, unrelated* scope → 403; **(4)** no scope — a validly-signed token carrying *zero* scopes (mock-oidc `no-access` persona) → 403 (distinct from #3: proves an empty scope set doesn't fall through to a default grant); **(5)** correct scope — a token carrying exactly the required scope(s) → the spec's declared success status; **(6)** superset scope — a token carrying the required scope *plus* extra irrelevant ones → success (proves the edge's `contains`/OR match isn't accidentally an exact-set match that a legitimate multi-scope caller would fail). Cases 1–5 are mandatory; case 6 is expected wherever real callers hold broad tokens. |
+| `tenant: true`, `scopes: [s1, ...]` | The full deny/allow matrix, one test case each: **(1)** unauthenticated → 401; **(2)** malformed/invalid credential → 401 (not 403 — proves the token is rejected *before* any Cerbos decision); **(3)** wrong scope — a valid token carrying a *different, unrelated* scope → 403; **(4)** no scope — a validly-signed token carrying *zero* scopes (mock-oidc `no-access` persona) → 403 (distinct from #3: proves an empty scope set doesn't fall through to a default grant); **(5)** correct scope — a token carrying exactly the required scope(s) → the spec's declared success status; **(6)** superset scope — a token carrying the required scope *plus* extra irrelevant ones → success (proves the edge's `contains`/OR match isn't accidentally an exact-set match that a legitimate multi-scope caller would fail). Cases 1–5 are mandatory; case 6 is expected wherever real callers hold broad tokens. |
 | No `x-labs64-auth` present | Flag as ambiguous; ask the module owner or check the backend's security config directly before writing a test that assumes an answer. |
 
 Mint scope-specific tokens via `Create Session With Scope` (`resources/common.resource`), which
@@ -58,7 +58,7 @@ passing multiple space-separated scopes to one call covers case #6.
 ## Optional: local-k8s log corroboration
 
 For the auth/authz path only, a test can *additionally* confirm the edge actually made the
-decision it appears to have made (authproxy Cedar decision log) and that an allowed request was
+decision it appears to have made (authproxy Cerbos decision log) and that an allowed request was
 actually *delivered* past the gateway (backend log, matched on a per-event `correlationId` where
 the module's schema has one). This is a deliberate, narrow exception to the suite's "gateway
 edge only, no kubectl" rule — see `labs64.io-tests/AGENTS.md` "Local-only pod-log
@@ -71,7 +71,7 @@ corroboration". Rules if you add these:
 - If the module's request schema has no client-supplied correlation identifier (unlike
   AuditFlow's `correlationId`), don't force a backend-delivery check — a check that can't be
   attributed to one specific test call is worse than no check. Corroborating only the edge's
-  Cedar decision log is still meaningful on its own.
+  Cerbos decision log is still meaningful on its own.
 - Don't extend this pattern to ordinary functional tests; it exists only where the enforcement
   point and delivery effect are otherwise invisible to a black-box client.
 
