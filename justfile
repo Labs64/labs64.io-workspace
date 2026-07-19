@@ -52,5 +52,7 @@ build module="all":
         ./scripts/build-images.sh "${MODULE:-all}"
 
 # Start the entire local cluster
-up: build
+up:
+    @cd labs64.io-helm-charts && just cluster-up
+    @just build
     @cd labs64.io-helm-charts && just up

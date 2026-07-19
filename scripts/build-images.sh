@@ -26,17 +26,17 @@ build_commons() {
     (
         echo "= Build Java auth-context starter ="
         cd ./labs64.io-commons/auth-context-java
-        mvn -B -T 1C clean install -DskipTests -q
+        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
     )
     (
         echo "= Build Java openapi spring boot starter ="
         cd ./labs64.io-commons/openapi-spring-boot-starter
-        mvn -B -T 1C clean install -DskipTests -q
+        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
     )
     (
         echo "= Build Java authz queryplan jpa ="
         cd ./labs64.io-commons/authz-queryplan-jpa
-        mvn -B -T 1C clean install -DskipTests -q
+        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
     )
 }
 
@@ -54,12 +54,12 @@ build_auditflow() {
     (
         echo "= Build API ="
         cd ./labs64.io-auditflow/auditflow-api
-        mvn -B -T 1C clean install -DskipTests -q
+        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
     )
     (
         echo "= Build Backend ="
         cd ./labs64.io-auditflow/auditflow-be
-        mvn -B -T 1C clean package -DskipTests -q
+        mvn -B -T 1C clean package -Dmaven.test.skip=true -q
         build_image ${REGISTRY}/auditflow:latest .
     )
     (
@@ -79,7 +79,7 @@ build_checkout() {
     (
         echo "= Build Backend ="
         cd ./labs64.io-checkout/checkout-be
-        mvn -B -T 1C clean package -DskipTests -q
+        mvn -B -T 1C clean package -Dmaven.test.skip=true -q
         build_image ${REGISTRY}/checkout:latest .
     )
     (
@@ -94,7 +94,7 @@ build_payment_gateway() {
     (
         echo "= Build Payment Gateway and Providers ="
         cd ./labs64.io-payment-gateway
-        mvn -B -T 1C clean install -DskipTests -q
+        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
     )
     (
         echo "= Build Backend Image ="
