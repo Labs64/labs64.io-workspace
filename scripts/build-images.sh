@@ -33,6 +33,11 @@ build_commons() {
         cd ./labs64.io-commons/openapi-spring-boot-starter
         mvn -B -T 1C clean install -DskipTests -q
     )
+    (
+        echo "= Build Java authz queryplan jpa ="
+        cd ./labs64.io-commons/authz-queryplan-jpa
+        mvn -B -T 1C clean install -DskipTests -q
+    )
 }
 
 build_traefik_authproxy() {
