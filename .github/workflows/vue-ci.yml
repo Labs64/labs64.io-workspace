@@ -1,0 +1,82 @@
+# Reusable Vue/Node CI: npm ci + lint + type-check + unit tests + build.
+name: Reusable - Vue CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: true
+        type: string
+      node-version:
+        required: false
+        type: string
+        default: "20"
+      lint-command:
+        required: false
+        type: string
+        default: "npm run lint"
+      typecheck-command:
+        required: false
+        type: string
+        default: "npm run type-check"
+      test-command:
+        required: false
+        type: string
+        default: "npm run test:unit"
+      build-command:
+        required: false
+        type: string
+        default: "npm run build"
+      upload-dist:
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      LINT_CMD: ${{ inputs.lint-command }}
+      TYPECHECK_CMD: ${{ inputs.typecheck-command }}
+      TEST_CMD: ${{ inputs.test-command }}
+      BUILD_CMD: ${{ inputs.build-command }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: "${{ inputs.working-directory }}/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: $LINT_CMD
+
+      - name: Type-check
+        run: $TYPECHECK_CMD
+
+      - name: Unit tests
+        run: $TEST_CMD
+
+      - name: Build
+        run: $BUILD_CMD
+
+      - name: Upload dist artifact
+        if: inputs.upload-dist
+        uses: actions/upload-artifact@v7
+        with:
+          # keyed by working-directory so two vue-ci callers in one run can't collide
+          name: dist-${{ inputs.working-directory }}
+          path: ${{ inputs.working-directory }}/dist/**
+          if-no-files-found: ignore
+          retention-days: 7

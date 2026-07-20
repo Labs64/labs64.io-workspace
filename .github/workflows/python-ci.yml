@@ -1,0 +1,72 @@
+# Reusable Python CI: pip install + pytest, optional docker build smoke check.
+name: Reusable - Python CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: true
+        type: string
+      python-version:
+        required: false
+        type: string
+        default: "3.13"
+      install-command:
+        required: false
+        type: string
+        default: "pip install -r requirements-dev.txt"
+      test-command:
+        required: false
+        type: string
+        default: "pytest -v --tb=short"
+      docker-context:
+        required: false
+        type: string
+        default: ""
+      cache-dependency-path:
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      INSTALL_CMD: ${{ inputs.install-command }}
+      TEST_CMD: ${{ inputs.test-command }}
+      DOCKER_CTX: ${{ inputs.docker-context }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # setup-python fails if cache-dependency-path matches no file, so pip
+      # caching is opt-in (pyproject-based projects pass no path).
+      - uses: actions/setup-python@v7
+        if: inputs.cache-dependency-path != ''
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: pip
+          cache-dependency-path: ${{ inputs.cache-dependency-path }}
+
+      - uses: actions/setup-python@v7
+        if: inputs.cache-dependency-path == ''
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          $INSTALL_CMD
+
+      - name: Run tests
+        run: $TEST_CMD
+
+      - name: Docker build check
+        if: inputs.docker-context != ''
+        working-directory: .
+        run: docker build "$DOCKER_CTX" --tag "ci-check:${{ github.sha }}"

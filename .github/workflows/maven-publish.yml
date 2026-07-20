@@ -1,0 +1,145 @@
+# Reusable Maven publish to Labs64 Nexus.
+#   mode: snapshot -> deploy current -SNAPSHOT (skips silently if pom version
+#                     is not a SNAPSHOT — never pushes a release to snapshots)
+#   mode: release  -> versions:set <version>, GPG-signed deploy (-P release),
+#                     commit + tag <tag-prefix><version>, bump to next -SNAPSHOT
+# Caller must grant `permissions: contents: write` for mode=release.
+name: Reusable - Maven Publish
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: true
+        type: string
+      mode:
+        required: true
+        type: string
+      version:
+        required: false
+        type: string
+        default: ""
+      next-version:
+        required: false
+        type: string
+        default: ""
+      java-version:
+        required: false
+        type: string
+        default: "25"
+      tag-prefix:
+        required: false
+        type: string
+        default: "v"
+    secrets:
+      L64_PUB_CI_USERNAME:
+        required: true
+      L64_PUB_CI_PASSWORD:
+        required: true
+      GPG_KEY:
+        required: false
+      GPG_KEY_PASS:
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      WD: ${{ inputs.working-directory }}
+      MODE: ${{ inputs.mode }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      NEXT_VERSION: ${{ inputs.next-version }}
+      TAG_PREFIX: ${{ inputs.tag-prefix }}
+      L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+      L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Validate inputs
+        working-directory: .
+        run: |
+          case "$MODE" in
+            snapshot) ;;
+            release)
+              if ! [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "Invalid release version '$RELEASE_VERSION' (expected X.Y.Z)"; exit 1
+              fi ;;
+            *) echo "Unknown mode '$MODE' (snapshot|release)"; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - name: Prepare Maven settings.xml
+        working-directory: .
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'EOF'
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+            <servers>
+              <server>
+                <id>labs64-nexus</id>
+                <username>${env.L64_PUB_CI_USERNAME}</username>
+                <password>${env.L64_PUB_CI_PASSWORD}</password>
+              </server>
+              <server>
+                <id>labs64-nexus-snapshots</id>
+                <username>${env.L64_PUB_CI_USERNAME}</username>
+                <password>${env.L64_PUB_CI_PASSWORD}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Deploy snapshot
+        if: inputs.mode == 'snapshot'
+        run: |
+          VERSION="$(mvn -q -ntp -DforceStdout help:evaluate -Dexpression=project.version)"
+          echo "Current version: $VERSION"
+          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+            echo "Version $VERSION is not a SNAPSHOT — skipping snapshot deploy."
+            exit 0
+          fi
+          mvn -B -ntp -s ~/.m2/settings.xml clean deploy
+
+      - name: Import GPG key
+        if: inputs.mode == 'release'
+        working-directory: .
+        run: |
+          echo "${{ secrets.GPG_KEY }}" | base64 -d | \
+            gpg --batch --pinentry-mode loopback --passphrase "${{ secrets.GPG_KEY_PASS }}" --import
+
+      - name: Configure Git
+        if: inputs.mode == 'release'
+        working-directory: .
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "netlicensing@labs64.com"
+
+      - name: Release
+        if: inputs.mode == 'release'
+        run: |
+          mvn -B -ntp versions:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
+          mvn -B -ntp -s ~/.m2/settings.xml clean deploy -P release
+          git add pom.xml
+          git commit -m "chore: release $WD $RELEASE_VERSION"
+          git tag -a "${TAG_PREFIX}${RELEASE_VERSION}" -m "Release ${RELEASE_VERSION}"
+          if [[ -z "$NEXT_VERSION" ]]; then
+            IFS=. read -r MA MI PA <<< "$RELEASE_VERSION"
+            NEXT_VERSION="${MA}.${MI}.$((PA+1))-SNAPSHOT"
+          fi
+          mvn -B -ntp versions:set -DnewVersion="$NEXT_VERSION" -DgenerateBackupPoms=false
+          git add pom.xml
+          git commit -m "chore: start $NEXT_VERSION"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "${TAG_PREFIX}${RELEASE_VERSION}"

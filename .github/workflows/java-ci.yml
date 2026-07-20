@@ -1,0 +1,67 @@
+# Reusable Java CI: maven build + test with optional local pre-install of
+# sibling modules (same-repo dependencies resolved without Nexus round-trip).
+name: Reusable - Java CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: true
+        type: string
+      java-version:
+        required: false
+        type: string
+        default: "25"
+      pre-install-dirs:
+        required: false
+        type: string
+        default: ""
+      maven-goals:
+        required: false
+        type: string
+        default: "verify"
+      artifact-name:
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      WD: ${{ inputs.working-directory }}
+      PRE_DIRS: ${{ inputs.pre-install-dirs }}
+      GOALS: ${{ inputs.maven-goals }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - name: Pre-install sibling modules
+        if: inputs.pre-install-dirs != ''
+        run: |
+          for d in $PRE_DIRS; do
+            echo "== install $d"
+            mvn -B -ntp -DskipTests -f "$d/pom.xml" install
+          done
+
+      - name: Build and test
+        run: mvn -B -ntp -f "$WD/pom.xml" $GOALS
+
+      - name: Upload test reports
+        if: always() && inputs.artifact-name != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: |
+            ${{ inputs.working-directory }}/target/surefire-reports/**
+            ${{ inputs.working-directory }}/target/failsafe-reports/**
+          if-no-files-found: ignore
+          retention-days: 7

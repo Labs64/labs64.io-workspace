@@ -1,0 +1,103 @@
+# Reusable Docker publish to DockerHub.
+#   mode: edge    -> <image>:edge            (master pushes, after green CI)
+#   mode: release -> <image>:<version> + :latest   (GitHub release)
+# build-command runs before docker build (e.g. mvn package for jar-based images).
+name: Reusable - Docker Publish
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+      context:
+        required: true
+        type: string
+      mode:
+        required: true
+        type: string
+      version:
+        required: false
+        type: string
+        default: ""
+      platforms:
+        required: false
+        type: string
+        default: "linux/amd64,linux/arm64/v8"
+      build-command:
+        required: false
+        type: string
+        default: ""
+      java-version:
+        required: false
+        type: string
+        default: ""
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ${{ inputs.image }}
+      MODE: ${{ inputs.mode }}
+      VERSION: ${{ inputs.version }}
+      BUILD_CMD: ${{ inputs.build-command }}
+    steps:
+      - name: Validate inputs
+        run: |
+          case "$MODE" in
+            edge) ;;
+            release)
+              if [[ -z "$VERSION" ]]; then
+                echo "mode=release requires a version input"; exit 1
+              fi ;;
+            *) echo "Unknown mode '$MODE' (edge|release)"; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK
+        if: inputs.java-version != ''
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - name: Pre-build
+        if: inputs.build-command != ''
+        run: $BUILD_CMD
+
+      - name: Compute tags
+        id: tags
+        run: |
+          if [[ "$MODE" == "edge" ]]; then
+            echo "tags=$IMAGE:edge" >> "$GITHUB_OUTPUT"
+          else
+            printf 'tags<<EOF\n%s\n%s\nEOF\n' "$IMAGE:$VERSION" "$IMAGE:latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ inputs.context }}
+          push: true
+          platforms: ${{ inputs.platforms }}
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha,scope=${{ inputs.image }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.image }}
