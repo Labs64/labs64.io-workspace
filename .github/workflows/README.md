@@ -22,7 +22,10 @@ publish behavior stays consistent across the polyglot fleet.
   `labs64-nexus` / `labs64-nexus-snapshots`). `mode: snapshot` deploys the current
   `-SNAPSHOT` (no-op if the pom isn't a SNAPSHOT); `mode: release` sets the
   version, GPG-signs and deploys, commits + tags, then bumps to the next
-  `-SNAPSHOT`.
+  `-SNAPSHOT`. Callers must grant `permissions: contents: write` on the
+  calling job for **both** modes — this workflow declares `contents: write`
+  at its own top level and GitHub enforces that against the caller
+  regardless of which mode runs.
 
 ## Calling convention
 

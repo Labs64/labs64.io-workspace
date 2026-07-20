@@ -3,7 +3,13 @@
 #                     is not a SNAPSHOT — never pushes a release to snapshots)
 #   mode: release  -> versions:set <version>, GPG-signed deploy (-P release),
 #                     commit + tag <tag-prefix><version>, bump to next -SNAPSHOT
-# Caller must grant `permissions: contents: write` for mode=release.
+# Caller must grant `permissions: contents: write` on the CALLING JOB for
+# BOTH modes (snapshot and release) — this workflow declares contents:write
+# at its own top level (needed for the release path's commit/tag/push), and
+# GitHub Actions enforces that declaration against the caller for every
+# invocation regardless of which mode branch actually runs. Omitting it
+# produces a startup_failure ("is only allowed 'contents: read'") even for
+# mode=snapshot, which performs no git writes at all.
 # mode=release requires a branch ref (workflow_dispatch on a branch); it pushes version-bump commits back to that branch.
 name: Reusable - Maven Publish
 
