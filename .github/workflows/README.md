@@ -17,9 +17,9 @@ publish behavior stays consistent across the polyglot fleet.
   DockerHub. `mode: edge` tags `<image>:edge` (master pushes after green CI);
   `mode: release` tags `<image>:<version>` + `<image>:latest` (GitHub
   releases).
-- **`maven-publish.yml`** — Publishes to the Labs64 Nexus repos
-  (`labs64.io-releases` / `labs64.io-snapshots`, via the poms'
-  `distributionManagement`). `mode: snapshot` deploys the current
+- **`maven-publish.yml`** — Publishes to Labs64 Nexus via the poms'
+  `distributionManagement` (credentials are injected for server ids
+  `labs64-nexus` / `labs64-nexus-snapshots`). `mode: snapshot` deploys the current
   `-SNAPSHOT` (no-op if the pom isn't a SNAPSHOT); `mode: release` sets the
   version, GPG-signs and deploys, commits + tags, then bumps to the next
   `-SNAPSHOT`.

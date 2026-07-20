@@ -4,6 +4,7 @@
 #   mode: release  -> versions:set <version>, GPG-signed deploy (-P release),
 #                     commit + tag <tag-prefix><version>, bump to next -SNAPSHOT
 # Caller must grant `permissions: contents: write` for mode=release.
+# mode=release requires a branch ref (workflow_dispatch on a branch); it pushes version-bump commits back to that branch.
 name: Reusable - Maven Publish
 
 on:
@@ -129,6 +130,10 @@ jobs:
       - name: Release
         if: inputs.mode == 'release'
         run: |
+          if [[ "$GITHUB_REF_TYPE" != "branch" ]]; then
+            echo "mode=release must be invoked from a branch ref (workflow_dispatch), not a tag/release event"
+            exit 1
+          fi
           mvn -B -ntp versions:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
           mvn -B -ntp -s ~/.m2/settings.xml clean deploy -P release
           git add pom.xml
