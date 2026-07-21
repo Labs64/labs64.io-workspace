@@ -123,6 +123,11 @@ jobs:
         if: inputs.mode == 'release'
         working-directory: .
         run: |
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+          echo "pinentry-mode loopback" > ~/.gnupg/gpg.conf
+          gpgconf --kill gpg-agent
           echo "${{ secrets.GPG_KEY }}" | base64 -d | \
             gpg --batch --pinentry-mode loopback --passphrase "${{ secrets.GPG_KEY_PASS }}" --import
 
@@ -141,7 +146,7 @@ jobs:
             exit 1
           fi
           mvn -B -ntp versions:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
-          mvn -B -ntp -s ~/.m2/settings.xml clean deploy -P release
+          mvn -B -ntp -s ~/.m2/settings.xml clean deploy -P release -Dgpg.pinentryMode=loopback
           git add pom.xml
           git commit -m "chore: release $WD $RELEASE_VERSION"
           git tag -a "${TAG_PREFIX}${RELEASE_VERSION}" -m "Release ${RELEASE_VERSION}"
