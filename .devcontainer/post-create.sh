@@ -3,6 +3,14 @@ set -euo pipefail
 
 echo "=== Labs64.IO DevContainer Setup ==="
 
+# Install egress-firewall dependencies and stage the init script.
+# The firewall itself is (re)applied on every container start via
+# postStartCommand -> /usr/local/bin/init-firewall.sh (see devcontainer.json).
+echo "Installing firewall dependencies..."
+sudo apt-get update -y
+sudo apt-get install -y --no-install-recommends iptables ipset dnsutils aggregate jq
+sudo install -m 0755 "$(dirname "$0")/init-firewall.sh" /usr/local/bin/init-firewall.sh
+
 # Install k3d
 if ! command -v k3d &> /dev/null; then
     echo "Installing k3d..."
