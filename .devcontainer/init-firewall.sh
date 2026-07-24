@@ -128,7 +128,11 @@ resolve_and_add required \
     "repo.maven.apache.org" \
     "repo1.maven.org" \
     "pypi.org" \
-    "files.pythonhosted.org"
+    "files.pythonhosted.org" \
+    "ports.ubuntu.com" \
+    "archive.ubuntu.com" \
+    "security.ubuntu.com" \
+    "download.docker.com"
 
 # --- Optional: Claude Code / VS Code telemetry & editor assets ---
 # statsig.anthropic.com/statsig.com back feature-flagging & telemetry, not the
