@@ -62,6 +62,10 @@ up:
     @just build
     @cd labs64.io-helm-charts && just up
 
+# Start the entire local cluster with OpenTelemetry
+otel:
+    @cd labs64.io-helm-charts && just up-otel
+
 # Tear down the local cluster (registry and images are untouched)
 down:
     @cd labs64.io-helm-charts && just cluster-down
