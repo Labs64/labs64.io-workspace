@@ -12,7 +12,7 @@ Open-source digital commerce platform — polyglot microservices ecosystem. 10 i
 | --- | --- |
 | Work on a module | `<module>/AGENTS.md` (always read before changes) |
 | Understand architecture | `graphify query "<question>"` |
-| Deploy to Kubernetes | `labs64.io-helm-charts/` + `labs64.io-devops/` |
+| Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS QA/Staging/Prod, BYO Infra) + `labs64.io-devops/` for the ArgoCD/Terraform path |
 | Write infrastructure | `labs64.io-devops/terraform/` |
 | Write an RFC | `labs64.io-docs-internal/rfc/RFC_TEMPLATE.md` |
 | Set up local k8s | `labs64.io-helm-charts/DEVELOPERS.md` |

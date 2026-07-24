@@ -26,6 +26,14 @@ This repository serves as the **master workspace** for the entire Labs64.IO ecos
    just up
    ```
 
+> **Deploying elsewhere?** The steps above spin up the **Local Development** mode (Helmfile + k3d).
+> The Helm charts also support an **AWS QA / Staging / Prod Environment** mode (ArgoCD + Terraform,
+> see `labs64.io-devops/`) and a **Users' Own Infrastructure (BYO Infra)** mode for your own cluster
+> (GCP, Azure, on-prem) without cloning this whole workspace — cherry-pick individual charts via
+> `helm repo add labs64io https://labs64.github.io/labs64.io-helm-charts`. See
+> [Deployment Modes](https://github.com/Labs64/labs64.io-helm-charts#deployment-modes) in the
+> helm-charts README for the full picture.
+
 ## 🛠️ Included Repositories
 
 The workspace includes the following 9 core microservices:
