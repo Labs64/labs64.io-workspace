@@ -2,7 +2,7 @@
 
 # Labs64.IO :: Workspace
 
-> **START HERE:** This repository is the **primary entry point for all developers** working on the Labs64.IO ecosystem. It is the **master workspace** that orchestrates 9+ independent Git repositories with a unified `justfile` and DevContainer, instead of you having to manage each one by hand.
+> **START HERE:** This repository is the **primary entry point for all developers** working on the Labs64.IO Ecosystem. It is the **master workspace** that orchestrates 9+ independent Git repositories with a unified `justfile` and DevContainer, instead of you having to manage each one by hand.
 
 ## 📋 Prerequisites
 
@@ -21,7 +21,7 @@ Install these tools before cloning (or skip straight to the DevContainer, which 
 
 **Important Setup Steps**:
 1. Install `k3d` to run local Kubernetes clusters. Follow the [official docs](https://k3d.io/) or use Homebrew: `brew install k3d`.
-2. Install the Helm Diff plugin to preview chart changes before applying them:
+2. Install the `Helm Diff` plugin to preview chart changes before applying them:
    ```bash
    helm plugin install https://github.com/databus23/helm-diff --verify=false
    ```
@@ -126,15 +126,12 @@ just pull               # pull latest changes in all repos
 just status             # check git status across all repos
 just verify-deps        # confirm every Java module resolves its dependencies offline
 just logs [app]         # tail error logs for all modules, or one (e.g. `just logs checkout`)
-just test               # run the test suite across all modules
 just smoke              # run the fast, PR-gating smoke tests
+just test               # run the test suite across all modules
 ```
 
-By default, `just build` (and the module builds `just up` runs) print one colorized banner per
-module with elapsed time, so a failure is easy to spot in a multi-module build. Set `VERBOSE=0` to
-switch to a quieter animated-progress mode that only prints a module's log if it fails, e.g.
-`VERBOSE=0 just build`.
+Set `VERBOSE=0` to switch to a quieter animated-progress mode that only prints a module's log if it fails, e.g. `VERBOSE=0 just build`.
 
 ## 📄 License
 
-This is an open-source digital commerce platform licensed under the GNU Lesser General Public License v3.0 (LGPLv3). See the [LICENSE](LICENSE) file for details.
+The core of the *Labs64.IO Ecosystem* is entirely open source and free forever. Community modules are licensed under [Apache License 2.0](LICENSE).
