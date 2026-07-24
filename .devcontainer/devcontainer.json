@@ -20,8 +20,12 @@
       "version": "latest",
       "helm": "latest",
       "minikube": "none"
-    }
+    },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
+	"mounts": [
+		"source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+	],
   "customizations": {
     "vscode": {
       "settings": {
@@ -33,7 +37,8 @@
         "Vue.volar",
         "ms-azuretools.vscode-docker",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
-        "skellock.just"
+        "skellock.just",
+        "anthropic.claude-code"
       ]
     }
   },
