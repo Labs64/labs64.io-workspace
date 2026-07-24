@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=lib/progress.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/progress.sh"
+
 TARGET=${1:-all}
 REGISTRY="localhost:5005"
 
@@ -19,97 +22,52 @@ build_image() {
         docker push "$tag"
     fi
 }
+export -f build_image
+export BUILD_ACTION REGISTRY
 
+# mvn_step "label" "module_dir" [mvn-goal-args...]
+mvn_step() {
+    local label=$1 dir=$2; shift 2
+    run_step "$label" -- bash -c "cd '$dir' && mvn -B -Dstyle.color=always -T 1C $*"
+}
+
+# image_step "label" "module_dir" "image_name"
+image_step() {
+    local label=$1 dir=$2 image=$3
+    run_step "$label" -- bash -c "cd '$dir' && build_image ${REGISTRY}/${image}:latest ."
+}
 
 build_commons() {
-    echo "=== Building commons library ==="
-    (
-        echo "= Build Java auth-context starter ="
-        cd ./labs64.io-commons/auth-context-java
-        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
-    )
-    (
-        echo "= Build Java openapi spring boot starter ="
-        cd ./labs64.io-commons/openapi-spring-boot-starter
-        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
-    )
-    (
-        echo "= Build Java authz queryplan jpa ="
-        cd ./labs64.io-commons/authz-queryplan-jpa
-        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
-    )
+    mvn_step "commons: auth-context-java" "./labs64.io-commons/auth-context-java" clean install -Dmaven.test.skip=true
+    mvn_step "commons: openapi-spring-boot-starter" "./labs64.io-commons/openapi-spring-boot-starter" clean install -Dmaven.test.skip=true
+    mvn_step "commons: authz-queryplan-jpa" "./labs64.io-commons/authz-queryplan-jpa" clean install -Dmaven.test.skip=true
 }
 
 build_traefik_authproxy() {
-    echo "=== Building traefik-authproxy image ==="
-    (
-        echo "= Build Auth Proxy ="
-        cd ./labs64.io-authproxy/traefik-authproxy
-        build_image ${REGISTRY}/traefik-authproxy:latest .
-    )
+    image_step "traefik-authproxy: image" "./labs64.io-authproxy/traefik-authproxy" traefik-authproxy
 }
 
 build_auditflow() {
-    echo "=== Building auditflow images ==="
-    (
-        echo "= Build API ="
-        cd ./labs64.io-auditflow/auditflow-api
-        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
-    )
-    (
-        echo "= Build Backend ="
-        cd ./labs64.io-auditflow/auditflow-be
-        mvn -B -T 1C clean package -Dmaven.test.skip=true -q
-        build_image ${REGISTRY}/auditflow:latest .
-    )
-    (
-        echo "= Build Transformer ="
-        cd ./labs64.io-auditflow/auditflow-transformer
-        build_image ${REGISTRY}/auditflow-transformer:latest .
-    )
-    (
-        echo "= Build Sink ="
-        cd ./labs64.io-auditflow/auditflow-sink
-        build_image ${REGISTRY}/auditflow-sink:latest .
-    )
+    mvn_step "auditflow: api" "./labs64.io-auditflow/auditflow-api" clean install -Dmaven.test.skip=true
+    mvn_step "auditflow: backend build" "./labs64.io-auditflow/auditflow-be" clean package -Dmaven.test.skip=true
+    image_step "auditflow: backend image" "./labs64.io-auditflow/auditflow-be" auditflow
+    image_step "auditflow: transformer image" "./labs64.io-auditflow/auditflow-transformer" auditflow-transformer
+    image_step "auditflow: sink image" "./labs64.io-auditflow/auditflow-sink" auditflow-sink
 }
 
 build_checkout() {
-    echo "=== Building checkout images ==="
-    (
-        echo "= Build Backend ="
-        cd ./labs64.io-checkout/checkout-be
-        mvn -B -T 1C clean package -Dmaven.test.skip=true -q
-        build_image ${REGISTRY}/checkout:latest .
-    )
-    (
-        echo "= Build Frontend ="
-        cd ./labs64.io-checkout/checkout-fe
-        build_image ${REGISTRY}/checkout-ui:latest .
-    )
+    mvn_step "checkout: backend build" "./labs64.io-checkout/checkout-be" clean package -Dmaven.test.skip=true
+    image_step "checkout: backend image" "./labs64.io-checkout/checkout-be" checkout
+    image_step "checkout: frontend image" "./labs64.io-checkout/checkout-fe" checkout-ui
 }
 
 build_payment_gateway() {
-    echo "=== Building payment-gateway image ==="
-    (
-        echo "= Build Payment Gateway and Providers ="
-        cd ./labs64.io-payment-gateway
-        mvn -B -T 1C clean install -Dmaven.test.skip=true -q
-    )
-    (
-        echo "= Build Backend Image ="
-        cd ./labs64.io-payment-gateway/payment-gateway-be
-        build_image ${REGISTRY}/payment-gateway:latest .
-    )
+    mvn_step "payment-gateway: backend + providers" "./labs64.io-payment-gateway" clean install -Dmaven.test.skip=true
+    image_step "payment-gateway: backend image" "./labs64.io-payment-gateway/payment-gateway-be" payment-gateway
 }
 
 build_customer_portal() {
-    echo "=== Building customer-portal-ui image ==="
-    (
-        echo "= Build Frontend ="
-        cd ./labs64.io-customer-portal/customer-portal-fe
-        build_image ${REGISTRY}/customer-portal-ui:latest .
-    )
+    image_step "customer-portal: frontend image" "./labs64.io-customer-portal/customer-portal-fe" customer-portal-ui
 }
 
 case "$TARGET" in
