@@ -2,7 +2,38 @@
 
 # Labs64.IO :: Workspace
 
-This repository serves as the **master workspace** for the entire Labs64.IO ecosystem. Instead of managing 9+ independent Git repositories, this workspace provides a unified `justfile` and DevContainer to orchestrate them all.
+This repository is the **starting point for developers** working on the Labs64.IO ecosystem — the **master workspace** that orchestrates 9+ independent Git repositories with a unified `justfile` and DevContainer, instead of you having to manage each one by hand.
+
+## 📋 Prerequisites
+
+Install these tools before cloning (or skip straight to the DevContainer, which bundles all of them):
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | latest | Container runtime |
+| [k3d](https://k3d.io/) | v5.x+ | Local k3s (lightweight Kubernetes) cluster used by `just up` |
+| [Helm](https://helm.sh/) | v3.x+ | Kubernetes package manager |
+| [helm-diff plugin](https://github.com/databus23/helm-diff) | latest | Previews chart changes (`helm diff upgrade`) before applying them |
+| [Helmfile](https://helmfile.io/) | v1.x+ | Declarative multi-release orchestration |
+| [kubectl](https://kubernetes.io/docs/tasks/tools/) | v1.28+ | Kubernetes CLI |
+| [just](https://github.com/casey/just) | latest | Task runner (every repo has a `justfile`) |
+| [curl](https://curl.se/) | latest | API testing |
+
+Install the Helm Diff plugin with:
+```bash
+helm plugin install https://github.com/databus23/helm-diff
+```
+
+Optional, only needed to build module images locally:
+- Java 25 (Temurin) + Maven 3.6.3+ — Java backends
+- Node.js 22+ — Vue frontends
+
+Once cloned, run `just doctor` to check all of the above are installed and print their versions.
+
+> **Setting up local Kubernetes (k3d)?** The workspace `justfile` drives the cluster lifecycle
+> (`just up` / `just down`), but the full architecture, namespace layout, and step-by-step manual
+> setup live in [`labs64.io-helm-charts/DEVELOPERS.md`](labs64.io-helm-charts/DEVELOPERS.md) —
+> read that if you want to understand or customize what's happening under the hood.
 
 ## 🚀 Quick Start
 
@@ -76,25 +107,28 @@ The workspace is equipped with custom AI agent skills located in `.agents/skills
 
 ## 🔧 Development Commands
 
-Use `just` for ecosystem-wide orchestration.
+Use `just` for ecosystem-wide orchestration. Run `just --list` any time for the full, up-to-date recipe list with descriptions.
 
 ### 🚀 Bootstrapping & Deploying
 ```bash
-# Clone all repositories
-just clone-all
-
-# Build images and deploy locally
-just up
+just doctor       # check required tooling is installed (run this first)
+just clone-all    # clone all repositories
+just up           # build images and deploy locally
+just down         # tear down the local cluster (images/registry untouched)
 ```
 
 ### 📂 Working with Repositories
 ```bash
-# Pull latest changes in all repos
-just pull-all
-
-# Check git status across all repos
-just status-all
+just pull-all           # pull latest changes in all repos
+just status-all         # check git status across all repos
+just verify-deps        # confirm every Java module resolves its dependencies offline
+just logs [app]         # tail error logs for all modules, or one (e.g. `just logs checkout`)
 ```
+
+By default, `just build` (and the module builds `just up` runs) print one colorized banner per
+module with elapsed time, so a failure is easy to spot in a multi-module build. Set `VERBOSE=0` to
+switch to a quieter animated-progress mode that only prints a module's log if it fails, e.g.
+`VERBOSE=0 just build`.
 
 ## 📄 License
 
