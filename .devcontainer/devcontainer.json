@@ -42,6 +42,9 @@
       ]
     }
   },
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postCreateCommand": {
+    "fix-claude-perms": "sudo chown -R vscode:vscode /home/vscode/.claude",
+    "install-tools": "bash .devcontainer/post-create.sh"
+  },
   "remoteUser": "vscode"
 }
