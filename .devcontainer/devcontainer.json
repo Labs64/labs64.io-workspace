@@ -1,6 +1,8 @@
 {
   "name": "Labs64.IO Ecosystem",
-  "image": "mcr.microsoft.com/devcontainers/base:jammy",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "version": "latest",
@@ -24,8 +26,12 @@
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
 	"mounts": [
-		"source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+		"source=labs64io-claude-code-config,target=/home/vscode/.claude,type=volume",
+		"source=labs64io-vscode-server,target=/home/vscode/.vscode-server,type=volume"
 	],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
   "customizations": {
     "vscode": {
       "settings": {
