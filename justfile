@@ -42,12 +42,13 @@ status:
     done
 
 # Build and push all module images to local registry (localhost:5005)
-build module="all":
+build module="all" verbose="1":
     @echo "=== Building dev container ==="
     @docker build -t labs64io-builder -f scripts/Dockerfile.builder scripts/
     @echo "=== Running build in dev container ==="
     @export MODULE='{{module}}'; \
     docker run --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
+        -e VERBOSE="{{verbose}}" \
         -v $(pwd):/workspace \
         -v labs64-m2-cache:/root/.m2 \
         -v /var/run/docker.sock:/var/run/docker.sock \
@@ -117,9 +118,10 @@ doctor:
     [ "$missing" -eq 0 ]
 
 # Verify all Java modules can resolve their dependencies offline (catches broken/missing artifacts early)
-verify-deps:
+verify-deps verbose="1":
     #!/usr/bin/env bash
     set -euo pipefail
+    export VERBOSE="{{verbose}}"
     source scripts/lib/progress.sh
     # labs64.io-commons libraries are consumed by other modules via the local Maven repo, so they
     # must be installed (like a real build does), not just dependency:go-offline'd, before the

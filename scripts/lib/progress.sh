@@ -18,7 +18,11 @@ else
     C_RESET=""; C_GREEN=""; C_RED=""; C_DIM=""; C_BOLD=""
 fi
 
-_PROGRESS_FRAMES=("🚀" "🛠️ " "📦" "⚙️ " "🧱" "🐳")
+case $((RANDOM % 3)) in
+    0) _PROGRESS_FRAMES=("🌑" "🌒" "🌓" "🌔" "🌝" "🌕" "🌖" "🌗" "🌘" "🌚") ;;
+    1) _PROGRESS_FRAMES=("🕛" "🕧" "🕐" "🕜" "🕑" "🕝" "🕒" "🕞" "🕓" "🕟" "🕔" "🕠" "🕕" "🕡" "🕖" "🕢" "🕗" "🕣" "🕘" "🕤" "🕙" "🕥" "🕚" "🕦") ;;
+    2) _PROGRESS_FRAMES=("⚪" "⚫" "🔵" "🔴" "🟢" "🟡" "🟣" "🟤") ;;
+esac
 
 # run_step "label" -- cmd arg1 arg2 ...
 run_step() {
