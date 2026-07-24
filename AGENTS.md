@@ -4,7 +4,7 @@ Guidance for AI agents working in the Labs64.IO workspace. Read this before maki
 
 ## What this is
 
-Open-source digital commerce platform — polyglot microservices ecosystem. 10 independent git repos, shared Helm charts, ArgoCD deployment. **Not a monorepo.**
+Open-source digital commerce platform — polyglot microservices ecosystem. 12 independent git repos, shared Helm charts, ArgoCD deployment. **Not a monorepo.**
 
 ## Quick orientation
 

@@ -2,7 +2,7 @@
 
 # Labs64.IO :: Workspace
 
-> **START HERE:** This repository is the **primary entry point for all developers** working on the Labs64.IO Ecosystem. It is the **master workspace** that orchestrates 9+ independent Git repositories with a unified `justfile` and DevContainer, instead of you having to manage each one by hand.
+> **START HERE:** This repository is the **primary entry point for all developers** working on the Labs64.IO Ecosystem. It is the **master workspace** that orchestrates 12 independent Git repositories with a unified `justfile` and DevContainer, instead of you having to manage each one by hand.
 
 ## 📋 Prerequisites
 
@@ -47,7 +47,7 @@ Once cloned, run `just doctor` to check all of the above are installed and print
    ```
 
 2. **Fetch the Ecosystem:**
-   This clones all 9 microservice repositories into the workspace.
+   This clones all 12 ecosystem repositories into the workspace.
    ```bash
    just clone
    ```
@@ -70,18 +70,29 @@ Once cloned, run `just doctor` to check all of the above are installed and print
 
 ## 🛠️ Included Repositories
 
-The workspace includes the following 9 core microservices:
+The workspace clones 12 repositories — the runtime services plus the shared libraries, infrastructure, and docs that support them.
+
+**Services**
 
 | Repository | Description |
 |------------|-------------|
-| [**labs64.io-docs**](https://github.com/Labs64/labs64.io-docs) | Public-facing product documentation and developer integration guides. |
-| [**labs64.io-devops**](https://github.com/Labs64/labs64.io-devops) | Infrastructure-as-Code (Terraform), CI/CD pipelines, and GitOps automation. |
-| [**labs64.io-helm-charts**](https://github.com/Labs64/labs64.io-helm-charts) | Kubernetes Helm charts, ArgoCD deployments, and the centralized observability stack. |
 | [**labs64.io-authproxy**](https://github.com/Labs64/labs64.io-authproxy) | Traefik-based API gateway handling ecosystem ingress and authentication proxying. |
 | [**labs64.io-auditflow**](https://github.com/Labs64/labs64.io-auditflow) | Multi-tenant Audit-as-a-Service platform for secure compliance logging. |
 | [**labs64.io-payment-gateway**](https://github.com/Labs64/labs64.io-payment-gateway) | Subscription billing engine and Payment Service Provider (PSP) integrations. |
 | [**labs64.io-checkout**](https://github.com/Labs64/labs64.io-checkout) | Core transaction processing and commerce workflow engine. |
 | [**labs64.io-customer-portal**](https://github.com/Labs64/labs64.io-customer-portal) | Self-service SaaS management portal for end-users. |
+
+**Shared libraries, infrastructure & docs**
+
+| Repository | Description |
+|------------|-------------|
+| [**labs64.io-commons**](https://github.com/Labs64/labs64.io-commons) | Shared Java libraries (auth SDK, business telemetry, common utilities) consumed by the backend services. |
+| [**labs64.io-helm-charts**](https://github.com/Labs64/labs64.io-helm-charts) | Kubernetes Helm charts, ArgoCD deployments, and the centralized observability stack. |
+| [**labs64.io-devops**](https://github.com/Labs64/labs64.io-devops) | Infrastructure-as-Code (Terraform), CI/CD pipelines, and GitOps automation. |
+| [**labs64.io-tests**](https://github.com/Labs64/labs64.io-tests) | Black-box, contract-first API regression & integration test suite (Robot Framework). |
+| [**labs64.io-docs**](https://github.com/Labs64/labs64.io-docs) | Public-facing product documentation and developer integration guides. |
+| [**labs64.io-docs-internal**](https://github.com/Labs64/labs64.io-docs-internal) | Internal architecture docs, RFCs, and design decisions. |
+| [**labs64.io-website**](https://github.com/Labs64/labs64.io-website) | Public marketing website (labs64.io). |
 
 ## 🎯 Key Features
 
@@ -89,7 +100,7 @@ The workspace includes the following 9 core microservices:
 Open the folder in VS Code and click **"Reopen in Container"**. You get a consistent development environment with:
 - Java 25 & Maven 3.6.3+
 - Python 3.13
-- Node.js 20.x (Vue 3 ecosystem)
+- Node.js 22.x (Vue 3 ecosystem)
 - Terraform
 - Docker (Docker-in-Docker)
 - All necessary build tools
@@ -107,6 +118,8 @@ The workspace is equipped with custom AI agent skills located in `.agents/skills
 - `helm-config-binding-check`: For verifying Helm chart config mapping.
 - `local-k8s-qa-audit`: For auditing local Kubernetes deployments.
 - `rfc-writing`: For drafting architecture and technical RFCs.
+- `ecosystem-website-sync`: For keeping the public website in sync with the ecosystem.
+- `test-suite-steward`: For auditing and extending the black-box test suite.
 
 ## 🔧 Development Commands
 
