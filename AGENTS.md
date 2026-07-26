@@ -60,6 +60,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Terraform infrastructure | `labs64.io-devops/terraform/` |
 | Network policies | `labs64.io-devops/kubernetes/network-policies/` |
 | Website / Marketing Content | `labs64.io-website/` |
+| Module status / website module list | `labs64.io-website/_data/modules.yml` (single source; rendered into nav, module pages, roadmap) |
 | Add/audit/run tests for a module | `labs64.io-tests/tests/<module>/` (see `test-suite-steward` skill) |
 
 ## Knowledge graph
