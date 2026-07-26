@@ -99,5 +99,17 @@ jobs:
           push: true
           platforms: ${{ inputs.platforms }}
           tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            GIT_REVISION=${{ github.sha }}
           cache-from: type=gha,scope=${{ inputs.image }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image }}
+
+      - name: Verify required OCI labels
+        run: |
+          TAG="$(printf '%s\n' "${{ steps.tags.outputs.tags }}" | head -n1)"
+          docker pull "$TAG"
+          LABELS="$(docker inspect --format '{{json .Config.Labels}}' "$TAG")"
+          for key in org.opencontainers.image.licenses org.opencontainers.image.revision org.opencontainers.image.source io.labs64.edition; do
+            echo "$LABELS" | jq -e --arg k "$key" 'has($k) and (.[$k] | length > 0)' >/dev/null \
+              || { echo "::error::missing or empty OCI label '$key' on $TAG"; exit 1; }
+          done
