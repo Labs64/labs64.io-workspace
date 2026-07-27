@@ -15,6 +15,7 @@ Open-source digital commerce platform — polyglot microservices ecosystem. 12 i
 | Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS QA/Staging/Prod, BYO Infra) + `labs64.io-devops/` for the ArgoCD/Terraform path |
 | Write infrastructure | `labs64.io-devops/terraform/` |
 | Write an RFC | `labs64.io-docs-internal/rfc/RFC_TEMPLATE.md` |
+| Write public docs (onboarding, config, technical reference) | `labs64.io-docs/` (its `AGENTS.md` first — the ultimate reference for running/using/configuring modules; mirrors module ids from `labs64.io-website/_data/modules.yml`, never restates status/version) |
 | Set up local k8s | `labs64.io-helm-charts/DEVELOPERS.md` |
 | Understand observability | `labs64.io-helm-charts/OBSERVABILITY.md` |
 | Run/add regression & integration tests | `labs64.io-tests/` (`AGENTS.md` first — contract-first, gateway-edge only) |
@@ -60,7 +61,8 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Terraform infrastructure | `labs64.io-devops/terraform/` |
 | Network policies | `labs64.io-devops/kubernetes/network-policies/` |
 | Website / Marketing Content | `labs64.io-website/` |
-| Module status / website module list | `labs64.io-website/_data/modules.yml` (single source; rendered into nav, module pages, roadmap) |
+| Module status / website module list | `labs64.io-website/_data/modules.yml` (single source; rendered into nav, module pages, roadmap; `labs64.io-docs` must never restate this — link/copy from here) |
+| Module technical/integration docs | `labs64.io-docs/<module>/` (dir name must match the module's `id` in `labs64.io-website/_data/modules.yml`) |
 | Add/audit/run tests for a module | `labs64.io-tests/tests/<module>/` (see `test-suite-steward` skill) |
 
 ## Knowledge graph
