@@ -27,6 +27,16 @@ on:
         required: false
         type: string
         default: ""
+      # Uploads test output (e.g. a --junit-xml file the test-command produced)
+      # as a build artifact. Empty artifact-name = no upload.
+      artifact-name:
+        required: false
+        type: string
+        default: ""
+      test-results-path:
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -70,3 +80,12 @@ jobs:
         if: inputs.docker-context != ''
         working-directory: .
         run: docker build "$DOCKER_CTX" --tag "ci-check:${{ github.sha }}"
+
+      - name: Upload test reports
+        if: always() && inputs.artifact-name != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.working-directory }}/${{ inputs.test-results-path }}
+          if-no-files-found: ignore
+          retention-days: 7

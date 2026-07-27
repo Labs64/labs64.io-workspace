@@ -1,5 +1,7 @@
 # Reusable Java CI: maven build + test with optional local pre-install of
-# sibling modules (same-repo dependencies resolved without Nexus round-trip).
+# sibling modules (same-repo dependencies resolved without Nexus round-trip),
+# optional docker-compose service dependencies, an optional post-test Docker
+# build sanity check, and optional Maven dependency-graph submission.
 name: Reusable - Java CI
 
 on:
@@ -24,9 +26,44 @@ on:
         required: false
         type: string
         default: ""
-
-permissions:
-  contents: read
+      # Docker-compose file providing live test dependencies (Postgres, RabbitMQ,
+      # Redis, ...), brought up before the build and torn down after (always()).
+      # Path is relative to the calling repo's root. Empty = no dependencies.
+      compose-file:
+        required: false
+        type: string
+        default: ""
+      compose-project:
+        required: false
+        type: string
+        default: "ci-deps"
+      # Post-test Docker build, unpushed — a sanity check that the image still
+      # builds, not a publish step (see docker-publish.yml for that). Empty =
+      # skipped.
+      docker-build-context:
+        required: false
+        type: string
+        default: ""
+      docker-build-tag:
+        required: false
+        type: string
+        default: "ci-${{ github.sha }}"
+      # Submits the Maven dependency graph for this working-directory so
+      # Dependabot alerts cover it. Needs `contents: write` granted by the
+      # CALLING job as well (GitHub takes the more restrictive of the two).
+      submit-dependency-graph:
+        required: false
+        type: boolean
+        default: false
+      # Extra environment variables for the build/test step, one `KEY=VALUE`
+      # per line — e.g. test datasource credentials that differ from the
+      # application's own defaults (in which case they usually already match,
+      # and this can be omitted). Values are caller-controlled workflow YAML,
+      # never external/untrusted input.
+      extra-env:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build:
@@ -35,6 +72,8 @@ jobs:
       WD: ${{ inputs.working-directory }}
       PRE_DIRS: ${{ inputs.pre-install-dirs }}
       GOALS: ${{ inputs.maven-goals }}
+      COMPOSE_FILE: ${{ inputs.compose-file }}
+      COMPOSE_PROJECT: ${{ inputs.compose-project }}
     steps:
       - uses: actions/checkout@v7
 
@@ -43,6 +82,39 @@ jobs:
           distribution: temurin
           java-version: ${{ inputs.java-version }}
           cache: maven
+
+      - name: Set extra environment variables
+        if: inputs.extra-env != ''
+        run: echo "${{ inputs.extra-env }}" >> "$GITHUB_ENV"
+
+      # Waits for every service in the compose file to report healthy (or, for
+      # services with no healthcheck, merely running) before handing control
+      # back — a build that started against a still-initializing Postgres is a
+      # flaky build, not a real failure.
+      - name: Start dependencies
+        if: inputs.compose-file != ''
+        run: |
+          set -euo pipefail
+          docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" up -d
+          services="$(docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" config --services)"
+          for i in {1..60}; do
+            all_ok=true
+            for svc in $services; do
+              cid="$(docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" ps -q "$svc" || true)"
+              if [[ -z "$cid" ]]; then all_ok=false; continue; fi
+              health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || echo unknown)"
+              status="$(docker inspect --format '{{.State.Status}}' "$cid" 2>/dev/null || echo unknown)"
+              if [[ "$health" == "healthy" ]]; then continue; fi
+              if [[ "$health" == "none" && "$status" == "running" ]]; then continue; fi
+              all_ok=false
+            done
+            if [[ "$all_ok" == "true" ]]; then echo "Deps are ready"; exit 0; fi
+            sleep 2
+          done
+          echo "Deps did not become ready"
+          docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" ps || true
+          docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" logs --no-color || true
+          exit 1
 
       - name: Pre-install sibling modules
         if: inputs.pre-install-dirs != ''
@@ -65,3 +137,17 @@ jobs:
             ${{ inputs.working-directory }}/target/failsafe-reports/**
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Stop dependencies
+        if: always() && inputs.compose-file != ''
+        run: docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" down -v --remove-orphans
+
+      - name: Docker build sanity check
+        if: inputs.docker-build-context != ''
+        run: docker build "${{ inputs.docker-build-context }}" --tag "${{ inputs.docker-build-tag }}"
+
+      - name: Submit Maven dependency graph
+        if: inputs.submit-dependency-graph
+        uses: advanced-security/maven-dependency-submission-action@571e99aab1055c2e71a1e2309b9691de18d6b7d6
+        with:
+          directory: ${{ inputs.working-directory }}
