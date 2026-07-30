@@ -39,12 +39,13 @@ regression only for flows that have actually broken or are genuinely load-bearin
 
 ## Creating: contract-first, always
 
-**REQUIRED READING:** `references/contract-and-authz.md` — the OpenAPI `x-labs64-auth`
-extraction workflow, the full deny/allow test matrix (including the no-scope, superset-scope,
-and same-resource scope-asymmetry cases), and the local-k8s log-corroboration exception. This is
-the load-bearing discipline of the whole suite: tests must map to real spec operations, not
-conventional-sounding guesses — that exact drift (`GET /events`, `GET /health`,
-`GET /payment-methods`) went undetected for a long time before this skill existed.
+**REQUIRED READING:** `references/contract-and-authz.md` — the OpenAPI OAuth `security` plus
+`x-labs64.auth` extraction workflow, the full deny/allow test matrix (including the no-scope,
+superset-scope, and same-resource scope-asymmetry cases), and the local-k8s
+log-corroboration exception. This is the load-bearing discipline of the whole suite: tests must
+map to real spec operations, not conventional-sounding guesses — that exact drift
+(`GET /events`, `GET /health`, `GET /payment-methods`) went undetected for a long time before
+this skill existed.
 
 ## Running and evaluating
 

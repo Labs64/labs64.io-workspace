@@ -1,10 +1,10 @@
 # Contract-Driven Test Coverage & Drift Detection
 
-Gatekeeper mechanism, preserved from the skill this one replaces. Treats each module's OpenAPI
-spec — specifically its `x-labs64-auth` annotations — as the single source of truth for both
-**what to test** and **what auth the test should expect**. Those same annotations already drive
-Cerbos policy generation at the authproxy edge, so this reads the same contract the enforcement
-layer reads, not a parallel guess at it.
+Gatekeeper mechanism, preserved from the skill this one replaces. Treat each module's OpenAPI
+spec — standard OAuth `security` plus `x-labs64.auth` tenant/resource metadata — as the single
+source of truth for both **what to test** and **what auth the test should expect**. That same
+contract drives Cerbos policy generation at the authproxy edge, so this reads the same contract
+the enforcement layer reads, not a parallel guess at it.
 
 ## When to use this
 
@@ -19,10 +19,12 @@ layer reads, not a parallel guess at it.
    submodule yet (see the `openapi-first-change` skill). Never read `target/generated-*` — it's
    a build artifact, not the source.
 
-2. **Extract the operation table.** For every path × method, record: `operationId`, and from
-   `x-labs64-auth`: `public: true`, or `tenant: true` + `scopes: [...]`. Treat an operation with
-   no `x-labs64-auth` block at all as ambiguous — stop and ask rather than assuming public or
-   protected.
+2. **Extract the operation table.** For every path × method, record `operationId`, the effective
+   OAuth requirement (operation-level `security` overrides root-level `security`), OAuth scopes,
+   and `x-labs64.auth.tenant`/`resource`. Infer public only when OAuth is not required and none of
+   those Labs64 auth requirements generates an annotation. In particular, `oauth: []` is
+   authenticated without a scope requirement, while `security: []` explicitly overrides a
+   protected root requirement.
 
 3. **Diff against `labs64.io-tests/tests/<module>/`.** Three checks, all matter:
    - **Coverage gap** — an operation in the spec with no corresponding test anywhere in the module's test files.
@@ -41,13 +43,13 @@ layer reads, not a parallel guess at it.
    coverage tables. Skipping this step means the tests exist but CI never runs them; nothing
    else in this workflow catches that omission.
 
-## Extraction rules for `x-labs64-auth`
+## Extraction rules for OpenAPI auth
 
-| Annotation | Test cases to ensure exist |
+| Effective contract | Test cases to ensure exist |
 |---|---|
-| `public: true` | One case asserting success with **no** Authorization header. For a public route that lives on a resource whose *other* verbs are protected, also assert it stays 200 when called *with* an unrelated-scope token — proving "public" isn't accidentally gated. |
-| `tenant: true`, `scopes: [s1, ...]` | The full deny/allow matrix, one test case each: **(1)** unauthenticated → 401; **(2)** malformed/invalid credential → 401 (not 403 — proves the token is rejected *before* any Cerbos decision); **(3)** wrong scope — a valid token carrying a *different, unrelated* scope → 403; **(4)** no scope — a validly-signed token carrying *zero* scopes (mock-oidc `no-access` persona) → 403 (distinct from #3: proves an empty scope set doesn't fall through to a default grant); **(5)** correct scope — a token carrying exactly the required scope(s) → the spec's declared success status; **(6)** superset scope — a token carrying the required scope *plus* extra irrelevant ones → success (proves the edge's `contains`/OR match isn't accidentally an exact-set match that a legitimate multi-scope caller would fail). Cases 1–5 are mandatory; case 6 is expected wherever real callers hold broad tokens. |
-| No `x-labs64-auth` present | Flag as ambiguous; ask the module owner or check the backend's security config directly before writing a test that assumes an answer. |
+| Public by inference: OAuth not required and no `x-labs64.auth.tenant` or `resource` | One case asserting success with **no** Authorization header. For a public route that lives on a resource whose *other* verbs are protected, also assert it stays 200 when called *with* an unrelated-scope token — proving "public" isn't accidentally gated. |
+| Protected by OAuth scopes and/or `x-labs64.auth` | The full deny/allow matrix, one test case each: **(1)** unauthenticated → 401; **(2)** malformed/invalid credential → 401 (not 403 — proves the token is rejected *before* any Cerbos decision); **(3)** wrong scope — a valid token carrying a *different, unrelated* scope → 403; **(4)** no scope — a validly-signed token carrying *zero* scopes (mock-oidc `no-access` persona) → 403 (distinct from #3: proves an empty scope set doesn't fall through to a default grant); **(5)** correct scope — a token carrying exactly the required scope(s) → the spec's declared success status; **(6)** superset scope — a token carrying the required scope *plus* extra irrelevant ones → success (proves the edge's current overlap match isn't accidentally an exact-set match that a legitimate multi-scope caller would fail). Cases 1–5 are mandatory; case 6 is expected wherever real callers hold broad tokens. |
+| `oauth: []` with no tenant/resource metadata | At minimum, prove unauthenticated → 401 and a valid authenticated caller reaches the operation; there is no scope-specific 403 expectation. |
 
 Mint scope-specific tokens via `Create Session With Scope` (`resources/common.resource`), which
 calls the local `mock-oidc` provider — it echoes any non-persona `scope` value verbatim into the
