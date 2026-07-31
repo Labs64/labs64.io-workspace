@@ -157,6 +157,7 @@ resolve_and_add optional \
     "index.docker.io" \
     "auth.docker.io" \
     "production.cloudflare.docker.com" \
+    "production.cloudfront.docker.com" \
     "mcr.microsoft.com"
 
 # --- Optional: Helm chart repositories & dev-tooling installers ---

@@ -163,9 +163,3 @@ smoke:
 # Run the full nightly-shape regression test suite
 regression:
     @cd labs64.io-tests && just regression
-
-debug:
-    echo $SHELL
-    pwd 
-    ls -la /  
-    ls -la 

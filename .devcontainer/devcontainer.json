@@ -25,10 +25,10 @@
     },
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
-	"mounts": [
-		"source=labs64io-claude-code-config,target=/home/vscode/.claude,type=volume",
-		"source=labs64io-vscode-server,target=/home/vscode/.vscode-server,type=volume"
-	],
+  "mounts": [
+    "source=labs64io-claude-code-config,target=/home/vscode/.claude,type=volume",
+    "source=labs64io-vscode-server,target=/home/vscode/.vscode-server,type=volume"
+  ],
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
     "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
@@ -51,7 +51,11 @@
   },
   "runArgs": [
     "--cap-add=NET_ADMIN",
-    "--cap-add=NET_RAW"
+    "--cap-add=NET_RAW",
+    "--name=labs64io-devcontainer",
+    "--add-host=gateway.localhost:host-gateway",
+    "--add-host=mock-oidc.localhost:host-gateway",
+    "--add-host=dashboard.localhost:host-gateway"
   ],
   "postCreateCommand": {
     "fix-claude-perms": "sudo chown -R vscode:vscode /home/vscode/.claude && sudo chown -R vscode:vscode \"$(npm root -g)/@anthropic-ai\"",
