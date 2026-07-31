@@ -162,6 +162,8 @@ resolve_and_add optional \
 # --- Optional: Helm chart repositories & dev-tooling installers ---
 resolve_and_add optional \
     "charts.bitnami.com" \
+    "repo.broadcom.com" \
+    "charts.external-secrets.io" \
     "get.helm.sh" \
     "just.systems" \
     "get.sdkman.io" \
