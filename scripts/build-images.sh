@@ -5,7 +5,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/progress.sh"
 
 TARGET=${1:-all}
-REGISTRY="localhost:5005"
+REGISTRY="host.docker.internal:5005"
 
 BUILD_ACTION="--push"
 if [[ "$TARGET" != "commons" ]] && ! curl -s "http://${REGISTRY}/v2/" > /dev/null; then
@@ -34,7 +34,7 @@ mvn_step() {
 # image_step "label" "module_dir" "image_name"
 image_step() {
     local label=$1 dir=$2 image=$3
-    run_step "$label" -- bash -c "cd '$dir' && build_image ${REGISTRY}/${image}:latest ."
+    run_step "$label" -- bash -c "cd '$dir' && build_image localhost:5005/${image}:latest ."
 }
 
 build_commons() {

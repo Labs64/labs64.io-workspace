@@ -30,7 +30,8 @@
 		"source=labs64io-vscode-server,target=/home/vscode/.vscode-server,type=volume"
 	],
   "containerEnv": {
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
+    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
   },
   "customizations": {
     "vscode": {
@@ -43,7 +44,7 @@
         "Vue.volar",
         "ms-azuretools.vscode-docker",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
-        "skellock.just",
+        "nefrob.vscode-just-syntax",
         "anthropic.claude-code"
       ]
     }
@@ -56,7 +57,6 @@
     "fix-claude-perms": "sudo chown -R vscode:vscode /home/vscode/.claude && sudo chown -R vscode:vscode \"$(npm root -g)/@anthropic-ai\"",
     "install-tools": "bash .devcontainer/post-create.sh"
   },
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
   "waitFor": "postStartCommand",
   "remoteUser": "vscode"
 }

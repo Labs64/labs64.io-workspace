@@ -49,7 +49,7 @@ build module="all" verbose="1":
     @export MODULE='{{module}}'; \
     docker run --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
         -e VERBOSE="{{verbose}}" \
-        -v $(pwd):/workspace \
+        -v "${LOCAL_WORKSPACE_FOLDER:-$(pwd)}":/workspace \
         -v labs64-m2-cache:/root/.m2 \
         -v /var/run/docker.sock:/var/run/docker.sock \
         -w /workspace \
@@ -163,3 +163,9 @@ smoke:
 # Run the full nightly-shape regression test suite
 regression:
     @cd labs64.io-tests && just regression
+
+debug:
+    echo $SHELL
+    pwd 
+    ls -la /  
+    ls -la 
