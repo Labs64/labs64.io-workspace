@@ -1,21 +1,23 @@
 REPOS := "labs64.io-docs labs64.io-docs-internal labs64.io-devops labs64.io-tests labs64.io-helm-charts labs64.io-commons labs64.io-authproxy labs64.io-auditflow labs64.io-checkout labs64.io-customer-portal labs64.io-payment-gateway labs64.io-website"
 GITHUB_ORG := "https://github.com/Labs64"
+# Ecosystem root: repositories are cloned as siblings of this workspace, not inside it.
+ROOT := ".."
 
 # List available commands
 default:
     @just --list
 
-# Clone all ecosystem repositories
+# Clone all ecosystem repositories (as siblings of this workspace)
 clone:
     #!/bin/bash
     for repo in {{REPOS}}; do
-        if [ ! -d "$repo" ]; then
+        if [ ! -d "{{ROOT}}/$repo" ]; then
             echo "Cloning $repo..."
             remote_repo="$repo"
             if [ "$repo" = "labs64.io-website" ]; then
                 remote_repo="labs64.io"
             fi
-            git clone "{{GITHUB_ORG}}/$remote_repo.git" "$repo"
+            git clone "{{GITHUB_ORG}}/$remote_repo.git" "{{ROOT}}/$repo"
         else
             echo "$repo already exists, skipping."
         fi
@@ -27,9 +29,9 @@ pull:
     echo "Pulling workspace root..."
     git pull
     for repo in {{REPOS}}; do
-        if [ -d "$repo" ]; then
+        if [ -d "{{ROOT}}/$repo" ]; then
             echo "Pulling $repo..."
-            git -C "$repo" pull
+            git -C "{{ROOT}}/$repo" pull
         fi
     done
 
@@ -39,47 +41,52 @@ status:
     echo "=== workspace root ==="
     git status -s
     for repo in {{REPOS}}; do
-        if [ -d "$repo" ]; then
+        if [ -d "{{ROOT}}/$repo" ]; then
             echo "=== $repo ==="
-            git -C "$repo" status -s
+            git -C "{{ROOT}}/$repo" status -s
         fi
     done
 
 # Build and push all module images to local registry (localhost:5005)
 build module="all" verbose="1":
-    @echo "=== Building dev container ==="
-    @docker build -t labs64io-builder -f scripts/Dockerfile.builder scripts/
-    @echo "=== Running build in dev container ==="
-    @export MODULE='{{module}}'; \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "=== Building dev container ==="
+    docker build -t labs64io-builder -f scripts/Dockerfile.builder scripts/
+    echo "=== Running build in dev container ==="
+    MODULE='{{module}}'
+    # The modules live next to this workspace, so mount the whole ecosystem root
+    # and run the build from the workspace folder inside it.
+    ws="${LOCAL_WORKSPACE_FOLDER:-$(pwd)}"
     if [ -t 1 ]; then TTY_ARGS="-it"; else TTY_ARGS=""; fi; \
     docker run $TTY_ARGS --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
         -e VERBOSE="{{verbose}}" \
-        -v "${LOCAL_WORKSPACE_FOLDER:-$(pwd)}":/workspace \
+        -v "$(dirname "$ws")":/workspaces \
         -v labs64-m2-cache:/root/.m2 \
         -v /var/run/docker.sock:/var/run/docker.sock \
-        -w /workspace \
+        -w "/workspaces/$(basename "$ws")" \
         labs64io-builder \
         ./scripts/build-images.sh "${MODULE:-all}"
 
 # Start the entire local cluster
 up:
-    @cd labs64.io-helm-charts && just cluster-up
+    @cd {{ROOT}}/labs64.io-helm-charts && just cluster-up
     @just build
-    @cd labs64.io-helm-charts && just up
+    @cd {{ROOT}}/labs64.io-helm-charts && just up
 
 # Start the entire local cluster with OpenTelemetry
 otel:
-    @cd labs64.io-helm-charts && just up-otel && just grafana
+    @cd {{ROOT}}/labs64.io-helm-charts && just up-otel && just grafana
 
 # Tear down the local cluster (cluster and registry will be destroyed)
 down:
-    @cd labs64.io-helm-charts && just cluster-down
+    @cd {{ROOT}}/labs64.io-helm-charts && just cluster-down
 
 # Tail error logs for all modules, or `just logs <app>` for one (e.g. `just logs checkout`)
 logs app="":
     #!/usr/bin/env bash
     set -euo pipefail
-    cd labs64.io-helm-charts
+    cd {{ROOT}}/labs64.io-helm-charts
     if [ -n "{{app}}" ]; then
         just logs {{app}}
     else
@@ -136,10 +143,10 @@ verify-deps verbose="1":
     # must be installed (like a real build does), not just dependency:go-offline'd, before the
     # modules below can resolve against them.
     for dir in \
-        labs64.io-commons/auth-context-java \
-        labs64.io-commons/openapi-spring-boot-starter \
-        labs64.io-commons/authz-queryplan-jpa \
-        labs64.io-auditflow/auditflow-api; do
+        {{ROOT}}/labs64.io-commons/auth-context-java \
+        {{ROOT}}/labs64.io-commons/openapi-spring-boot-starter \
+        {{ROOT}}/labs64.io-commons/authz-queryplan-jpa \
+        {{ROOT}}/labs64.io-auditflow/auditflow-api; do
         if [ -d "$dir" ]; then
             run_step "deps: $dir (install)" -- bash -c "cd '$dir' && mvn -B install -Dmaven.test.skip=true"
         else
@@ -147,9 +154,9 @@ verify-deps verbose="1":
         fi
     done
     for dir in \
-        labs64.io-auditflow/auditflow-be \
-        labs64.io-checkout/checkout-be \
-        labs64.io-payment-gateway; do
+        {{ROOT}}/labs64.io-auditflow/auditflow-be \
+        {{ROOT}}/labs64.io-checkout/checkout-be \
+        {{ROOT}}/labs64.io-payment-gateway; do
         if [ -d "$dir" ]; then
             run_step "deps: $dir" -- bash -c "cd '$dir' && mvn -B dependency:go-offline"
         else
@@ -159,12 +166,12 @@ verify-deps verbose="1":
 
 # Run the full test suite across all modules
 test:
-    @cd labs64.io-tests && just all
+    @cd {{ROOT}}/labs64.io-tests && just all
 
 # Run the fast PR-gating smoke tests across all modules
 smoke:
-    @cd labs64.io-tests && just smoke
+    @cd {{ROOT}}/labs64.io-tests && just smoke
 
 # Run the full nightly-shape regression test suite
 regression:
-    @cd labs64.io-tests && just regression
+    @cd {{ROOT}}/labs64.io-tests && just regression

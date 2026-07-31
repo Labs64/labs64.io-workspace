@@ -4,6 +4,19 @@
 
 > **START HERE:** This repository is the **primary entry point for all developers** working on the Labs64.IO Ecosystem. It is the **master workspace** that orchestrates 12 independent Git repositories with a unified `justfile` and DevContainer, instead of you having to manage each one by hand.
 
+The 12 ecosystem repositories are cloned **as siblings of this one**, so the workspace stays a clean checkout and every repo sits at the same level:
+
+```
+<ecosystem-root>/
+├── labs64.io-workspace/     # this repo — justfile, DevContainer, scripts
+├── labs64.io-auditflow/
+├── labs64.io-checkout/
+├── labs64.io-helm-charts/
+└── ...                      # the remaining ecosystem repositories
+```
+
+All `just` recipes are run from `labs64.io-workspace/` and resolve the other repos via `../`. The DevContainer mounts `<ecosystem-root>` at `/workspaces`, so the whole ecosystem is visible inside the container.
+
 ## 📋 Prerequisites
 
 Install these tools before cloning (or skip straight to the DevContainer, which bundles all of them):
@@ -35,27 +48,32 @@ Once cloned, run `just doctor` to check all of the above are installed and print
 
 > **Setting up local Kubernetes (k3d)?** The workspace `justfile` drives the cluster lifecycle
 > (`just up` / `just down`), but the full architecture, namespace layout, and step-by-step manual
-> setup live in [`labs64.io-helm-charts/DEVELOPERS.md`](labs64.io-helm-charts/DEVELOPERS.md) —
+> setup live in [`../labs64.io-helm-charts/DEVELOPERS.md`](../labs64.io-helm-charts/DEVELOPERS.md) —
 > read that if you want to understand or customize what's happening under the hood.
 
 ## 🚀 Quick Start
 
-1. **Clone the Workspace Repo:**
+1. **Clone the Workspace Repo** into the directory you want to hold the whole ecosystem:
    ```bash
-   git clone git@github.com:Labs64/labs64.io-workspace.git labs64.io
-   cd labs64.io
+   mkdir -p labs64.io && cd labs64.io
+   git clone git@github.com:Labs64/labs64.io-workspace.git
+   cd labs64.io-workspace
    ```
+   Keep the directory name `labs64.io-workspace` — the DevContainer expects it at `/workspaces/labs64.io-workspace`.
 
 2. **Fetch the Ecosystem:**
-   This clones all 12 ecosystem repositories into the workspace.
+   This clones all 12 ecosystem repositories next to the workspace (into `../`).
    ```bash
    just clone
    ```
 
 3. **Open in DevContainer:**
-   Open the folder in VS Code and click **"Reopen in Container"**.
+   Open the `labs64.io-workspace` folder in VS Code and click **"Reopen in Container"**. The parent directory is mounted too, so all sibling repos are available.
 
-4. **Start the Cluster:**
+4. **(Optional) Open all repos at once:**
+   `File ▸ Open Workspace from File…` → `labs64.io-workspace/labs64.io.code-workspace`. This multi-root workspace lists the workspace plus all 12 ecosystem repos as separate roots, each with its own Source Control view, and carries shared editor settings and extension recommendations. Repos you haven't cloned yet simply show up empty until `just clone` fetches them.
+
+5. **Start the Cluster:**
    ```bash
    just up
    ```
@@ -70,7 +88,7 @@ Once cloned, run `just doctor` to check all of the above are installed and print
 
 ## 🛠️ Included Repositories
 
-The workspace clones 12 repositories — the runtime services plus the shared libraries, infrastructure, and docs that support them.
+The workspace clones 12 repositories as siblings of itself — the runtime services plus the shared libraries, infrastructure, and docs that support them.
 
 **Services**
 
@@ -106,10 +124,10 @@ Open the folder in VS Code and click **"Reopen in Container"**. You get a consis
 - All necessary build tools
 
 ### The Knowledge Graph
-The ecosystem is indexed by a shared knowledge graph (`graphify-out/`). Use `graphify` for architectural queries:
+The ecosystem is indexed by a shared knowledge graph (`../graphify-out/`, at the ecosystem root so it spans every sibling repo). Use `graphify` for architectural queries:
 ```bash
 graphify query "<question>"    # targeted lookup
-graphify update .              # refresh after code changes
+graphify update ..             # refresh after code changes (indexes all sibling repos)
 ```
 
 ### 🤖 AI Skills

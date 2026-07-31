@@ -60,4 +60,6 @@ if ! command -v k9s &> /dev/null; then
 fi
 
 echo "=== Setup Complete ==="
-echo "To get started, run: just up"
+echo "To get started, run (from labs64.io-workspace):"
+echo "  just clone   # clone the ecosystem repositories as siblings of this workspace"
+echo "  just up      # build images and deploy the local cluster"
