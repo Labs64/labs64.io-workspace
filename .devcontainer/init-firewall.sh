@@ -129,6 +129,8 @@ resolve_and_add required \
     "repo1.maven.org" \
     "pypi.org" \
     "files.pythonhosted.org" \
+    "index.crates.io" \
+    "static.crates.io" \
     "ports.ubuntu.com" \
     "archive.ubuntu.com" \
     "security.ubuntu.com" \
@@ -168,7 +170,9 @@ resolve_and_add optional \
     "get.helm.sh" \
     "just.systems" \
     "get.sdkman.io" \
-    "api.sdkman.io"
+    "api.sdkman.io" \
+    "sh.rustup.rs" \
+    "static.rust-lang.org"
 
 # --- Optional: host.docker.internal (k3d API server, local OIDC provider,
 # Cerbos PDP and other host-side services reached from the container, e.g.

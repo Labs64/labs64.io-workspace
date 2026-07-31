@@ -11,6 +11,19 @@ sudo apt-get update -y
 sudo apt-get install -y --no-install-recommends iptables ipset dnsutils aggregate jq
 sudo install -m 0755 "$(dirname "$0")/init-firewall.sh" /usr/local/bin/init-firewall.sh
 
+# Install just-lsp
+# The Ubuntu-packaged cargo is 1.75, too old for just-lsp (needs edition2024 /
+# Rust >= 1.85), so install a current stable toolchain via rustup instead.
+# Currently commented-out as installation takes too long
+# echo "Probing rustup..."
+# if ! command -v rustup &> /dev/null; then
+#     echo "Installing Rust toolchain..."
+#     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+# fi
+# # shellcheck source=/dev/null
+# source "$HOME/.cargo/env"
+# cargo install just-lsp
+
 # Install k3d
 if ! command -v k3d &> /dev/null; then
     echo "Installing k3d..."
