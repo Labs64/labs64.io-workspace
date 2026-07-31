@@ -60,5 +60,4 @@ if ! command -v k9s &> /dev/null; then
 fi
 
 echo "=== Setup Complete ==="
-echo "To get started, run:"
-echo "cd labs64.io-helm-charts && just build-images && just up"
+echo "To get started, run: just up"

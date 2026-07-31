@@ -8,7 +8,7 @@ TARGET=${1:-all}
 REGISTRY="host.docker.internal:5005"
 
 BUILD_ACTION="--push"
-if [[ "$TARGET" != "commons" ]] && ! curl -s "http://${REGISTRY}/v2/" > /dev/null; then
+if [[ "$TARGET" != "commons" ]] && ! curl -s --connect-timeout 2 "http://${REGISTRY}/v2/" > /dev/null; then
     echo "INFO: Local registry at ${REGISTRY} is not reachable."
     echo "Images will be loaded into the local Docker daemon instead of being pushed."
     BUILD_ACTION="--load"

@@ -47,7 +47,8 @@ build module="all" verbose="1":
     @docker build -t labs64io-builder -f scripts/Dockerfile.builder scripts/
     @echo "=== Running build in dev container ==="
     @export MODULE='{{module}}'; \
-    docker run -t --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
+    if [ -t 1 ]; then TTY_ARGS="-it"; else TTY_ARGS=""; fi; \
+    docker run $TTY_ARGS --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
         -e VERBOSE="{{verbose}}" \
         -v "${LOCAL_WORKSPACE_FOLDER:-$(pwd)}":/workspace \
         -v labs64-m2-cache:/root/.m2 \

@@ -33,7 +33,7 @@ run_step() {
     start=$(date +%s)
 
     if [[ "$VERBOSE" == "1" ]]; then
-        printf "%s%s %s%s\n" "$C_BOLD" "${_PROGRESS_FRAMES[RANDOM % ${#_PROGRESS_FRAMES[@]}]}" "$label" "$C_RESET"
+        printf "%s%s %s%s\n" "$C_BOLD" "${_PROGRESS_FRAMES[RANDOM % ${#_PROGRESS_FRAMES[@]}]}" "$label" "$C_RESET" >&2
         if ( "$@" ); then status=0; else status=$?; fi
     else
         local log
@@ -41,15 +41,15 @@ run_step() {
         "$@" >"$log" 2>&1 &
         local pid=$!
         local i=0
-        if [[ -t 1 ]]; then
+        if true; then
             while kill -0 "$pid" 2>/dev/null; do
                 elapsed=$(( $(date +%s) - start ))
                 printf "\r%s %s  %s(%ds)%s   " \
-                    "${_PROGRESS_FRAMES[i % ${#_PROGRESS_FRAMES[@]}]}" "$label" "$C_DIM" "$elapsed" "$C_RESET"
+                    "${_PROGRESS_FRAMES[i % ${#_PROGRESS_FRAMES[@]}]}" "$label" "$C_DIM" "$elapsed" "$C_RESET" >&2
                 i=$((i + 1))
                 sleep 0.3
             done
-            printf "\r\033[K"
+            printf "\r\033[K" >&2
         fi
         if wait "$pid"; then status=0; else status=$?; fi
         if [[ $status -ne 0 ]]; then
