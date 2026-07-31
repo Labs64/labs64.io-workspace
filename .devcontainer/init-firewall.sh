@@ -193,6 +193,9 @@ resolve_and_add optional \
     "mcr.microsoft.com"
 
 # --- Optional: Helm chart repositories & dev-tooling installers ---
+# charts.external-secrets.io is a CNAME onto ghs.googlehosted.com and its IP
+# rotates on a short TTL - this only seeds the ipset; DYNAMIC_DOMAINS below
+# keeps it current.
 resolve_and_add optional \
     "charts.bitnami.com" \
     "repo.broadcom.com" \
@@ -213,17 +216,35 @@ resolve_and_add optional \
 resolve_and_add optional "host.docker.internal"
 
 # --- Dynamic IP Updates ---
-# Some domains (like registry-1.docker.io on AWS) cycle their IPs constantly via
-# round-robin DNS. A one-time resolution at startup will quickly become stale.
-# We run a tiny background loop to keep the ipset updated with new IPs.
+# Some domains cycle their IPs constantly, so the single resolution done above
+# goes stale within minutes. Two flavours of this:
+#
+#   * round-robin / geo-balanced fleets (registry-1.docker.io on AWS)
+#   * CNAMEs onto a shared hosting frontend whose A records rotate
+#     (charts.external-secrets.io -> ghs.googlehosted.com, ~70s TTL, and the
+#     answer differs per resolver)
+#
+# A background loop re-resolves them and unions every observed IP into the
+# ipset. Poll faster than the shortest TTL in the list (70s for ghs) so the
+# refresh lands before the resolver cache expires and hands the client an
+# address the firewall has never seen.
+DYNAMIC_DOMAINS=(
+    "registry-1.docker.io"
+    "charts.external-secrets.io"
+)
+DYNAMIC_REFRESH_INTERVAL=30
+
 (
     while true; do
-        for domain in "registry-1.docker.io"; do
-            dig +short "$domain" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | while read -r ip; do
-                ipset add allowed-domains "$ip" -exist 2>/dev/null || true
-            done
+        for domain in "${DYNAMIC_DOMAINS[@]}"; do
+            # +short on a CNAME prints the chain too; keep only the A records.
+            dig +short "$domain" A 2>/dev/null \
+                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+                | while read -r ip; do
+                    ipset add allowed-domains "$ip" -exist 2>/dev/null || true
+                done
         done
-        sleep 60
+        sleep "$DYNAMIC_REFRESH_INTERVAL"
     done
 ) &
 
