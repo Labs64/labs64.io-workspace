@@ -27,7 +27,8 @@
   },
   "mounts": [
     "source=labs64io-claude-code-config,target=/home/vscode/.claude,type=volume",
-    "source=labs64io-vscode-server,target=/home/vscode/.vscode-server,type=volume"
+    "source=labs64io-vscode-server,target=/home/vscode/.vscode-server,type=volume",
+    "source=labs64io-codex-config,target=/home/vscode/.codex,type=volume"
   ],
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
@@ -40,12 +41,15 @@
       },
       "extensions": [
         "vscjava.vscode-java-pack",
+        "vmware.vscode-boot-dev-pack",
         "ms-python.python",
         "Vue.volar",
         "ms-azuretools.vscode-docker",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
         "nefrob.vscode-just-syntax",
-        "anthropic.claude-code"
+        "anthropic.claude-code",
+        "GitHub.copilot-chat",
+        "openai.chatgpt"
       ]
     }
   },
@@ -58,7 +62,7 @@
     "--add-host=dashboard.localhost:host-gateway"
   ],
   "postCreateCommand": {
-    "fix-claude-perms": "sudo chown -R vscode:vscode /home/vscode/.claude && sudo chown -R vscode:vscode \"$(npm root -g)/@anthropic-ai\"",
+    "fix-volume-perms": "sudo chown -R vscode:vscode /home/vscode/.claude /home/vscode/.codex /home/vscode/.vscode-server && sudo chown -R vscode:vscode \"$(npm root -g)/@anthropic-ai\"",
     "install-tools": "bash .devcontainer/post-create.sh"
   },
   "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",

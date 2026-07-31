@@ -124,6 +124,9 @@ resolve_and_add() {
 # --- Required: core services the toolchain cannot build without ---
 resolve_and_add required \
     "api.anthropic.com" \
+    "auth.openai.com" \
+    "chatgpt.com" \
+    "api.openai.com" \
     "registry.npmjs.org" \
     "repo.maven.apache.org" \
     "repo1.maven.org" \
@@ -147,6 +150,32 @@ resolve_and_add optional \
     "marketplace.visualstudio.com" \
     "vscode.blob.core.windows.net" \
     "update.code.visualstudio.com"
+
+# Marketplace API responses point to publisher-specific asset hosts. Include
+# both documented suffixes for the configured extensions and extension-pack
+# dependencies (for example redhat.java and VS IntelliCode).
+for publisher in \
+    vscjava vmware ms-python vue ms-azuretools ms-kubernetes-tools nefrob \
+    anthropic openai github redhat visualstudioexptteam; do
+    resolve_and_add optional \
+        "${publisher}.gallery.vsassets.io" \
+        "${publisher}.gallerycdn.vsassets.io"
+done
+
+# --- Optional: GitHub Copilot authentication, inference and telemetry ---
+# GitHub publishes wildcard allowlist entries, while this IP-based firewall
+# needs concrete hostnames. These cover the public API and the plan-specific
+# endpoints currently used by VS Code Copilot clients.
+resolve_and_add optional \
+    "api.githubcopilot.com" \
+    "api.individual.githubcopilot.com" \
+    "api.business.githubcopilot.com" \
+    "api.enterprise.githubcopilot.com" \
+    "copilot-proxy.githubusercontent.com" \
+    "origin-tracker.githubusercontent.com" \
+    "copilot-telemetry.githubusercontent.com" \
+    "collector.github.com" \
+    "default.exp-tas.com"
 
 # --- Optional: container registries (image pulls for k3d / helm workloads) ---
 # NOTE: with docker-outside-of-docker most `docker pull`/`docker build` traffic
