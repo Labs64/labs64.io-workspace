@@ -24,6 +24,8 @@ clone:
 # Pull latest master/main on all repositories
 pull:
     #!/bin/bash
+    echo "Pulling workspace root..."
+    git pull
     for repo in {{REPOS}}; do
         if [ -d "$repo" ]; then
             echo "Pulling $repo..."
@@ -34,6 +36,8 @@ pull:
 # Show git status across all repositories
 status:
     #!/bin/bash
+    echo "=== workspace root ==="
+    git status -s
     for repo in {{REPOS}}; do
         if [ -d "$repo" ]; then
             echo "=== $repo ==="
