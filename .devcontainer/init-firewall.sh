@@ -178,6 +178,21 @@ resolve_and_add optional \
 # the allowlist correct even if that mapping ever differs. ---
 resolve_and_add optional "host.docker.internal"
 
+# --- Dynamic IP Updates ---
+# Some domains (like registry-1.docker.io on AWS) cycle their IPs constantly via
+# round-robin DNS. A one-time resolution at startup will quickly become stale.
+# We run a tiny background loop to keep the ipset updated with new IPs.
+(
+    while true; do
+        for domain in "registry-1.docker.io"; do
+            dig +short "$domain" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | while read -r ip; do
+                ipset add allowed-domains "$ip" -exist 2>/dev/null || true
+            done
+        done
+        sleep 60
+    done
+) &
+
 # Get host IP from default route
 HOST_IP=$(ip route | grep default | cut -d" " -f3)
 if [ -z "$HOST_IP" ]; then
