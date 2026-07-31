@@ -167,6 +167,14 @@ resolve_and_add optional \
     "get.sdkman.io" \
     "api.sdkman.io"
 
+# --- Optional: host.docker.internal (k3d API server, local OIDC provider,
+# Cerbos PDP and other host-side services reached from the container, e.g.
+# labs64.io-authproxy/traefik-authproxy and labs64.io-helm-charts justfiles).
+# The docker embedded DNS resolves this to the host gateway IP, which is
+# normally inside HOST_NETWORK below, but resolving it explicitly here keeps
+# the allowlist correct even if that mapping ever differs. ---
+resolve_and_add optional "host.docker.internal"
+
 # Get host IP from default route
 HOST_IP=$(ip route | grep default | cut -d" " -f3)
 if [ -z "$HOST_IP" ]; then
