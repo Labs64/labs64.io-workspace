@@ -1,0 +1,92 @@
+{
+  "folders": [
+    {
+      "name": "⚙️ workspace",
+      "path": "."
+    },
+    {
+      "name": "authproxy",
+      "path": "../labs64.io-authproxy"
+    },
+    {
+      "name": "auditflow",
+      "path": "../labs64.io-auditflow"
+    },
+    {
+      "name": "payment-gateway",
+      "path": "../labs64.io-payment-gateway"
+    },
+    {
+      "name": "checkout",
+      "path": "../labs64.io-checkout"
+    },
+    {
+      "name": "customer-portal",
+      "path": "../labs64.io-customer-portal"
+    },
+    {
+      "name": "commons",
+      "path": "../labs64.io-commons"
+    },
+    {
+      "name": "helm-charts",
+      "path": "../labs64.io-helm-charts"
+    },
+    {
+      "name": "devops",
+      "path": "../labs64.io-devops"
+    },
+    {
+      "name": "tests",
+      "path": "../labs64.io-tests"
+    },
+    {
+      "name": "docs",
+      "path": "../labs64.io-docs"
+    },
+    {
+      "name": "docs-internal",
+      "path": "../labs64.io-docs-internal"
+    },
+    {
+      "name": "website",
+      "path": "../labs64.io-website"
+    }
+  ],
+  "settings": {
+    "java.jdt.ls.java.home": "/usr/local/sdkman/candidates/java/current",
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "files.exclude": {
+      "**/.git": true
+    },
+    "files.watcherExclude": {
+      "**/target/**": true,
+      "**/node_modules/**": true,
+      "**/.venv/**": true,
+      "**/graphify-out/**": true
+    },
+    "search.exclude": {
+      "**/target/**": true,
+      "**/node_modules/**": true,
+      "**/.venv/**": true,
+      "**/dist/**": true,
+      "**/graphify-out/**": true
+    },
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.eol": "\n",
+    "java.compile.nullAnalysis.mode": "automatic"
+  },
+  "extensions": {
+    "recommendations": [
+      "vscjava.vscode-java-pack",
+      "ms-python.python",
+      "Vue.volar",
+      "ms-azuretools.vscode-docker",
+      "ms-kubernetes-tools.vscode-kubernetes-tools",
+      "nefrob.vscode-just-syntax",
+      "anthropic.claude-code",
+      "redhat.vscode-yaml"
+    ]
+  }
+}

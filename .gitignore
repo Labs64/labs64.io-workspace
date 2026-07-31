@@ -1,13 +1,6 @@
-# Ignore all Labs64.IO microservice repositories
-/labs64.io-auditflow/
-/labs64.io-checkout/
-/labs64.io-customer-portal/
-/labs64.io-devops/
-/labs64.io-docs/
-/labs64.io-docs-internal/
-/labs64.io-authproxy/
-/labs64.io-helm-charts/
-/labs64.io-payment-gateway/
+# Ecosystem repositories are cloned as siblings of this workspace (`just clone`),
+# so they never belong here. Kept as a guard against legacy in-tree checkouts.
+/labs64.io-*/
 
 # --- AI Tooling ---
 .claude/*

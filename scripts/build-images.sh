@@ -7,6 +7,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/progress.sh"
 TARGET=${1:-all}
 REGISTRY="host.docker.internal:5005"
 
+# Module repositories are cloned as siblings of the workspace, so every module
+# path is resolved against the ecosystem root one level up.
+ROOT=${ROOT:-".."}
+
 BUILD_ACTION="--push"
 if [[ "$TARGET" != "commons" ]] && ! curl -s --connect-timeout 2 "http://${REGISTRY}/v2/" > /dev/null; then
     echo "INFO: Local registry at ${REGISTRY} is not reachable."
@@ -38,36 +42,36 @@ image_step() {
 }
 
 build_commons() {
-    mvn_step "commons: auth-context-java" "./labs64.io-commons/auth-context-java" clean install -Dmaven.test.skip=true
-    mvn_step "commons: openapi-spring-boot-starter" "./labs64.io-commons/openapi-spring-boot-starter" clean install -Dmaven.test.skip=true
-    mvn_step "commons: authz-queryplan-jpa" "./labs64.io-commons/authz-queryplan-jpa" clean install -Dmaven.test.skip=true
+    mvn_step "commons: auth-context-java" "${ROOT}/labs64.io-commons/auth-context-java" clean install -Dmaven.test.skip=true
+    mvn_step "commons: openapi-spring-boot-starter" "${ROOT}/labs64.io-commons/openapi-spring-boot-starter" clean install -Dmaven.test.skip=true
+    mvn_step "commons: authz-queryplan-jpa" "${ROOT}/labs64.io-commons/authz-queryplan-jpa" clean install -Dmaven.test.skip=true
 }
 
 build_traefik_authproxy() {
-    image_step "traefik-authproxy: image" "./labs64.io-authproxy/traefik-authproxy" traefik-authproxy
+    image_step "traefik-authproxy: image" "${ROOT}/labs64.io-authproxy/traefik-authproxy" traefik-authproxy
 }
 
 build_auditflow() {
-    mvn_step "auditflow: api" "./labs64.io-auditflow/auditflow-api" clean install -Dmaven.test.skip=true
-    mvn_step "auditflow: backend build" "./labs64.io-auditflow/auditflow-be" clean package -Dmaven.test.skip=true
-    image_step "auditflow: backend image" "./labs64.io-auditflow/auditflow-be" auditflow
-    image_step "auditflow: transformer image" "./labs64.io-auditflow/auditflow-transformer" auditflow-transformer
-    image_step "auditflow: sink image" "./labs64.io-auditflow/auditflow-sink" auditflow-sink
+    mvn_step "auditflow: api" "${ROOT}/labs64.io-auditflow/auditflow-api" clean install -Dmaven.test.skip=true
+    mvn_step "auditflow: backend build" "${ROOT}/labs64.io-auditflow/auditflow-be" clean package -Dmaven.test.skip=true
+    image_step "auditflow: backend image" "${ROOT}/labs64.io-auditflow/auditflow-be" auditflow
+    image_step "auditflow: transformer image" "${ROOT}/labs64.io-auditflow/auditflow-transformer" auditflow-transformer
+    image_step "auditflow: sink image" "${ROOT}/labs64.io-auditflow/auditflow-sink" auditflow-sink
 }
 
 build_checkout() {
-    mvn_step "checkout: backend build" "./labs64.io-checkout/checkout-be" clean package -Dmaven.test.skip=true
-    image_step "checkout: backend image" "./labs64.io-checkout/checkout-be" checkout
-    image_step "checkout: frontend image" "./labs64.io-checkout/checkout-fe" checkout-ui
+    mvn_step "checkout: backend build" "${ROOT}/labs64.io-checkout/checkout-be" clean package -Dmaven.test.skip=true
+    image_step "checkout: backend image" "${ROOT}/labs64.io-checkout/checkout-be" checkout
+    image_step "checkout: frontend image" "${ROOT}/labs64.io-checkout/checkout-fe" checkout-ui
 }
 
 build_payment_gateway() {
-    mvn_step "payment-gateway: backend + providers" "./labs64.io-payment-gateway" clean install -Dmaven.test.skip=true
-    image_step "payment-gateway: backend image" "./labs64.io-payment-gateway/payment-gateway-be" payment-gateway
+    mvn_step "payment-gateway: backend + providers" "${ROOT}/labs64.io-payment-gateway" clean install -Dmaven.test.skip=true
+    image_step "payment-gateway: backend image" "${ROOT}/labs64.io-payment-gateway/payment-gateway-be" payment-gateway
 }
 
 build_customer_portal() {
-    image_step "customer-portal: frontend image" "./labs64.io-customer-portal/customer-portal-fe" customer-portal-ui
+    image_step "customer-portal: frontend image" "${ROOT}/labs64.io-customer-portal/customer-portal-fe" customer-portal-ui
 }
 
 case "$TARGET" in

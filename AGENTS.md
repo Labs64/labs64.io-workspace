@@ -6,6 +6,20 @@ Guidance for AI agents working in the Labs64.IO workspace. Read this before maki
 
 Open-source digital commerce platform — polyglot microservices ecosystem. 12 independent git repos, shared Helm charts, ArgoCD deployment. **Not a monorepo.**
 
+## Repository layout
+
+The 12 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not inside it:
+
+```
+/workspaces/                    # ecosystem root (mounted by the DevContainer)
+├── labs64.io-workspace/        # justfile, DevContainer, scripts — you usually start here
+├── labs64.io-auditflow/
+├── labs64.io-helm-charts/
+└── ...
+```
+
+**Throughout this file, a path like `labs64.io-helm-charts/…` is relative to the ecosystem root** — from `labs64.io-workspace/` (the default working directory) reach it as `../labs64.io-helm-charts/…`. Paths between two ecosystem repos are unaffected: they remain siblings of each other.
+
 ## Quick orientation
 
 | What you need | Where to look |
@@ -32,7 +46,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 6. **Chart versions must match** between Helm `Chart.yaml` and ArgoCD ApplicationSet pin.
 7. **Network policies are restrictive** — new services need explicit ingress from traefik.
 8. **Each repo has its own git history** — never cross-commit between repositories.
-9. **Run `graphify update .`** after significant code changes.
+9. **Run `graphify update ..`** (from `labs64.io-workspace/`, so all sibling repos are indexed) after significant code changes.
 10. **Database-per-service.** Each service owns its logical database(s). Never share database credentials or connect to another service's database. New services must declare egress NetworkPolicies restricting outbound traffic to only their designated databases. See `labs64.io-helm-charts/DATABASES.md`.
 
 ## Shared conventions
@@ -67,13 +81,13 @@ Non-negotiable. Violations break builds, deployments, or observability.
 
 ## Knowledge graph
 
-Shared graph at `graphify-out/` covers all repos (7000+ nodes).
+Shared graph at `graphify-out/` (ecosystem root) covers all repos (7000+ nodes).
 
 ```bash
 graphify query "<question>"    # targeted lookup (preferred)
 graphify path "A" "B"         # relationship trace
 graphify explain "concept"    # focused explanation
-graphify update .             # refresh after code changes
+graphify update ..            # refresh after code changes (from labs64.io-workspace/)
 ```
 
 ## Superpowers
