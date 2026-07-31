@@ -130,6 +130,7 @@ resolve_and_add required \
     "registry.npmjs.org" \
     "repo.maven.apache.org" \
     "repo1.maven.org" \
+    "nexus.labs64.com" \
     "pypi.org" \
     "files.pythonhosted.org" \
     "index.crates.io" \

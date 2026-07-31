@@ -134,7 +134,8 @@ verify-deps verbose="1":
     for dir in \
         labs64.io-commons/auth-context-java \
         labs64.io-commons/openapi-spring-boot-starter \
-        labs64.io-commons/authz-queryplan-jpa; do
+        labs64.io-commons/authz-queryplan-jpa \
+        labs64.io-auditflow/auditflow-api; do
         if [ -d "$dir" ]; then
             run_step "deps: $dir (install)" -- bash -c "cd '$dir' && mvn -B install -Dmaven.test.skip=true"
         else
@@ -142,7 +143,6 @@ verify-deps verbose="1":
         fi
     done
     for dir in \
-        labs64.io-auditflow/auditflow-api \
         labs64.io-auditflow/auditflow-be \
         labs64.io-checkout/checkout-be \
         labs64.io-payment-gateway; do
