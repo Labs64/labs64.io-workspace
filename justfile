@@ -58,13 +58,25 @@ build module="all" verbose="1":
     # The modules live next to this workspace, so mount the whole ecosystem root
     # and run the build from the workspace folder inside it.
     ws="${LOCAL_WORKSPACE_FOLDER:-$(pwd)}"
+    # LOCAL_WORKSPACE_FOLDER is a host path. Docker Desktop passes a Windows
+    # path into Linux dev containers, so dirname/basename cannot split it.
+    case "$ws" in
+        *\\*)
+            workspace_name="${ws##*\\}"
+            ecosystem_root="${ws%\\*}"
+            ;;
+        *)
+            workspace_name="$(basename "$ws")"
+            ecosystem_root="$(dirname "$ws")"
+            ;;
+    esac
     if [ -t 1 ]; then TTY_ARGS="-it"; else TTY_ARGS=""; fi; \
     docker run $TTY_ARGS --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
         -e VERBOSE="{{verbose}}" \
-        -v "$(dirname "$ws")":/workspaces \
+        --mount "type=bind,source=${ecosystem_root},target=/workspaces" \
         -v labs64-m2-cache:/root/.m2 \
         -v /var/run/docker.sock:/var/run/docker.sock \
-        -w "/workspaces/$(basename "$ws")" \
+        -w "/workspaces/${workspace_name}" \
         labs64io-builder \
         ./scripts/build-images.sh "${MODULE:-all}"
 
