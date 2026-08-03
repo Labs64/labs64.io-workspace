@@ -180,6 +180,7 @@ resolve_and_add required \
     "chatgpt.com" \
     "api.openai.com" \
     "registry.npmjs.org" \
+    "api.spring.io" \
     "repo.maven.apache.org" \
     "repo1.maven.org" \
     "nexus.labs64.com" \
