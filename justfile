@@ -51,8 +51,35 @@ status:
 build module="all" verbose="1":
     #!/usr/bin/env bash
     set -euo pipefail
+    builder_uid="$(id -u)"
+    builder_gid="$(id -g)"
+    docker_gid="$(stat -Lc '%g' /var/run/docker.sock)"
+    maven_cache=/home/builder/.m2
     echo "=== Building dev container ==="
-    docker build -t labs64io-builder -f scripts/Dockerfile.builder scripts/
+    docker build \
+        --build-arg "USER_ID=${builder_uid}" \
+        --build-arg "GROUP_ID=${builder_gid}" \
+        -t labs64io-builder \
+        -f scripts/Dockerfile.builder \
+        scripts/
+
+    # Existing installations used /root/.m2 and left this named volume owned
+    # by root. Migrate it once (and again only if the invoking UID/GID changes).
+    cache_owner="$(docker run --rm \
+        -v "labs64-m2-cache:${maven_cache}" \
+        --entrypoint stat \
+        labs64io-builder \
+        -c '%u:%g' "${maven_cache}")"
+    if [[ "${cache_owner}" != "${builder_uid}:${builder_gid}" ]]; then
+        echo "=== Migrating Maven cache ownership (${cache_owner} -> ${builder_uid}:${builder_gid}) ==="
+        docker run --rm \
+            --user 0:0 \
+            -v "labs64-m2-cache:${maven_cache}" \
+            --entrypoint chown \
+            labs64io-builder \
+            -R "${builder_uid}:${builder_gid}" "${maven_cache}"
+    fi
+
     echo "=== Running build in dev container ==="
     MODULE='{{module}}'
     # The modules live next to this workspace, so mount the whole ecosystem root
@@ -72,9 +99,13 @@ build module="all" verbose="1":
     esac
     if [ -t 1 ]; then TTY_ARGS="-it"; else TTY_ARGS=""; fi; \
     docker run $TTY_ARGS --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
+        --user "${builder_uid}:${builder_gid}" \
+        --group-add "${docker_gid}" \
         -e VERBOSE="{{verbose}}" \
+        -e HOME=/home/builder \
+        -e MAVEN_CONFIG="${maven_cache}" \
         --mount "type=bind,source=${ecosystem_root},target=/workspaces" \
-        -v labs64-m2-cache:/root/.m2 \
+        -v "labs64-m2-cache:${maven_cache}" \
         -v /var/run/docker.sock:/var/run/docker.sock \
         -w "/workspaces/${workspace_name}" \
         labs64io-builder \
