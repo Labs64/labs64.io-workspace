@@ -21,7 +21,17 @@ fi
 build_image() {
     local tag=$1
     shift
-    docker build -t "$tag" "$@"
+    # Filter legacy builder warnings safely without losing exit code
+    docker build -t "$tag" "$@" 2>&1 | awk '
+      /DEPRECATED: The legacy builder/ { skip=3; next }
+      skip > 0 { skip--; next }
+      { print }
+    '
+    # Capture docker build exit code safely (pipestatus works in bash)
+    local status=${PIPESTATUS[0]}
+    if [ $status -ne 0 ]; then
+        return $status
+    fi
     if [[ "$BUILD_ACTION" == "--push" ]]; then
         docker push "$tag"
     fi

@@ -94,3 +94,25 @@ graphify update ..            # refresh after code changes (from labs64.io-works
 
 - **Plans:** `.agents/superpowers/plans/YYYY-MM-DD-{session-slug}.md`
 - **Specs:** `.agents/superpowers/specs/YYYY-MM-DD-{session-slug}.md`
+
+## Skills
+
+Ecosystem-wide skills live in `.agents/skills/<name>/SKILL.md` (git-tracked here, so every
+developer gets them by cloning this repo). There is no single shared "skills" env var across
+agent tools, so the devcontainer's `post-create.sh` symlinks this one directory into each
+tool's own user-level config dir separately: `$CLAUDE_CONFIG_DIR/skills` for Claude Code and
+`$CODEX_HOME/skills` for Codex CLI (both auto-discover `SKILL.md` by its `name`/`description`
+frontmatter — no per-project setup, works from any repo's cwd). Agents without native
+skill-tool support (e.g. reading only `AGENTS.md`) should still open the relevant `SKILL.md`
+directly and follow it as instructions when its `description` matches the task at hand:
+
+- `rfc-writing` — propose an architectural/cross-module change
+- `openapi-first-change` — change an API contract
+- `test-suite-steward` — add/audit/run tests in `labs64.io-tests/`
+- `helm-config-binding-check` — Helm chart config changes
+- `local-k8s-qa-audit` — QA against the local k3d cluster
+- `ecosystem-website-sync` — keep `labs64.io-website` module data in sync
+
+Adding a skill: create `.agents/skills/<name>/SKILL.md` with `name`/`description`
+frontmatter (Claude Code's skill format) and it's picked up automatically — no registration
+step, same as adding a transformer/sink in AuditFlow.

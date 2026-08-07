@@ -3,6 +3,29 @@ set -euo pipefail
 
 echo "=== Labs64.IO DevContainer Setup ==="
 
+# Wire the ecosystem's shared skills (.agents/skills/, git-tracked here) into every AI
+# coding agent that reads this container's user-level config. Symlinked rather than
+# copied so edits show up immediately for every developer without a rebuild. Lives at
+# user level (not project-level .claude/skills) because sessions may be rooted at
+# /workspaces (ecosystem root, not a git repo) or any individual sibling repo, and
+# user-level config applies regardless of cwd.
+#
+# There is no shared "AGENTS_CONFIG_DIR" env var that multiple agents honor — each tool
+# defines its own (CLAUDE_CONFIG_DIR here, CODEX_HOME for Codex), so each gets linked
+# separately. The SKILL.md format (name/description frontmatter) happens to be portable
+# across both, so one source directory serves both links.
+SKILLS_SRC=/workspaces/labs64.io-workspace/.agents/skills
+
+echo "Linking shared skills into Claude Code..."
+CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+mkdir -p "$CLAUDE_CONFIG_DIR"
+ln -sfn "$SKILLS_SRC" "$CLAUDE_CONFIG_DIR/skills"
+
+echo "Linking shared skills into Codex CLI..."
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+mkdir -p "$CODEX_HOME"
+ln -sfn "$SKILLS_SRC" "$CODEX_HOME/skills"
+
 # Install egress-firewall dependencies and stage the init script.
 # The firewall itself is (re)applied on every container start via
 # postStartCommand -> /usr/local/bin/init-firewall.sh (see devcontainer.json).
