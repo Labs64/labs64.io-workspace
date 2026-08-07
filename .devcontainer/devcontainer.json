@@ -24,7 +24,7 @@
       "helm": "latest",
       "minikube": "none"
     },
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
   },
   "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind",
   "workspaceFolder": "/workspaces/labs64.io-workspace",
