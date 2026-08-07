@@ -34,15 +34,7 @@ publish behavior stays consistent across the polyglot fleet.
   calling job for **both** modes — this workflow declares `contents: write`
   at its own top level and GitHub enforces that against the caller
   regardless of which mode runs.
-- **`sast.yml`** — Semgrep static analysis (`p/security-audit` + `p/secrets`
-  by default), distinct from any repo's functional/contract CI. Uploads a
-  SARIF file to code scanning (every severity, informational) and fails the
-  build only on **ERROR**-severity findings. Every run also writes and
-  uploads a `<manifest-name>.json` artifact naming the exact scanner + version
-  + ruleset + finding counts for that commit — the mechanism behind "a release
-  can state which scanners ran against it" (roadmap item 16). A release
-  process should quote this artifact's contents in its **Contract
-  Changes**/security section rather than re-deriving it.
+
 
   `java-ci.yml`'s reusable-workflow `permissions:` block was deliberately left
   unset (inherits from the caller) rather than hardcoded — so a caller that
@@ -68,25 +60,3 @@ jobs:
 
 See each workflow's `on.workflow_call.inputs` block for the full set of
 inputs and defaults.
-
-## SAST manifests and release notes
-
-Every repo running `sast.yml` produces a build artifact (default name
-`sast-manifest`, override with `manifest-name` to avoid collisions when a repo
-runs it more than once) shaped like:
-
-```json
-{
-  "scanner": "semgrep",
-  "version": "1.171.0",
-  "config": ["p/security-audit", "p/secrets"],
-  "commit": "<sha>",
-  "findings_total": 0,
-  "findings_error_severity": 0
-}
-```
-
-This is the mechanism, not the whole convention — the release process itself
-(house style, templating: roadmap item 19) still needs to fetch the manifest
-for the released commit and quote it. Until that's built, name the scanner and
-version by hand from the manifest when writing release notes.
