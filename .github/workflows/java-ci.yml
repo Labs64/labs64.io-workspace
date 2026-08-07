@@ -151,6 +151,9 @@ jobs:
 
       - name: Pre-install sibling modules
         if: inputs.pre-install-dirs != ''
+        env:
+          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
         run: |
           for d in $PRE_DIRS; do
             echo "== install $d"
@@ -158,6 +161,9 @@ jobs:
           done
 
       - name: Build and test
+        env:
+          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
         run: mvn -B -ntp -f "$WD/pom.xml" $GOALS
 
       - name: Upload test reports

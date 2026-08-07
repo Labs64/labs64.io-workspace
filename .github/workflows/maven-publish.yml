@@ -60,9 +60,6 @@ jobs:
       RELEASE_VERSION: ${{ inputs.version }}
       NEXT_VERSION: ${{ inputs.next-version }}
       TAG_PREFIX: ${{ inputs.tag-prefix }}
-      L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
-      L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
-      MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS }}
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
@@ -89,6 +86,9 @@ jobs:
 
       - name: Prepare Maven settings.xml
         working-directory: .
+        env:
+          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml <<'EOF'
@@ -110,6 +110,9 @@ jobs:
 
       - name: Deploy snapshot
         if: inputs.mode == 'snapshot'
+        env:
+          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
         run: |
           VERSION="$(mvn -q -ntp -DforceStdout help:evaluate -Dexpression=project.version)"
           echo "Current version: $VERSION"
@@ -143,6 +146,10 @@ jobs:
 
       - name: Release
         if: inputs.mode == 'release'
+        env:
+          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS }}
         run: |
           if [[ "$GITHUB_REF_TYPE" != "branch" ]]; then
             echo "mode=release must be invoked from a branch ref (workflow_dispatch), not a tag/release event"
