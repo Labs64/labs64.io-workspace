@@ -64,6 +64,11 @@ on:
         required: false
         type: string
         default: ""
+    secrets:
+      L64_PUB_CI_USERNAME:
+        required: false
+      L64_PUB_CI_PASSWORD:
+        required: false
 
 jobs:
   build:
@@ -86,6 +91,31 @@ jobs:
       - name: Set extra environment variables
         if: inputs.extra-env != ''
         run: echo "${{ inputs.extra-env }}" >> "$GITHUB_ENV"
+
+      - name: Prepare Maven settings.xml
+        if: secrets.L64_PUB_CI_USERNAME != ''
+        working-directory: .
+        env:
+          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'EOF'
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+            <servers>
+              <server>
+                <id>labs64-nexus</id>
+                <username>${env.L64_PUB_CI_USERNAME}</username>
+                <password>${env.L64_PUB_CI_PASSWORD}</password>
+              </server>
+              <server>
+                <id>labs64-nexus-snapshots</id>
+                <username>${env.L64_PUB_CI_USERNAME}</username>
+                <password>${env.L64_PUB_CI_PASSWORD}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
 
       # Waits for every service in the compose file to report healthy (or, for
       # services with no healthcheck, merely running) before handing control
