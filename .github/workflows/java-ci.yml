@@ -157,14 +157,14 @@ jobs:
         run: |
           for d in $PRE_DIRS; do
             echo "== install $d"
-            mvn -B -ntp -DskipTests -f "$d/pom.xml" install
+            mvn -U -B -ntp -DskipTests -f "$d/pom.xml" install
           done
 
       - name: Build and test
         env:
           L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
           L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
-        run: mvn -B -ntp -f "$WD/pom.xml" $GOALS
+        run: mvn -U -B -ntp -f "$WD/pom.xml" $GOALS
 
       - name: Upload test reports
         if: always() && inputs.artifact-name != ''

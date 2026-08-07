@@ -120,7 +120,7 @@ jobs:
             echo "Version $VERSION is not a SNAPSHOT — skipping snapshot deploy."
             exit 0
           fi
-          mvn -B -ntp -s ~/.m2/settings.xml clean deploy
+          mvn -U -B -ntp -s ~/.m2/settings.xml clean deploy
 
       - name: Import GPG key
         if: inputs.mode == 'release'
@@ -155,8 +155,8 @@ jobs:
             echo "mode=release must be invoked from a branch ref (workflow_dispatch), not a tag/release event"
             exit 1
           fi
-          mvn -B -ntp versions:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
-          mvn -B -ntp -s ~/.m2/settings.xml clean deploy -P release -Dgpg.pinentryMode=loopback
+          mvn -U -B -ntp versions:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
+          mvn -U -B -ntp -s ~/.m2/settings.xml clean deploy -P release -Dgpg.pinentryMode=loopback
           git add pom.xml
           git commit -m "chore: release $WD $RELEASE_VERSION"
           git tag -a "${TAG_PREFIX}${RELEASE_VERSION}" -m "Release ${RELEASE_VERSION}"
@@ -164,7 +164,7 @@ jobs:
             IFS=. read -r MA MI PA <<< "$RELEASE_VERSION"
             NEXT_VERSION="${MA}.${MI}.$((PA+1))-SNAPSHOT"
           fi
-          mvn -B -ntp versions:set -DnewVersion="$NEXT_VERSION" -DgenerateBackupPoms=false
+          mvn -U -B -ntp versions:set -DnewVersion="$NEXT_VERSION" -DgenerateBackupPoms=false
           git add pom.xml
           git commit -m "chore: start $NEXT_VERSION"
           git push origin "HEAD:${GITHUB_REF_NAME}"
