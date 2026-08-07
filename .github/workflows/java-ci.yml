@@ -93,12 +93,15 @@ jobs:
         run: echo "${{ inputs.extra-env }}" >> "$GITHUB_ENV"
 
       - name: Prepare Maven settings.xml
-        if: secrets.L64_PUB_CI_USERNAME != ''
         working-directory: .
         env:
           L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
           L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
         run: |
+          if [ -z "$L64_PUB_CI_USERNAME" ]; then
+            echo "No credentials provided, skipping settings.xml generation."
+            exit 0
+          fi
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml <<'EOF'
           <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
