@@ -51,6 +51,7 @@
         "ms-kubernetes-tools.vscode-kubernetes-tools",
         "nefrob.vscode-just-syntax",
         "anthropic.claude-code",
+        "mhelbich.claude-code-usage-status",
         "GitHub.copilot-chat",
         "openai.chatgpt"
       ]

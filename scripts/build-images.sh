@@ -62,8 +62,7 @@ build_traefik_authproxy() {
 }
 
 build_auditflow() {
-    mvn_step "auditflow: api" "${ROOT}/labs64.io-auditflow/auditflow-api" clean install -Dmaven.test.skip=true
-    mvn_step "auditflow: backend build" "${ROOT}/labs64.io-auditflow/auditflow-be" clean package -Dmaven.test.skip=true
+    mvn_step "auditflow: api + backend build" "${ROOT}/labs64.io-auditflow" clean install -Dmaven.test.skip=true
     image_step "auditflow: backend image" "${ROOT}/labs64.io-auditflow/auditflow-be" auditflow
     image_step "auditflow: transformer image" "${ROOT}/labs64.io-auditflow/auditflow-transformer" auditflow-transformer
     image_step "auditflow: sink image" "${ROOT}/labs64.io-auditflow/auditflow-sink" auditflow-sink
@@ -76,7 +75,7 @@ build_checkout() {
 }
 
 build_payment_gateway() {
-    mvn_step "payment-gateway: backend + providers" "${ROOT}/labs64.io-payment-gateway" clean install -Dmaven.test.skip=true
+    mvn_step "payment-gateway: api + backend + providers" "${ROOT}/labs64.io-payment-gateway" clean install -Dmaven.test.skip=true
     image_step "payment-gateway: backend image" "${ROOT}/labs64.io-payment-gateway/payment-gateway-be" payment-gateway
 }
 
