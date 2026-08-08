@@ -379,6 +379,13 @@ iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
 DYNAMIC_DOMAINS=(
     "registry-1.docker.io"
     "charts.external-secrets.io"
+    # charts.bitnami.com is CloudFront-fronted and rotates across entire /24s, not just
+    # within one: observed 18.172.112.{8,76,80,82} and, twenty minutes later,
+    # 54.230.228.{10,30,45,58}. Seeding it once above is therefore not enough — the
+    # allowlist goes stale on the next rotation and `helmfile`/`helm repo update` fail
+    # with "no route to host" for rabbitmq, postgresql and redis. That intermittency is
+    # what made this look like a flaky network rather than a stale ipset.
+    "charts.bitnami.com"
 )
 DYNAMIC_REFRESH_INTERVAL=30
 
