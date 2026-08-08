@@ -125,7 +125,7 @@ otel:
 down:
     @cd {{ROOT}}/labs64.io-helm-charts && just cluster-down
 
-# Tail error logs for all modules, or `just logs <app>` for one (e.g. `just logs checkout`)
+# Tail error logs for all modules, or `just logs <app>` for one (e.g. `just logs auditflow`)
 logs app="":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -136,7 +136,7 @@ logs app="":
         just logs-errors
     fi
 
-# Check that required local tooling is installed (Docker, k3d, Helm (+ helm-diff), Helmfile, kubectl, just; optional Java/Maven/Node)
+# Check that required local tooling is installed
 doctor:
     #!/usr/bin/env bash
     set -euo pipefail
