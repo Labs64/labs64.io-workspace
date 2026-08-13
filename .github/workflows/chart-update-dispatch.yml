@@ -1,0 +1,118 @@
+# Reusable: tell labs64.io-helm-charts which image digests a release produced.
+#
+# Sends a `module-released` repository_dispatch whose client_payload is consumed by
+# labs64.io-helm-charts/.github/workflows/labs64io-chart-image-update.yml, which opens
+# a PR pinning the digests into the chart. This is the last hop of the release
+# pipeline: publish -> digest -> chart -> cluster.
+#
+# Requires a PAT (`CHART_DISPATCH_TOKEN`) with `contents: write` on the helm-charts
+# repo — the per-repo GITHUB_TOKEN cannot dispatch to another repository. Without it
+# the job does not fail the release: it warns and prints the exact command to run by
+# hand, because a red release for a missing propagation secret is worse than a
+# release that needs one manual step.
+name: Reusable - Chart Update Dispatch
+
+on:
+  workflow_call:
+    inputs:
+      chart:
+        description: "Chart directory name in labs64.io-helm-charts (e.g. auditflow)"
+        required: true
+        type: string
+      version:
+        description: "Released application version X.Y.Z"
+        required: true
+        type: string
+      images:
+        description: "One `repository@sha256:...` per line — every first-party image of the release"
+        required: true
+        type: string
+      bump:
+        description: "Chart version bump requested of the chart repo"
+        required: false
+        type: string
+        default: patch
+      charts-repository:
+        required: false
+        type: string
+        default: Labs64/labs64.io-helm-charts
+    secrets:
+      CHART_DISPATCH_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and validate the payload
+        env:
+          CHART: ${{ inputs.chart }}
+          VERSION: ${{ inputs.version }}
+          IMAGES: ${{ inputs.images }}
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version '$VERSION' is not MAJOR.MINOR.PATCH"; exit 1
+          fi
+          if [[ ! "$CHART" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+            echo "::error::chart '$CHART' is not a plain chart name"; exit 1
+          fi
+
+          # Every non-blank line must parse as repository@sha256:<64 hex>; jq's
+          # capture drops anything that does not, so compare the counts rather
+          # than dispatching a silently shortened image list.
+          LINES="$(printf '%s\n' "$IMAGES" | sed '/^[[:space:]]*$/d')"
+          EXPECTED="$(printf '%s\n' "$LINES" | wc -l | tr -d ' ')"
+          IMAGES_JSON="$(printf '%s\n' "$LINES" \
+            | jq -R 'capture("^(?<image>[^@[:space:]]+)@(?<digest>sha256:[a-f0-9]{64})$")' \
+            | jq -s '.')"
+          ACTUAL="$(echo "$IMAGES_JSON" | jq 'length')"
+          if [[ "$EXPECTED" -eq 0 || "$EXPECTED" != "$ACTUAL" ]]; then
+            echo "::error::images must be one 'repository@sha256:<64 hex>' per line ($ACTUAL of $EXPECTED parsed)"
+            printf '%s\n' "$LINES"
+            exit 1
+          fi
+
+          jq -n \
+            --arg chart "$CHART" \
+            --arg version "$VERSION" \
+            --arg bump "$BUMP" \
+            --argjson images "$IMAGES_JSON" \
+            '{event_type: "module-released",
+              client_payload: {chart: $chart, version: $version, bump: $bump, images: $images}}' \
+            > dispatch.json
+          cat dispatch.json
+
+      - name: Dispatch to the chart repository
+        env:
+          GH_TOKEN: ${{ secrets.CHART_DISPATCH_TOKEN }}
+          CHARTS_REPO: ${{ inputs.charts-repository }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::warning::CHART_DISPATCH_TOKEN is not configured — chart update not dispatched."
+            {
+              echo "### Chart update not dispatched"
+              echo
+              echo "\`CHART_DISPATCH_TOKEN\` is not configured for this repository, so the"
+              echo "chart PR was not opened. The release itself is complete and the digests"
+              echo "below are final. Run this to propagate them:"
+              echo
+              echo '```bash'
+              echo "gh api repos/${CHARTS_REPO}/dispatches --input - <<'EOF'"
+              cat dispatch.json
+              echo "EOF"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh api "repos/${CHARTS_REPO}/dispatches" --input dispatch.json
+          {
+            echo "### Chart update dispatched"
+            echo
+            echo "Sent \`module-released\` to \`${CHARTS_REPO}\`; it opens the chart PR."
+          } >> "$GITHUB_STEP_SUMMARY"

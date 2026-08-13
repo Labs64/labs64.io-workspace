@@ -24,7 +24,19 @@ publish behavior stays consistent across the polyglot fleet.
 - **`docker-publish.yml`** — Builds and pushes a multi-platform image to
   DockerHub. `mode: edge` tags `<image>:edge` (master pushes after green CI);
   `mode: release` tags `<image>:<version>` + `<image>:latest` (GitHub
-  releases).
+  releases). Outputs the immutable identity of what it pushed —
+  `image`, `tag` (the primary one; never `latest`), `digest`, and `image-ref`
+  (`<image>@sha256:…`) — and fails if the build returns no usable digest. The
+  required-OCI-label check runs against the digest, so it asserts the labels on
+  the exact artifact of that run rather than on whatever the tag resolves to
+  later. See [Consuming the digest](#consuming-the-digest).
+- **`chart-update-dispatch.yml`** — Sends the release's image digests to
+  `labs64.io-helm-charts` as a `module-released` repository_dispatch; that repo
+  opens a PR pinning them into the chart. Validates the payload before sending
+  (chart name, version, one `repository@sha256:…` per line). Needs a PAT in
+  `CHART_DISPATCH_TOKEN`; without it the job warns, prints the equivalent
+  `gh api` command in the job summary, and succeeds — a missing propagation
+  secret must not fail an otherwise good release.
 - **`maven-publish.yml`** — Publishes to Labs64 Nexus via the poms'
   `distributionManagement` (credentials are injected for server ids
   `labs64-nexus` / `labs64-nexus-snapshots`). `mode: snapshot` deploys the current
@@ -60,3 +72,51 @@ jobs:
 
 See each workflow's `on.workflow_call.inputs` block for the full set of
 inputs and defaults.
+
+## Consuming the digest
+
+`docker-publish.yml` exposes the pushed image's digest so downstream jobs can
+reference the exact artifact instead of a tag. Neither Docker Hub nor GHCR can
+enforce tag immutability, so `<image>:<version>` may later resolve to different
+content than the run that validated it; the digest cannot move.
+
+```yaml
+jobs:
+  publish-be:
+    uses: Labs64/labs64.io-workspace/.github/workflows/docker-publish.yml@master
+    with:
+      image: labs64/checkout
+      context: ./checkout-be
+      mode: release
+      version: ${{ github.event.release.tag_name }}
+    secrets: inherit
+
+  propagate:
+    needs: publish-be
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show what to pin
+        env:
+          IMAGE: ${{ needs.publish-be.outputs.image }}
+          DIGEST: ${{ needs.publish-be.outputs.digest }}
+          REF: ${{ needs.publish-be.outputs.image-ref }}
+        run: echo "$REF"   # -> labs64/checkout@sha256:...
+```
+
+Every release publisher in the ecosystem is wired this way — `auditflow` (3 images),
+`checkout` (2), `authproxy` -> `charts/api-gateway`, `customer-portal`, and
+`payment-gateway`. `just check-release-wiring` (in this repo) verifies the whole
+chain across repos: each `mode: release` publisher must dispatch a chart update
+naming a real chart and supplying exactly the first-party images that chart
+deploys. `mode: edge` publishers are excluded — `:edge` is not a release and must
+never move a chart.
+
+The digest feeds two consumers:
+
+- the Helm chart's `image.digest` value (`chart-libs >= 0.3.0` renders
+  `repository@sha256:…` when it is set, and validates the format at render time);
+- the release manifest's `artifacts.container[].digest`.
+
+A release that publishes several images (AuditFlow ships three, checkout two)
+calls this workflow once per image and collects one digest from each — all of
+them belong to the same release.

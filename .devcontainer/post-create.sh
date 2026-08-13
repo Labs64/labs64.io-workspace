@@ -34,6 +34,9 @@ sudo apt-get update -y
 sudo apt-get install -y --no-install-recommends iptables ipset dnsutils aggregate jq
 sudo install -m 0755 "$(dirname "$0")/init-firewall.sh" /usr/local/bin/init-firewall.sh
 
+echo "Installing python dependencies..."
+pip3 install pyyaml
+
 # Install just-lsp
 # The Ubuntu-packaged cargo is 1.75, too old for just-lsp (needs edition2024 /
 # Rust >= 1.85), so install a current stable toolchain via rustup instead.

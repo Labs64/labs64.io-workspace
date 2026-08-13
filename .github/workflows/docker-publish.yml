@@ -2,6 +2,12 @@
 #   mode: edge    -> <image>:edge            (master pushes, after green CI)
 #   mode: release -> <image>:<version> + :latest   (GitHub release)
 # build-command runs before docker build (e.g. mvn package for jar-based images).
+#
+# Emits the pushed image digest as a workflow output. Neither Docker Hub nor GHCR can
+# enforce tag immutability, so `<image>:<version>` may later resolve to different content
+# than what this run validated — the digest is the only identity that cannot move. Callers
+# forward `image-ref` into the Helm chart's `image.digest` (chart-libs >= 0.3.0) and into
+# the release manifest.
 name: Reusable - Docker Publish
 
 on:
@@ -37,6 +43,19 @@ on:
         required: true
       DOCKERHUB_TOKEN:
         required: true
+    outputs:
+      image:
+        description: "Image repository that was pushed, e.g. labs64/checkout"
+        value: ${{ jobs.publish.outputs.image }}
+      tag:
+        description: "Primary tag pushed — the version for mode=release, 'edge' for mode=edge"
+        value: ${{ jobs.publish.outputs.tag }}
+      digest:
+        description: "Digest of the pushed image index, sha256:<64 hex>"
+        value: ${{ jobs.publish.outputs.digest }}
+      image-ref:
+        description: "Immutable pull reference <image>@<digest> — deploy by this, not by tag"
+        value: ${{ jobs.publish.outputs.image-ref }}
 
 permissions:
   contents: read
@@ -44,6 +63,11 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.identity.outputs.image }}
+      tag: ${{ steps.identity.outputs.tag }}
+      digest: ${{ steps.identity.outputs.digest }}
+      image-ref: ${{ steps.identity.outputs.image-ref }}
     env:
       IMAGE: ${{ inputs.image }}
       MODE: ${{ inputs.mode }}
@@ -79,10 +103,15 @@ jobs:
         id: tags
         run: |
           if [[ "$MODE" == "edge" ]]; then
-            echo "tags=$IMAGE:edge" >> "$GITHUB_OUTPUT"
+            PRIMARY="edge"
+            printf 'tags<<EOF\n%s\nEOF\n' "$IMAGE:edge" >> "$GITHUB_OUTPUT"
           else
+            PRIMARY="$VERSION"
             printf 'tags<<EOF\n%s\n%s\nEOF\n' "$IMAGE:$VERSION" "$IMAGE:latest" >> "$GITHUB_OUTPUT"
           fi
+          # The primary tag is the one that identifies this release; :latest is a
+          # navigation alias and must never be what a deployment resolves.
+          echo "primary=$PRIMARY" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v4
 
@@ -94,6 +123,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - uses: docker/build-push-action@v7
+        id: build
         with:
           context: ${{ inputs.context }}
           push: true
@@ -104,12 +134,57 @@ jobs:
           cache-from: type=gha,scope=${{ inputs.image }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image }}
 
-      - name: Verify required OCI labels
+      # Resolve the immutable identity of what was just pushed. For a multi-platform
+      # build this is the digest of the image index, so it is platform-independent and
+      # is what a Deployment should reference.
+      - name: Capture image digest
+        id: identity
+        env:
+          PRIMARY_TAG: ${{ steps.tags.outputs.primary }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          TAG="$(printf '%s\n' "${{ steps.tags.outputs.tags }}" | head -n1)"
-          docker pull "$TAG"
-          LABELS="$(docker inspect --format '{{json .Config.Labels}}' "$TAG")"
+          set -euo pipefail
+          if [[ ! "$BUILD_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::build did not return a usable image digest (got '${BUILD_DIGEST}')"
+            exit 1
+          fi
+          IMAGE_REF="${IMAGE}@${BUILD_DIGEST}"
+          {
+            echo "image=${IMAGE}"
+            echo "tag=${PRIMARY_TAG}"
+            echo "digest=${BUILD_DIGEST}"
+            echo "image-ref=${IMAGE_REF}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Published \`${IMAGE}:${PRIMARY_TAG}\`"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Image | \`${IMAGE}\` |"
+            echo "| Tag | \`${PRIMARY_TAG}\` |"
+            echo "| Digest | \`${BUILD_DIGEST}\` |"
+            echo "| Pull by | \`${IMAGE_REF}\` |"
+            echo
+            echo "Pin the deployment (chart-libs >= 0.3.0):"
+            echo
+            echo '```yaml'
+            echo "image:"
+            echo "  repository: ${IMAGE}"
+            echo "  digest: ${BUILD_DIGEST}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Verify by digest rather than by tag: this asserts the labels on the exact
+      # artifact this run produced, not on whatever the tag happens to resolve to.
+      - name: Verify required OCI labels
+        env:
+          IMAGE_REF: ${{ steps.identity.outputs.image-ref }}
+        run: |
+          set -euo pipefail
+          docker pull "$IMAGE_REF"
+          LABELS="$(docker inspect --format '{{json .Config.Labels}}' "$IMAGE_REF")"
           for key in org.opencontainers.image.licenses org.opencontainers.image.revision org.opencontainers.image.source io.labs64.edition; do
             echo "$LABELS" | jq -e --arg k "$key" 'has($k) and (.[$k] | length > 0)' >/dev/null \
-              || { echo "::error::missing or empty OCI label '$key' on $TAG"; exit 1; }
+              || { echo "::error::missing or empty OCI label '$key' on $IMAGE_REF"; exit 1; }
           done
