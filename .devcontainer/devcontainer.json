@@ -54,7 +54,8 @@
         "anthropic.claude-code",
         "mhelbich.claude-code-usage-status",
         "GitHub.copilot-chat",
-        "openai.chatgpt"
+        "openai.chatgpt",
+        "eamodio.gitlens"
       ]
     }
   },
