@@ -43,6 +43,10 @@ on:
         required: true
       DOCKERHUB_TOKEN:
         required: true
+      L64_PUB_CI_USERNAME:
+        required: false
+      L64_PUB_CI_PASSWORD:
+        required: false
     outputs:
       image:
         description: "Image repository that was pushed, e.g. labs64/checkout"
@@ -95,8 +99,39 @@ jobs:
           java-version: ${{ inputs.java-version }}
           cache: maven
 
+      - name: Prepare Maven settings.xml
+        if: inputs.build-command != ''
+        env:
+          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
+        run: |
+          if [ -z "$L64_PUB_CI_USERNAME" ]; then
+            echo "No credentials provided, skipping settings.xml generation."
+            exit 0
+          fi
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'EOF'
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+            <servers>
+              <server>
+                <id>labs64-nexus</id>
+                <username>${env.L64_PUB_CI_USERNAME}</username>
+                <password>${env.L64_PUB_CI_PASSWORD}</password>
+              </server>
+              <server>
+                <id>labs64-nexus-snapshots</id>
+                <username>${env.L64_PUB_CI_USERNAME}</username>
+                <password>${env.L64_PUB_CI_PASSWORD}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
       - name: Pre-build
         if: inputs.build-command != ''
+        env:
+          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
         run: $BUILD_CMD
 
       - name: Compute tags
