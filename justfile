@@ -219,9 +219,6 @@ smoke:
 regression:
     @cd {{ROOT}}/labs64.io-tests && just regression
 
-# Verify the cross-repo release wiring: every mode:release image publisher must
-# dispatch a chart update naming a real chart and supplying exactly the
-# first-party images that chart deploys. Spans repos, so no single repo's CI
-# can catch this drift.
-check-release-wiring:
+# Verify the cross-repo release wiring
+check-release:
     @python3 {{ROOT}}/labs64.io-workspace/scripts/check-release-wiring.py --root {{ROOT}}
