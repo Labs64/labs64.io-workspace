@@ -260,6 +260,14 @@ resolve_and_add optional \
     "sh.rustup.rs" \
     "static.rust-lang.org"
 
+# --- Optional: payment provider server APIs ---
+# Payment Gateway uses these endpoints for Stripe Checkout, PayPal Orders,
+# captures, OAuth tokens and PayPal webhook signature verification.
+resolve_and_add optional \
+    "api.stripe.com" \
+    "api-m.sandbox.paypal.com" \
+    "api-m.paypal.com"
+
 # --- Optional: host.docker.internal (k3d API server, local OIDC provider,
 # Cerbos PDP and other host-side services reached from the container, e.g.
 # labs64.io-authproxy/traefik-authproxy and labs64.io-helm-charts justfiles).
@@ -386,6 +394,11 @@ DYNAMIC_DOMAINS=(
     # with "no route to host" for rabbitmq, postgresql and redis. That intermittency is
     # what made this look like a flaky network rather than a stale ipset.
     "charts.bitnami.com"
+    # PSP API hosts are backed by distributed infrastructure and can return
+    # different addresses as DNS caches and routing change.
+    "api.stripe.com"
+    "api-m.sandbox.paypal.com"
+    "api-m.paypal.com"
 )
 DYNAMIC_REFRESH_INTERVAL=30
 
