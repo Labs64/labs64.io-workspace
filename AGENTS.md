@@ -44,7 +44,9 @@ Non-negotiable. Violations break builds, deployments, or observability.
 4. **Observability is infrastructure-owned.** Never add OpenTelemetry SDK/starter dependencies or SDK bootstrap to services; the OTel Java Agent (bundled in images) / `opentelemetry-instrument` (entrypoint) provide instrumentation, toggled purely by deployment env (`observability.enabled` in Helm, obs compose overlay). Business telemetry goes through each service's thin `BusinessTelemetry` abstraction. See `labs64.io-helm-charts/OBSERVABILITY.md` (canonical model).
 5. **Keep transformer/sink ID validation regex consistent** across Java and Python (`^[a-zA-Z0-9_]+$`).
 6. **Chart versions must match** between Helm `Chart.yaml` and ArgoCD ApplicationSet pin.
-7. **Network policies are restrictive** — new services need explicit ingress from traefik.
+7. **Network policies must preserve explicit communication paths** — allow ingress from
+   Traefik/AuthProxy for external routes and from the specific caller modules for direct
+   in-cluster integrations.
 8. **Each repo has its own git history** — never cross-commit between repositories.
 9. **Run `graphify update ..`** (from `labs64.io-workspace/`, so all sibling repos are indexed) after significant code changes.
 10. **Database-per-service.** Each service owns its logical database(s). Never share database credentials or connect to another service's database. New services must declare egress NetworkPolicies restricting outbound traffic to only their designated databases. See `labs64.io-helm-charts/DATABASES.md`.
@@ -60,6 +62,30 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Tests | JUnit 5 (Java), pytest (Python), Vitest (Vue); black-box API-edge regression in `labs64.io-tests/` (Robot Framework) |
 | Task runner | `just` — check each repo's justfile |
 | Observability | Infrastructure-owned; runtime auto-instrumentation (OTel Java Agent / opentelemetry-instrument) → OTel Collector → Tempo (traces) / Loki compose (logs) / Prometheus (metrics) → Grafana; Java metrics via Micrometer `/actuator/prometheus`. Canonical model: `labs64.io-helm-charts/OBSERVABILITY.md` |
+
+## Service-to-service communication
+
+- External traffic enters the Kubernetes cluster through Traefik/AuthProxy.
+- HTTP calls between modules in the same cluster use the target module's Kubernetes
+  Service directly and must not route through Traefik.
+- Traefik/AuthProxy removes caller-supplied `X-Auth-*` headers and creates the trusted
+  auth context from the validated JWT.
+- Internal callers construct the same standard context:
+  `X-Auth-User`, `X-Auth-Scopes`, `X-Auth-Tenant`, and `X-Request-ID`.
+- `X-Auth-User` identifies the immediate caller as `service:<module>`; do not forward
+  the original end-user as the authenticated caller.
+- Internal scopes come from the caller integration configuration.
+- Tenant comes from the trusted current context or verified domain state. For example,
+  Payment Gateway resolves a PSP webhook tenant through the payment transaction, never
+  directly from the webhook payload.
+- Public endpoints validate request authenticity inside the owning module before
+  constructing an internal auth context.
+- The current model trusts in-cluster modules. Cryptographic caller verification and
+  module certification through mTLS, SPIFFE/SPIRE, or an equivalent mechanism are
+  unresolved future work.
+
+Decision record:
+`labs64.io-docs-internal/rfc/2026-08-12_RFC_09_service-principal-delegated-tenant-publishing.md`.
 
 ## Where to make common changes
 
