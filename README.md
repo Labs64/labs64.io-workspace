@@ -26,7 +26,7 @@ Install these tools before cloning (or skip straight to the DevContainer, which 
 | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | latest | Container runtime (`brew install --cask docker`) |
 | [k3d](https://k3d.io/) | v5.x+ | Local k3s (lightweight Kubernetes) cluster used by `just up` (`brew install k3d`) |
 | [Helm](https://helm.sh/) | v3.x+ | Kubernetes package manager (`brew install helm`) |
-| [helm-diff plugin](https://github.com/databus23/helm-diff) | latest | Previews chart changes (`helm diff upgrade`) before applying them |
+| [helm-diff plugin](https://github.com/databus23/helm-diff) | 3.15.11 | Previews chart changes (`helm diff upgrade`) before applying them |
 | [Helmfile](https://helmfile.io/) | v1.x+ | Declarative multi-release orchestration (`brew install helmfile`) |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | v1.28+ | Kubernetes CLI (`brew install kubectl`) |
 | [just](https://github.com/casey/just) | latest | Task runner (every repo has a `justfile`) (`brew install just`) |
@@ -36,7 +36,7 @@ Install these tools before cloning (or skip straight to the DevContainer, which 
 1. Install `k3d` to run local Kubernetes clusters. Follow the [official docs](https://k3d.io/) or use Homebrew: `brew install k3d`.
 2. Install the `Helm Diff` plugin to preview chart changes before applying them:
    ```bash
-   helm plugin install https://github.com/databus23/helm-diff --verify=false
+   helm plugin install https://github.com/databus23/helm-diff --version v3.15.11 --verify=false
    ```
 
 Optional tools:

@@ -73,7 +73,7 @@ fi
 
 # Install required Helm plugins
 echo "Installing Helm plugins..."
-helm plugin install --verify=false https://github.com/databus23/helm-diff 2>/dev/null || true
+helm plugin install --version v3.15.11 --verify=false https://github.com/databus23/helm-diff 2>/dev/null || true
 helm plugin install --verify=false https://github.com/dadav/helm-schema 2>/dev/null || true
 
 # Install k9s
