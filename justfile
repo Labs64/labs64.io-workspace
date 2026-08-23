@@ -168,7 +168,7 @@ doctor:
         if helm plugin list 2>/dev/null | grep -q '^diff'; then
             echo "✅ helm-diff plugin installed"
         else
-            echo "❌ helm-diff plugin missing. Install: helm plugin install https://github.com/databus23/helm-diff"
+            echo "❌ helm-diff plugin missing. Install: helm plugin install https://github.com/databus23/helm-diff --verify=false"
             missing=$((missing + 1))
         fi
     fi
