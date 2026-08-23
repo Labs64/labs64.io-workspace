@@ -65,7 +65,7 @@ fi
 # Install helmfile
 if ! command -v helmfile &> /dev/null; then
     echo "Installing helmfile..."
-    HELMFILE_VERSION="1.7.1"
+    HELMFILE_VERSION="1.7.4"
     curl -fsSL "https://github.com/helmfile/helmfile/releases/download/v${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp helmfile
     sudo mv /tmp/helmfile /usr/local/bin/helmfile
     sudo chmod +x /usr/local/bin/helmfile
