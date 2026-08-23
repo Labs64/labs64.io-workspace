@@ -21,7 +21,7 @@
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
       "version": "latest",
-      "helm": "4.2.4",
+      "helm": "latest",
       "minikube": "none"
     },
     "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
