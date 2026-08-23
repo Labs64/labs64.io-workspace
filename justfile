@@ -53,7 +53,6 @@ build module="all" verbose="1":
     set -euo pipefail
     builder_uid="$(id -u)"
     builder_gid="$(id -g)"
-    docker_gid="$(stat -Lc '%g' /var/run/docker.sock)"
     maven_cache=/home/builder/.m2
     echo "=== Building dev container ==="
     docker build \
@@ -62,6 +61,9 @@ build module="all" verbose="1":
         -t labs64io-builder \
         -f scripts/Dockerfile.builder \
         scripts/
+
+    # Get the GID of the docker socket inside the container (solves macOS root:root mapping)
+    docker_gid="$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock labs64io-builder stat -c '%g' /var/run/docker.sock 2>/dev/null || echo 0)"
 
     # Existing installations used /root/.m2 and left this named volume owned
     # by root. Migrate it once (and again only if the invoking UID/GID changes).
