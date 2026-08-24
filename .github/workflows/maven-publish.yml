@@ -157,7 +157,7 @@ jobs:
           fi
           mvn -U -B -ntp versions:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
           mvn -U -B -ntp -s ~/.m2/settings.xml clean deploy -P release -Dgpg.pinentryMode=loopback
-          git add pom.xml
+          git add -- pom.xml ':(glob)**/pom.xml'
           git commit -m "chore: release $WD $RELEASE_VERSION"
           git tag -a "${TAG_PREFIX}${RELEASE_VERSION}" -m "Release ${RELEASE_VERSION}"
           if [[ -z "$NEXT_VERSION" ]]; then
@@ -165,7 +165,7 @@ jobs:
             NEXT_VERSION="${MA}.${MI}.$((PA+1))-SNAPSHOT"
           fi
           mvn -U -B -ntp versions:set -DnewVersion="$NEXT_VERSION" -DgenerateBackupPoms=false
-          git add pom.xml
+          git add -- pom.xml ':(glob)**/pom.xml'
           git commit -m "chore: start $NEXT_VERSION"
           git push origin "HEAD:${GITHUB_REF_NAME}"
           git push origin "${TAG_PREFIX}${RELEASE_VERSION}"
