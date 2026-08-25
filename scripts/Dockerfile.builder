@@ -22,8 +22,8 @@ RUN existing_user="$(getent passwd "${USER_ID}" | cut -d: -f1 || true)" \
         useradd --uid "${USER_ID}" --gid "${GROUP_ID}" --create-home --shell /bin/bash builder; \
     fi \
     && usermod --gid "${GROUP_ID}" builder \
-    && mkdir -p /home/builder/.m2 \
-    && chown -R "${USER_ID}:${GROUP_ID}" /home/builder
+    && mkdir -p /home/builder/.m2 /workspaces \
+    && chown -R "${USER_ID}:${GROUP_ID}" /home/builder /workspaces
 
 ENV HOME=/home/builder
 ENV MAVEN_CONFIG=/home/builder/.m2

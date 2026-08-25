@@ -1,6 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+required_repos() {
+    case "$1" in
+        all)
+            printf '%s\n' \
+                labs64.io-commons \
+                labs64.io-authproxy \
+                labs64.io-auditflow \
+                labs64.io-checkout \
+                labs64.io-customer-portal \
+                labs64.io-payment-gateway
+            ;;
+        commons) printf '%s\n' labs64.io-commons ;;
+        traefik-authproxy|gateway) printf '%s\n' labs64.io-authproxy ;;
+        auditflow) printf '%s\n' labs64.io-auditflow ;;
+        checkout) printf '%s\n' labs64.io-checkout ;;
+        customer-portal|customer-portal-ui) printf '%s\n' labs64.io-customer-portal ;;
+        payment-gateway) printf '%s\n' labs64.io-payment-gateway ;;
+        *)
+            echo "Unknown target: $1" >&2
+            echo "Valid targets: all, commons, auditflow, checkout, payment-gateway, traefik-authproxy, customer-portal" >&2
+            return 2
+            ;;
+    esac
+}
+
+if [[ "${1:-}" == "--required-repos" ]]; then
+    required_repos "${2:-all}"
+    exit
+fi
+
 # shellcheck source=lib/progress.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/progress.sh"
 
