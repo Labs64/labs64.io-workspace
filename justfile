@@ -84,34 +84,55 @@ build module="all" verbose="1":
 
     echo "=== Running build in dev container ==="
     MODULE='{{module}}'
-    # The modules live next to this workspace, so mount the whole ecosystem root
-    # and run the build from the workspace folder inside it.
+    # The modules live next to this workspace. Windows needs a native-Linux staging
+    # copy because Maven cannot change POSIX modes on Docker Desktop's 9p/DrvFS
+    # mount (MSHARED-1153). Keep the original direct mount on macOS and Linux.
     ws="${LOCAL_WORKSPACE_FOLDER:-$(pwd)}"
     # LOCAL_WORKSPACE_FOLDER is a host path. Docker Desktop passes a Windows
     # path into Linux dev containers, so dirname/basename cannot split it.
+    windows_host=false
     case "$ws" in
-        *\\*)
+        [A-Za-z]:\\*|\\\\*)
+            windows_host=true
             workspace_name="${ws##*\\}"
             ecosystem_root="${ws%\\*}"
+            ;;
+        [A-Za-z]:/*)
+            windows_host=true
+            workspace_name="$(basename "$ws")"
+            ecosystem_root="$(dirname "$ws")"
             ;;
         *)
             workspace_name="$(basename "$ws")"
             ecosystem_root="$(dirname "$ws")"
             ;;
     esac
-    if [ -t 1 ]; then TTY_ARGS="-it"; else TTY_ARGS=""; fi; \
-    docker run $TTY_ARGS --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
+    if [[ "$windows_host" == true ]]; then
+        mount_args=(--mount "type=bind,source=${ecosystem_root},target=/source,readonly")
+        workdir=/workspaces
+        builder_command=(
+            bash "/source/${workspace_name}/scripts/stage-build-inputs.sh"
+            "${workspace_name}"
+            "${MODULE:-all}"
+    )
+    else
+        mount_args=(--mount "type=bind,source=${ecosystem_root},target=/workspaces")
+        workdir="/workspaces/${workspace_name}"
+        builder_command=(./scripts/build-images.sh "${MODULE:-all}")
+    fi
+    if [[ -t 1 ]]; then tty_args=(-it); else tty_args=(); fi
+    docker run "${tty_args[@]}" --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
         --user "${builder_uid}:${builder_gid}" \
         --group-add "${docker_gid}" \
         -e VERBOSE="{{verbose}}" \
         -e HOME=/home/builder \
         -e MAVEN_CONFIG="${maven_cache}" \
-        --mount "type=bind,source=${ecosystem_root},target=/workspaces" \
+        "${mount_args[@]}" \
         -v "labs64-m2-cache:${maven_cache}" \
         -v /var/run/docker.sock:/var/run/docker.sock \
-        -w "/workspaces/${workspace_name}" \
+        -w "${workdir}" \
         labs64io-builder \
-        ./scripts/build-images.sh "${MODULE:-all}"
+        "${builder_command[@]}"
 
 # Start the entire local cluster
 up:
