@@ -232,7 +232,7 @@ verify-deps verbose="1":
 
 # Run the full test suite across all modules
 test:
-    @cd {{ROOT}}/labs64.io-tests && just all
+    @cd {{ROOT}}/labs64.io-tests && just test
 
 # Run the fast PR-gating smoke tests across all modules
 smoke:
