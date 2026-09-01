@@ -158,7 +158,8 @@ just status             # check git status across all repos
 just verify-deps        # confirm every Java module resolves its dependencies offline
 just logs [app]         # tail error logs for all modules, or one (e.g. `just logs checkout`)
 just smoke              # run the fast, PR-gating smoke tests
-just test               # run the test suite across all modules
+just test               # run normal regression + PSP-stub tests, then restore normal PG
+just regression         # run ordinary regression without changing provider endpoints
 ```
 
 Set `VERBOSE=0` to switch to a quieter animated-progress mode that only prints a module's log if it fails, e.g. `VERBOSE=0 just build`.
