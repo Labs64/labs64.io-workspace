@@ -230,15 +230,15 @@ verify-deps verbose="1":
         fi
     done
 
-# Run the full test suite across all modules
+# Run the complete local gate: normal regression, then isolated PSP-stub scenarios
 test:
-    @cd {{ROOT}}/labs64.io-tests && just test
+    @cd {{ROOT}}/labs64.io-tests && just test-all
 
 # Run the fast PR-gating smoke tests across all modules
 smoke:
     @cd {{ROOT}}/labs64.io-tests && just smoke
 
-# Run the full nightly-shape regression test suite
+# Run the ordinary nightly-shape regression without changing provider endpoints
 regression:
     @cd {{ROOT}}/labs64.io-tests && just regression
 
