@@ -1,3 +1,6 @@
+# Optional internal commands; the public workspace works without this sibling.
+mod? i '../labs64.io-internal/justfile'
+
 REPOS := "labs64.io-docs labs64.io-docs-internal labs64.io-devops labs64.io-tests labs64.io-helm-charts labs64.io-commons labs64.io-authproxy labs64.io-auditflow labs64.io-checkout labs64.io-customer-portal labs64.io-payment-gateway labs64.io-website"
 GITHUB_ORG := "https://github.com/Labs64"
 # Ecosystem root: repositories are cloned as siblings of this workspace, not inside it.
