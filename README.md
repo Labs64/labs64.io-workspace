@@ -86,6 +86,23 @@ Once cloned, run `just doctor` to check all of the above are installed and print
 > [Deployment Modes](https://github.com/Labs64/labs64.io-helm-charts#deployment-modes) in the
 > helm-charts README for the full picture.
 
+## Optional EE commands
+
+The optional sibling repository `../labs64.io-workspace-ee/` adds commands under
+`just ee`. It uses this workspace's DevContainer and shared tooling. The public
+commands do not require it and keep the same behavior when it is present.
+
+With the EE workspace in place, run `just ee clone` to clone missing
+repositories listed in its `repos.txt` (Labs64 names or HTTPS GitHub URLs).
+Run `just ee pull` to update its Git checkout and existing
+listed checkouts. Missing checkouts are reported and skipped by `pull`.
+Use `just ee status` for branches and local changes, and `just ee doctor` to check
+EE checkouts, remote identities, upstreams and authenticated remote access.
+Run `just ee test [target]` to execute module-owned test suites for one private
+runtime module or all installed modules.
+The public `just doctor` remains the shared tooling check.
+See `../labs64.io-workspace-ee/README.md` for configuration.
+
 ## 🛠️ Included Repositories
 
 The workspace clones 12 repositories as siblings of itself — the runtime services plus the shared libraries, infrastructure, and docs that support them.
