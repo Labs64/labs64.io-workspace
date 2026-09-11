@@ -233,6 +233,46 @@ verify-deps verbose="1":
         fi
     done
 
+# Update dependencies to the latest versions for all cloned ecosystem repositories
+update-deps:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for repo in {{REPOS}}; do
+        if [ -d "{{ROOT}}/$repo" ]; then
+            echo "=== Updating dependencies in $repo ==="
+            
+            # 1. Update Maven dependencies and plugins
+            # versions:update-properties also updates plugin versions if they are controlled via properties.
+            echo "  -> Checking Maven (pom.xml)..."
+            find "{{ROOT}}/$repo" -name "pom.xml" -type f \
+                -execdir mvn versions:update-parent versions:update-properties versions:use-latest-versions versions:use-latest-releases -DallowSnapshots=false -DgenerateBackupPoms=false -Dmaven.version.ignore='(?i).*[.-]?(alpha|beta|RC|M).*' \;
+            
+            # 2. Update Node.js (NPM) dependencies
+            # Using npx npm-check-updates to actually bump the package.json versions to latest
+            echo "  -> Checking NPM (package.json)..."
+            find "{{ROOT}}/$repo" -name "package.json" -type f -not -path "*/node_modules/*" \
+                -execdir bash -c 'npx --yes npm-check-updates -u && npm install' \;
+            
+            # 3. Update Python packages (requirements.txt)
+            # This uses 'pur' (pip update requirements) which bumps versions in requirements.txt without messing up comments or formatting
+            echo "  -> Checking Python (requirements.txt)..."
+            find "{{ROOT}}/$repo" -name "requirements.txt" -type f -not -path "*/venv/*" -not -path "*/.venv/*" \
+                -execdir bash -c 'pip install pur && pur -r {}' \;
+            
+            # 4. Update Helm charts (Chart.yaml)
+            echo "  -> Checking Helm charts..."
+            find "{{ROOT}}/$repo" -name "Chart.yaml" -type f \
+                -execdir helm dependency update \;
+                
+            # 5. Update Docker Images (pull latest for docker-compose)
+            echo "  -> Checking Docker images (docker-compose.yml)..."
+            find "{{ROOT}}/$repo" -name "docker-compose*.yml" -type f \
+                -execdir docker compose pull \;
+                
+        fi
+    done
+    echo "=== DONE! ==="
+
 # Run the complete local gate: normal regression, then isolated PSP-stub scenarios
 test:
     @cd {{ROOT}}/labs64.io-tests && just test-all
