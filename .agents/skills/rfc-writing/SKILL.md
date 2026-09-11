@@ -61,7 +61,18 @@ Rules:
 
 ## Filename convention
 
-Existing RFCs use `YYYY-MM-DD_RFC_<NN>_<kebab-slug>.md`, e.g. `2026-06-16_RFC_02_payment-retry-semantics.md`. **Check the highest existing `RFC_<NN>` in `labs64.io-docs-internal/rfc/` and increment it** — don't reuse or guess a number.
+Existing RFCs use `YYYY-MM-DD_RFC_<NN>_<kebab-slug>.md`, e.g. `2026-06-16_RFC_02_payment-retry-semantics.md`.
+
+**The next number is the highest `RFC_<NN>` across all active branches on `origin`, plus one** — not just what's on `master` or in your local checkout. Other in-flight RFC branches routinely carry higher numbers than `master` has merged yet, so checking only `master` (or only your local `rfc/` directory) reuses a number that's already taken. Determine it with:
+
+```sh
+git fetch origin --quiet
+for b in $(git branch -r | grep -v HEAD); do
+  git ls-tree -r --name-only "$b" -- rfc/ 2>/dev/null
+done | grep -oE 'RFC_[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1
+```
+
+Increment the result by one. Don't reuse or guess a number.
 
 ## Template structure
 
@@ -93,7 +104,7 @@ Full template: `labs64.io-docs-internal/rfc/RFC_TEMPLATE.md`.
 | Padding with restated context and adjectives | Cut to concrete points; length is not credibility |
 | Writing code first, RFC after, as a formality | RFC comes before implementation for architectural/high-risk changes — that's the gate |
 | Filling in `Decision` while still in draft | Leave `Decision` blank until the RFC is actually accepted/rejected |
-| Guessing the next RFC number | Check the highest `RFC_<NN>` already present and increment |
+| Guessing the next RFC number, or checking only `master`/local `rfc/` | Scan all active branches on `origin` for the highest `RFC_<NN>` and increment that |
 | Committing the RFC alongside unrelated code changes in a module repo | RFCs live only in `labs64.io-docs-internal` — separate repo, separate history |
 | Skipping "Alternatives Considered" for a change that clearly had options | Always name at least one rejected alternative, including "do nothing" |
 | Letting Implementation Notes grow into a commit-by-commit log | Condense to what's done / pending / decided; detail lives in the PRs |
