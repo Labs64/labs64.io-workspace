@@ -183,6 +183,7 @@ resolve_and_add required \
     "api.spring.io" \
     "repo.maven.apache.org" \
     "repo1.maven.org" \
+    "download.eclipse.org" \
     "nexus.labs64.com" \
     "pypi.org" \
     "files.pythonhosted.org" \
