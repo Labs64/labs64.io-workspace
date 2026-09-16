@@ -4,11 +4,13 @@
 
 # --- AI Tooling ---
 .claude/*
-!.claude/skills
 .codex/*
-!.codex/skills
 .agents/*
 !.agents/skills/
+# Nothing under .agents/skills/ should ever be a tool-auto-managed dir; that content
+# belongs in each tool's user-level skills dir, see AGENTS.md's "Skills" section.
+.agents/skills/.system/
+.agents/skills/.curated/
 /.mimocode/.cron-lock
 
 # --- Environment ---

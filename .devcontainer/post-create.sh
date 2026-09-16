@@ -3,22 +3,29 @@ set -euo pipefail
 
 echo "=== Labs64.IO DevContainer Setup ==="
 
-# The ecosystem's shared skills (.agents/skills/, git-tracked in labs64.io-workspace) are
-# exposed as project-level skills via git-tracked symlinks committed in the repo itself
-# (.claude/skills -> ../.agents/skills, .codex/skills -> ../.agents/skills). Both Claude
-# Code and Codex CLI discover project-level skills natively, so no container-boot wiring
-# is needed for the primary devcontainer root. This keeps each developer's real
-# $CLAUDE_CONFIG_DIR/skills and $CODEX_HOME/skills free for personal, untracked skills,
-# and free for Codex's own auto-managed skills (.system/, .curated/) — neither leaks into
-# this repo or into the other tool's view. See AGENTS.md's "Skills" section.
+# Removes a legacy whole-directory shared-skills symlink at $CLAUDE_CONFIG_DIR/skills or
+# $CODEX_HOME/skills, if one is still present. Such a symlink breaks scripts/sync-skills.sh
+# below: its `mkdir -p` is a no-op on an existing symlink, so the per-skill loop then reads
+# the shared skill directories themselves through it, mistaking each one for an
+# already-present personal skill and skipping it.
+#
+# TODO(remove after 2027-01-01): delete this block once it has gone a full quarter without
+# ever printing "Removing legacy...". Until then it's a harmless no-op for anyone already
+# migrated.
 SKILLS_SRC=/workspaces/labs64.io-workspace/.agents/skills
-
 for skills_dir in "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" "${CODEX_HOME:-$HOME/.codex}/skills"; do
   if [ -L "$skills_dir" ] && [ "$(readlink "$skills_dir")" = "$SKILLS_SRC" ]; then
-    echo "Removing legacy shared-skills symlink at $skills_dir..."
+    echo "Removing legacy whole-directory shared-skills symlink at $skills_dir..."
     rm "$skills_dir"
   fi
 done
+
+# Symlinks each shared skill into Claude Code's and Codex CLI's user-level skills
+# directory. Runs once at container creation, so a newly-added shared skill needs a
+# container rebuild, or `just sync-skills`, before it shows up in an already-running
+# container. See scripts/sync-skills.sh for the full rationale and AGENTS.md's "Skills"
+# section.
+"$(dirname "$0")/../scripts/sync-skills.sh"
 
 # Install egress-firewall dependencies and stage the init script.
 # The firewall itself is (re)applied on every container start via
