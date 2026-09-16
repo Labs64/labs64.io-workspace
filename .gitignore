@@ -4,6 +4,9 @@
 
 # --- AI Tooling ---
 .claude/*
+!.claude/skills
+.codex/*
+!.codex/skills
 .agents/*
 !.agents/skills/
 /.mimocode/.cron-lock

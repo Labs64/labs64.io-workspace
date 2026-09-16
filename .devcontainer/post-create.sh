@@ -3,28 +3,22 @@ set -euo pipefail
 
 echo "=== Labs64.IO DevContainer Setup ==="
 
-# Wire the ecosystem's shared skills (.agents/skills/, git-tracked here) into every AI
-# coding agent that reads this container's user-level config. Symlinked rather than
-# copied so edits show up immediately for every developer without a rebuild. Lives at
-# user level (not project-level .claude/skills) because sessions may be rooted at
-# /workspaces (ecosystem root, not a git repo) or any individual sibling repo, and
-# user-level config applies regardless of cwd.
-#
-# There is no shared "AGENTS_CONFIG_DIR" env var that multiple agents honor — each tool
-# defines its own (CLAUDE_CONFIG_DIR here, CODEX_HOME for Codex), so each gets linked
-# separately. The SKILL.md format (name/description frontmatter) happens to be portable
-# across both, so one source directory serves both links.
+# The ecosystem's shared skills (.agents/skills/, git-tracked in labs64.io-workspace) are
+# exposed as project-level skills via git-tracked symlinks committed in the repo itself
+# (.claude/skills -> ../.agents/skills, .codex/skills -> ../.agents/skills). Both Claude
+# Code and Codex CLI discover project-level skills natively, so no container-boot wiring
+# is needed for the primary devcontainer root. This keeps each developer's real
+# $CLAUDE_CONFIG_DIR/skills and $CODEX_HOME/skills free for personal, untracked skills,
+# and free for Codex's own auto-managed skills (.system/, .curated/) — neither leaks into
+# this repo or into the other tool's view. See AGENTS.md's "Skills" section.
 SKILLS_SRC=/workspaces/labs64.io-workspace/.agents/skills
 
-echo "Linking shared skills into Claude Code..."
-CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-mkdir -p "$CLAUDE_CONFIG_DIR"
-ln -sfn "$SKILLS_SRC" "$CLAUDE_CONFIG_DIR/skills"
-
-echo "Linking shared skills into Codex CLI..."
-CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-mkdir -p "$CODEX_HOME"
-ln -sfn "$SKILLS_SRC" "$CODEX_HOME/skills"
+for skills_dir in "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" "${CODEX_HOME:-$HOME/.codex}/skills"; do
+  if [ -L "$skills_dir" ] && [ "$(readlink "$skills_dir")" = "$SKILLS_SRC" ]; then
+    echo "Removing legacy shared-skills symlink at $skills_dir..."
+    rm "$skills_dir"
+  fi
+done
 
 # Install egress-firewall dependencies and stage the init script.
 # The firewall itself is (re)applied on every container start via
