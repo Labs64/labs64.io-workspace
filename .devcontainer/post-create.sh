@@ -37,18 +37,17 @@ sudo install -m 0755 "$(dirname "$0")/init-firewall.sh" /usr/local/bin/init-fire
 echo "Installing python dependencies..."
 pip3 install pyyaml
 
-# Install just-lsp
-# The Ubuntu-packaged cargo is 1.75, too old for just-lsp (needs edition2024 /
-# Rust >= 1.85), so install a current stable toolchain via rustup instead.
-# Currently commented-out as installation takes too long
-# echo "Probing rustup..."
-# if ! command -v rustup &> /dev/null; then
-#     echo "Installing Rust toolchain..."
-#     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-# fi
-# # shellcheck source=/dev/null
-# source "$HOME/.cargo/env"
-# cargo install just-lsp
+# Install graphify (knowledge graph CLI backing the ecosystem-wide graph at
+# ../graphify-out/ — see AGENTS.md). PyPI package name is "graphifyy"; the
+# installed executable is "graphify". Installed as a uv tool so it stays
+# isolated from the container's system/dev Python environments.
+export PATH="$HOME/.local/bin:$PATH"
+if ! command -v uv &> /dev/null; then
+    echo "Installing uv..."
+    pip3 install --user uv
+fi
+echo "Installing graphify..."
+uv tool install graphifyy --quiet
 
 # Install k3d
 if ! command -v k3d &> /dev/null; then

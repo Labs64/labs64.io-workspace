@@ -25,6 +25,12 @@
       "helm": "latest",
       "minikube": "none"
     },
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/aws-cli:1": {
+      "version": "latest"
+    },
     "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
   },
   "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind",
