@@ -50,6 +50,14 @@ status:
         fi
     done
 
+# Re-sync shared skills into Claude Code's and Codex CLI's user-level skills dirs on demand
+sync-skills:
+    ./scripts/sync-skills.sh
+
+# Copy your own non-symlinked personal skills into .agents/skills/ to promote them as shared
+import-skills:
+    ./scripts/import-personal-skills.sh
+
 # Build and push all module images to local registry (localhost:5005)
 build module="all" verbose="1":
     #!/usr/bin/env bash

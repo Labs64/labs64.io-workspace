@@ -124,27 +124,16 @@ graphify update ..            # refresh after code changes (from labs64.io-works
 ## Skills
 
 Ecosystem-wide skills live in `.agents/skills/<name>/SKILL.md` (git-tracked here, so every
-developer gets them by cloning this repo). Both Claude Code and Codex CLI natively discover
-skills at **project level** (a `.claude/skills/` or `.codex/skills/` directory inside the
-repo the session is rooted in), so this repo commits `.claude/skills` and `.codex/skills` as
-plain symlinks to `../.agents/skills` — no devcontainer wiring required, and it works the
-same on any machine, not just inside this ecosystem's devcontainer.
+developer gets them by cloning this repo). The devcontainer's `post-create.sh` (via
+`scripts/sync-skills.sh`) symlinks each one, by name, into Claude Code's and Codex CLI's
+user-level skills directories (`$CLAUDE_CONFIG_DIR/skills`, `$CODEX_HOME/skills`) at
+container creation; see `scripts/sync-skills.sh` for why this has to be per-skill and
+user-level rather than a single project-level symlink. Run `just sync-skills` to pick up a
+newly-added skill without a rebuild.
 
-This is deliberately **project-level, not user-level**: each tool also loads a separate
-personal, untracked skills directory (`$CLAUDE_CONFIG_DIR/skills`, `$CODEX_HOME/skills`) and
-layers it with the project one automatically. Earlier revisions of this setup symlinked the
-*whole* user-level directory to the shared source, which left no room for a developer's own
-local-only skills and caused Codex's auto-managed skills (`.system/`, `.curated/`, installed
-into `$CODEX_HOME/skills` by Codex itself) to land as uncommitted changes in this repo — and,
-since both tools' symlinks resolved to the identical directory, made Codex's internal skills
-visible to Claude Code too. Keep personal skills out of `.agents/skills/`; add them directly
-under your own `$CLAUDE_CONFIG_DIR/skills` / `$CODEX_HOME/skills` instead, which the
-devcontainer no longer touches.
-
-If a session is rooted in one of the sibling repos rather than `labs64.io-workspace` (project
-level only applies to the repo a session's cwd is inside — neither tool walks up into a
-sibling directory), pull the shared skills in for that session with Claude Code's `/add-dir
-../labs64.io-workspace` (or the equivalent `--add-dir` flag at launch).
+Keep personal skills out of `.agents/skills/`; add them directly under your own
+`$CLAUDE_CONFIG_DIR/skills` / `$CODEX_HOME/skills` instead, or promote one into this repo
+with `just import-skills`.
 
 Agents without native skill-tool support (e.g. reading only `AGENTS.md`) should still open
 the relevant `SKILL.md` directly and follow it as instructions when its `description`
