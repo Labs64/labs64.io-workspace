@@ -261,6 +261,15 @@ resolve_and_add optional \
     "sh.rustup.rs" \
     "static.rust-lang.org"
 
+# --- Optional: Terraform CLI (labs64.io-devops/terraform, `just bootstrap-ci`) ---
+# registry.terraform.io serves the provider discovery document; the actual
+# provider binaries are then fetched from releases.hashicorp.com. Both are
+# CDN-fronted (Fastly) and rotate IPs, so they're also kept fresh in
+# DYNAMIC_DOMAINS below.
+resolve_and_add optional \
+    "registry.terraform.io" \
+    "releases.hashicorp.com"
+
 # --- Optional: payment provider server APIs ---
 # Payment Gateway uses these endpoints for Stripe Checkout, PayPal Orders,
 # captures, OAuth tokens and PayPal webhook signature verification.
@@ -395,6 +404,9 @@ DYNAMIC_DOMAINS=(
     # with "no route to host" for rabbitmq, postgresql and redis. That intermittency is
     # what made this look like a flaky network rather than a stale ipset.
     "charts.bitnami.com"
+    # Terraform's provider registry/release hosts are Fastly-fronted and rotate.
+    "registry.terraform.io"
+    "releases.hashicorp.com"
     # PSP API hosts are backed by distributed infrastructure and can return
     # different addresses as DNS caches and routing change.
     "api.stripe.com"
