@@ -270,6 +270,44 @@ resolve_and_add optional \
     "registry.terraform.io" \
     "releases.hashicorp.com"
 
+# --- Optional: AWS API endpoints (labs64.io-devops terraform apply, aws-cli,
+# IAM Identity Center / SSO login) ---
+# `sso.<region>`/`oidc.<region>`/`signin.aws.amazon.com` cover `aws sso login` /
+# `aws configure sso` (device-authorization + token exchange +
+# ListAccounts/ListAccountRoles); the rest are the regional service endpoints
+# Terraform's AWS provider and the AWS CLI talk to for this repo's resources
+# (VPC/EC2, EKS, RDS, ElastiCache, Amazon MQ, S3, Secrets Manager, KMS, IAM,
+# STS, CloudWatch Logs/Metrics, autoscaling for EKS managed node groups). IAM
+# is a global (non-regional) endpoint; STS is resolved both regionally (the
+# CLI v2 default) and globally as a fallback.
+#
+# NOT covered here: the per-cluster EKS API server endpoint itself
+# (`<id>.gr7.eu-west-1.eks.amazonaws.com`, revealed by `just kubeconfig <env>`)
+# — that hostname is assigned per cluster and can't be hardcoded. Add it via
+# the ad-hoc mechanism above once known:
+#     echo "<id>.gr7.eu-west-1.eks.amazonaws.com" | sudo tee -a /etc/l64-firewall-extra-domains
+resolve_and_add optional \
+    "signin.aws.amazon.com" \
+    "eu-west-1.signin.aws.amazon.com" \
+    "oidc.eu-west-1.amazonaws.com" \
+    "portal.sso.eu-west-1.amazonaws.com" \
+    "sso.eu-west-1.amazonaws.com" \
+    "sts.eu-west-1.amazonaws.com" \
+    "sts.amazonaws.com" \
+    "iam.amazonaws.com" \
+    "ec2.eu-west-1.amazonaws.com" \
+    "eks.eu-west-1.amazonaws.com" \
+    "rds.eu-west-1.amazonaws.com" \
+    "elasticache.eu-west-1.amazonaws.com" \
+    "mq.eu-west-1.amazonaws.com" \
+    "secretsmanager.eu-west-1.amazonaws.com" \
+    "kms.eu-west-1.amazonaws.com" \
+    "logs.eu-west-1.amazonaws.com" \
+    "monitoring.eu-west-1.amazonaws.com" \
+    "autoscaling.eu-west-1.amazonaws.com" \
+    "s3.eu-west-1.amazonaws.com" \
+    "s3.amazonaws.com"
+
 # --- Optional: payment provider server APIs ---
 # Payment Gateway uses these endpoints for Stripe Checkout, PayPal Orders,
 # captures, OAuth tokens and PayPal webhook signature verification.
