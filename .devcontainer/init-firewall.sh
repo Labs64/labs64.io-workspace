@@ -96,10 +96,17 @@ trap on_exit EXIT
 # already permits both, so nothing has to be opened. Only a partially applied
 # ruleset from an earlier failure needs a temporary window.
 # -----------------------------------------------------------------------------
-if curl -s --connect-timeout 5 -o /dev/null https://api.github.com/zen; then
+if curl -s --connect-timeout 5 -o /dev/null https://api.github.com/zen \
+    && curl -s --connect-timeout 5 -o /dev/null https://ip-ranges.amazonaws.com/ip-ranges.json; then
     echo "Egress available for allowlist resolution"
 else
-    echo "WARNING: api.github.com unreachable - opening temporary egress window"
+    echo "WARNING: bootstrap host(s) unreachable - opening temporary egress window"
+    # A prior successful run leaves its own OUTPUT REJECT rule (anything not in
+    # the live ipset) installed in the chain. That's a rule, not a default
+    # policy, so it still matches and wins even after the policy is flipped to
+    # ACCEPT below. Flush it out too - the ruleset gets rebuilt from scratch
+    # later regardless, so there's nothing to preserve here.
+    iptables -F
     iptables -P INPUT ACCEPT
     iptables -P OUTPUT ACCEPT
     iptables -P FORWARD ACCEPT
@@ -139,6 +146,40 @@ while read -r cidr; do
     echo "Adding GitHub range $cidr"
     ipset add "$IPSET_STAGING" "$cidr" -exist
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git + .pages)[]' | aggregate -q)
+
+# -----------------------------------------------------------------------------
+# AWS S3 IP ranges (eu-west-1)
+#
+# S3's regional endpoint, its bucket-specific virtual-hosted hostnames, and the
+# internal s3-r-w.<region>.amazonaws.com redirect target it sends new buckets
+# to all round-robin across a large, constantly-rotating fleet - a single dig
+# snapshot (what resolve_and_add does for every other domain) only ever
+# captures a handful of the possible backend IPs, so S3 calls fail
+# unpredictably once traffic lands on an address outside that snapshot. AWS
+# publishes the full CIDR list for exactly this purpose, filterable by
+# service/region - same idea as the GitHub ranges above, applied to S3.
+# -----------------------------------------------------------------------------
+echo "Fetching AWS S3 IP ranges (eu-west-1)..."
+aws_ranges=$(curl -s https://ip-ranges.amazonaws.com/ip-ranges.json)
+if [ -z "$aws_ranges" ]; then
+    echo "ERROR: Failed to fetch AWS IP ranges"
+    exit 1
+fi
+
+if ! echo "$aws_ranges" | jq -e '.prefixes' >/dev/null; then
+    echo "ERROR: AWS ip-ranges response missing required fields"
+    exit 1
+fi
+
+echo "Processing AWS S3 IPs..."
+while read -r cidr; do
+    if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
+        echo "ERROR: Invalid CIDR range from AWS ip-ranges: $cidr"
+        exit 1
+    fi
+    echo "Adding AWS S3 range $cidr"
+    ipset add "$IPSET_STAGING" "$cidr" -exist
+done < <(echo "$aws_ranges" | jq -r '.prefixes[] | select(.service=="S3" and (.region=="eu-west-1" or .region=="GLOBAL")) | .ip_prefix' | aggregate -q)
 
 # -----------------------------------------------------------------------------
 # Domain allowlist
@@ -304,9 +345,7 @@ resolve_and_add optional \
     "kms.eu-west-1.amazonaws.com" \
     "logs.eu-west-1.amazonaws.com" \
     "monitoring.eu-west-1.amazonaws.com" \
-    "autoscaling.eu-west-1.amazonaws.com" \
-    "s3.eu-west-1.amazonaws.com" \
-    "s3.amazonaws.com"
+    "autoscaling.eu-west-1.amazonaws.com"
 
 # --- Optional: payment provider server APIs ---
 # Payment Gateway uses these endpoints for Stripe Checkout, PayPal Orders,
