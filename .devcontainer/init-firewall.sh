@@ -489,6 +489,18 @@ DYNAMIC_DOMAINS=(
     "api.stripe.com"
     "api-m.sandbox.paypal.com"
     "api-m.paypal.com"
+    # IAM/STS are global/regional AWS control-plane endpoints backed by a fleet that rotates
+    # over time, same failure mode as the S3/PayPal/Stripe entries above: a single resolution
+    # goes stale and every `aws`/terraform-provider-aws call against it (bootstrap-ci's IAM role
+    # creation, `aws sts get-caller-identity`, etc.) starts silently REJECTing and hanging in the
+    # SDK's retry loop for many minutes, looking exactly like a stuck/hung process rather than a
+    # firewall problem. S3 gets full CIDR-range coverage above (service=S3 in AWS's ip-ranges.json)
+    # instead of this dynamic-refresh treatment; IAM/STS don't have their own ip-ranges.json
+    # service tag (only the account-wide "AMAZON" one, far too broad to allow-list), so periodic
+    # single-IP refresh is the practical fix here.
+    "iam.amazonaws.com"
+    "sts.eu-west-1.amazonaws.com"
+    "sts.amazonaws.com"
 )
 DYNAMIC_REFRESH_INTERVAL=30
 
