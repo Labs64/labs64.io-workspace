@@ -326,10 +326,13 @@ resolve_and_add optional \
 # region, hence the literal "us-east-1" in those two hostnames below.
 #
 # NOT covered here: the per-cluster EKS API server endpoint itself
-# (`<id>.gr7.eu-west-1.eks.amazonaws.com`, revealed by `just kubeconfig <env>`)
-# — that hostname is assigned per cluster and can't be hardcoded. Add it via
-# the ad-hoc mechanism above once known:
-#     echo "<id>.gr7.eu-west-1.eks.amazonaws.com" | sudo tee -a /etc/l64-firewall-extra-domains
+# (`<id>.gr7.eu-west-1.eks.amazonaws.com`) — that hostname is an opaque per-cluster ID assigned by
+# AWS, unknowable until the cluster exists, so it can never be in this static list. labs64.io-devops's
+# `just kubeconfig <env>` handles this automatically now (looks up the cluster's endpoint, appends
+# it to /etc/l64-firewall-extra-domains below if not already present, and re-runs this script) —
+# see its justfile. The manual fallback, if ever needed for a cluster outside that workflow:
+#     echo "<id>.gr7.<region>.eks.amazonaws.com" | sudo tee -a /etc/l64-firewall-extra-domains
+#     sudo bash /usr/local/bin/init-firewall.sh
 resolve_and_add optional \
     "signin.aws.amazon.com" \
     "eu-west-1.signin.aws.amazon.com" \
