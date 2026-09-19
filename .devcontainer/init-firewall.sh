@@ -318,9 +318,12 @@ resolve_and_add optional \
 # ListAccounts/ListAccountRoles); the rest are the regional service endpoints
 # Terraform's AWS provider and the AWS CLI talk to for this repo's resources
 # (VPC/EC2, EKS, RDS, ElastiCache, Amazon MQ, S3, Secrets Manager, KMS, IAM,
-# STS, CloudWatch Logs/Metrics, autoscaling for EKS managed node groups). IAM
-# is a global (non-regional) endpoint; STS is resolved both regionally (the
-# CLI v2 default) and globally as a fallback.
+# STS, CloudWatch Logs/Metrics, autoscaling for EKS managed node groups, SNS
+# for cost-alert notifications). IAM is a global (non-regional) endpoint; STS
+# is resolved both regionally (the CLI v2 default) and globally as a fallback.
+# Budgets and Cost Explorer/Cost Anomaly Detection are also global services —
+# both are always hosted in us-east-1 regardless of the provider's configured
+# region, hence the literal "us-east-1" in those two hostnames below.
 #
 # NOT covered here: the per-cluster EKS API server endpoint itself
 # (`<id>.gr7.eu-west-1.eks.amazonaws.com`, revealed by `just kubeconfig <env>`)
@@ -346,7 +349,10 @@ resolve_and_add optional \
     "kms.eu-west-1.amazonaws.com" \
     "logs.eu-west-1.amazonaws.com" \
     "monitoring.eu-west-1.amazonaws.com" \
-    "autoscaling.eu-west-1.amazonaws.com"
+    "autoscaling.eu-west-1.amazonaws.com" \
+    "sns.eu-west-1.amazonaws.com" \
+    "budgets.amazonaws.com" \
+    "ce.us-east-1.amazonaws.com"
 
 # --- Optional: payment provider server APIs ---
 # Payment Gateway uses these endpoints for Stripe Checkout, PayPal Orders,
@@ -516,6 +522,9 @@ DYNAMIC_DOMAINS=(
     "logs.eu-west-1.amazonaws.com"
     "monitoring.eu-west-1.amazonaws.com"
     "autoscaling.eu-west-1.amazonaws.com"
+    "sns.eu-west-1.amazonaws.com"
+    "budgets.amazonaws.com"
+    "ce.us-east-1.amazonaws.com"
 )
 DYNAMIC_REFRESH_INTERVAL=30
 
