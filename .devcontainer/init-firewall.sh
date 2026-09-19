@@ -352,7 +352,13 @@ resolve_and_add optional \
     "autoscaling.eu-west-1.amazonaws.com" \
     "sns.eu-west-1.amazonaws.com" \
     "budgets.amazonaws.com" \
-    "ce.us-east-1.amazonaws.com"
+    "ce.us-east-1.amazonaws.com" \
+    "guardduty.eu-west-1.amazonaws.com" \
+    "config.eu-west-1.amazonaws.com" \
+    "securityhub.eu-west-1.amazonaws.com" \
+    "access-analyzer.eu-west-1.amazonaws.com" \
+    "cloudtrail.eu-west-1.amazonaws.com" \
+    "s3control.eu-west-1.amazonaws.com"
 
 # --- Optional: payment provider server APIs ---
 # Payment Gateway uses these endpoints for Stripe Checkout, PayPal Orders,
@@ -525,8 +531,20 @@ DYNAMIC_DOMAINS=(
     "sns.eu-west-1.amazonaws.com"
     "budgets.amazonaws.com"
     "ce.us-east-1.amazonaws.com"
+    "guardduty.eu-west-1.amazonaws.com"
+    "config.eu-west-1.amazonaws.com"
+    "securityhub.eu-west-1.amazonaws.com"
+    "access-analyzer.eu-west-1.amazonaws.com"
+    "cloudtrail.eu-west-1.amazonaws.com"
+    "s3control.eu-west-1.amazonaws.com"
 )
-DYNAMIC_REFRESH_INTERVAL=30
+# 10s, not 30s: IAM/STS/EC2's global control-plane fleets are large enough that a single DNS
+# answer only ever returns a small slice of them, and each answer is cached for its TTL — querying
+# the same domain twice inside that TTL just returns the identical slice, it doesn't broaden
+# coverage. What actually broadens coverage is elapsed wall-clock time (letting the cache expire
+# and re-querying upstream), so a shorter loop interval accumulates a wider slice of the fleet
+# faster than a longer one would, for the same per-query cost.
+DYNAMIC_REFRESH_INTERVAL=10
 
 if [ -f "$REFRESH_PID_FILE" ]; then
     old_pid=$(cat "$REFRESH_PID_FILE" 2>/dev/null || true)
@@ -537,25 +555,37 @@ if [ -f "$REFRESH_PID_FILE" ]; then
     rm -f "$REFRESH_PID_FILE"
 fi
 
-(
-    # Detach from the parent's traps and from SIGHUP so the loop survives both
-    # this script exiting and the terminal it was launched from closing.
-    trap - EXIT
-    trap '' HUP
+# setsid (new session, no controlling terminal — immune to SIGHUP by construction, the
+# `trap '' HUP` below is belt-and-suspenders) with stdin explicitly detached from /dev/null: a
+# plain `(...) &` backgrounded subshell still inherits this shell's stdin, and in a sandboxed
+# tool-call environment where each command's controlling pipe/session gets torn down when the
+# call returns, that's enough to take the "background" job down with it even though nothing sent
+# it a signal — it was observed dying within seconds of every init-firewall.sh run this way,
+# silently defeating the whole point of a *dynamic* refresh loop (every fix in this file that
+# depended on it just happened to work off that run's one-time resolve_and_add snapshot instead).
+# setsid forks (the process `&` backgrounds is a short-lived wrapper that execs the real loop as
+# a *different* PID, confirmed by observation), so the loop writes its own $$ to the PID file
+# itself as its first action rather than relying on the caller's $! — that would capture the
+# wrapper's already-dead PID, making the "stop previous loop" check above a no-op that leaves
+# orphaned loops running across repeated init-firewall.sh invocations.
+setsid bash -c '
+    echo $$ > '"$REFRESH_PID_FILE"'
+    trap "" HUP
     while true; do
-        for domain in "${DYNAMIC_DOMAINS[@]}"; do
+        for domain in '"$(printf '%q ' "${DYNAMIC_DOMAINS[@]}")"'; do
             # +short on a CNAME prints the chain too; keep only the A records.
             dig +short "$domain" A 2>/dev/null \
-                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+                | grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$" \
                 | while read -r ip; do
-                    ipset add "$IPSET_NAME" "$ip" -exist 2>/dev/null || true
+                    ipset add "'"$IPSET_NAME"'" "$ip" -exist 2>/dev/null || true
                 done
         done
-        sleep "$DYNAMIC_REFRESH_INTERVAL"
+        sleep "'"$DYNAMIC_REFRESH_INTERVAL"'"
     done
-) >/dev/null 2>&1 &
-echo $! > "$REFRESH_PID_FILE"
-echo "Dynamic-refresh loop started (pid $(cat "$REFRESH_PID_FILE"))"
+' </dev/null >/dev/null 2>&1 &
+disown
+sleep 0.2
+echo "Dynamic-refresh loop started (pid $(cat "$REFRESH_PID_FILE" 2>/dev/null))"
 
 echo "Firewall configuration complete"
 echo "Verifying firewall rules..."
