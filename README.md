@@ -78,6 +78,11 @@ Once cloned, run `just doctor` to check all of the above are installed and print
    just up
    ```
 
+   `just up` creates the cluster, rebuilds first-party images, and reconciles the stack from
+   `labs64.io-helm-charts/overrides/helmfile/values.local.yaml`. That override decides whether
+   mock OIDC, bundled Keycloak, or neither is installed; the API Gateway override selects the
+   corresponding issuer.
+
 > **Deploying elsewhere?** The steps above spin up the **Local Development** mode (Helmfile + k3d).
 > The Helm charts also support an **AWS QA / Staging / Prod Environment** mode (ArgoCD + Terraform,
 > see `labs64.io-devops/`) and a **Users' Own Infrastructure (BYO Infra)** mode for your own cluster
@@ -164,7 +169,9 @@ Use `just` for ecosystem-wide orchestration. Run `just --list` any time for the 
 ```bash
 just doctor       # check required tooling is installed (run this first)
 just clone        # clone all repositories
-just up           # build images and deploy locally
+just up           # build and deploy the stack described by Helm overrides
+just test         # complete local gate; auto-detects the deployed identity provider
+IDENTITY_PROVIDER=keycloak just test  # optional explicit override
 just down         # tear down the local cluster (images/registry untouched)
 ```
 
