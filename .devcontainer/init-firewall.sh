@@ -396,6 +396,7 @@ iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
 # another one on top of it.
 DYNAMIC_DOMAINS=(
     "registry-1.docker.io"
+    "production.cloudfront.docker.com"
     "charts.external-secrets.io"
     # charts.bitnami.com is CloudFront-fronted and rotates across entire /24s, not just
     # within one: observed 18.172.112.{8,76,80,82} and, twenty minutes later,
