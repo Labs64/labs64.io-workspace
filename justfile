@@ -283,17 +283,27 @@ update-deps:
     done
     echo "=== DONE! ==="
 
+# Run a labs64.io-tests recipe against the identity provider selected by the local Helm profile.
+# This keeps deployment and test token minting on the same single source of truth.
+_run-tests command:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    identity_provider=$(just --justfile {{ROOT}}/labs64.io-helm-charts/justfile identity-provider)
+    echo "Identity provider: $identity_provider"
+    cd {{ROOT}}/labs64.io-tests
+    IDENTITY_PROVIDER="$identity_provider" just "{{command}}"
+
 # Run the complete local gate: normal regression, then isolated PSP-stub scenarios
 test:
-    @cd {{ROOT}}/labs64.io-tests && just test-all
+    @just _run-tests test-all
 
 # Run the fast PR-gating smoke tests across all modules
 smoke:
-    @cd {{ROOT}}/labs64.io-tests && just smoke
+    @just _run-tests smoke
 
 # Run the ordinary nightly-shape regression without changing provider endpoints
 regression:
-    @cd {{ROOT}}/labs64.io-tests && just regression
+    @just _run-tests regression
 
 # Verify the cross-repo release wiring
 check-release:
