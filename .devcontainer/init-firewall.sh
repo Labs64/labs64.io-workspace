@@ -354,6 +354,7 @@ resolve_and_add optional \
     "monitoring.eu-west-1.amazonaws.com" \
     "autoscaling.eu-west-1.amazonaws.com" \
     "sns.eu-west-1.amazonaws.com" \
+    "scheduler.eu-west-1.amazonaws.com" \
     "budgets.amazonaws.com" \
     "ce.us-east-1.amazonaws.com" \
     "guardduty.eu-west-1.amazonaws.com" \
