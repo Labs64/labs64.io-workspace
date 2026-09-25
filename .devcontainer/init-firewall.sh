@@ -311,6 +311,13 @@ resolve_and_add optional \
     "registry.terraform.io" \
     "releases.hashicorp.com"
 
+# --- Optional: tflint plugin install (`just lint` in labs64.io-devops) ---
+# `tflint --init` verifies the AWS ruleset's signature via sigstore's TUF repo
+# (GCP load-balancer fronted); the plugin binary itself comes from GitHub
+# releases, already covered by the GitHub ranges above.
+resolve_and_add optional \
+    "tuf-repo-cdn.sigstore.dev"
+
 # --- Optional: AWS API endpoints (labs64.io-devops terraform apply, aws-cli,
 # IAM Identity Center / SSO login) ---
 # `sso.<region>`/`oidc.<region>`/`signin.aws.amazon.com` cover `aws sso login` /
@@ -506,6 +513,8 @@ DYNAMIC_DOMAINS=(
     # Terraform's provider registry/release hosts are Fastly-fronted and rotate.
     "registry.terraform.io"
     "releases.hashicorp.com"
+    # sigstore TUF metadata for `tflint --init` (see the tflint block above).
+    "tuf-repo-cdn.sigstore.dev"
     # PSP API hosts are backed by distributed infrastructure and can return
     # different addresses as DNS caches and routing change.
     "api.stripe.com"
