@@ -362,7 +362,11 @@ resolve_and_add optional \
     "securityhub.eu-west-1.amazonaws.com" \
     "access-analyzer.eu-west-1.amazonaws.com" \
     "cloudtrail.eu-west-1.amazonaws.com" \
-    "s3control.eu-west-1.amazonaws.com"
+    "s3control.eu-west-1.amazonaws.com" \
+    "route53.amazonaws.com" \
+    "acm.eu-west-1.amazonaws.com" \
+    "elasticloadbalancing.eu-west-1.amazonaws.com" \
+    "wafv2.eu-west-1.amazonaws.com"
 
 # --- Optional: payment provider server APIs ---
 # Payment Gateway uses these endpoints for Stripe Checkout, PayPal Orders,
@@ -542,6 +546,12 @@ DYNAMIC_DOMAINS=(
     "access-analyzer.eu-west-1.amazonaws.com"
     "cloudtrail.eu-west-1.amazonaws.com"
     "s3control.eu-west-1.amazonaws.com"
+    # Edge stack (Route 53 zone, ACM certificate, ALB/NLB target groups, WAFv2) - same rotating-fleet
+    # failure mode: "Still creating..." hangs while the SDK retries against REJECTed IPs.
+    "route53.amazonaws.com"
+    "acm.eu-west-1.amazonaws.com"
+    "elasticloadbalancing.eu-west-1.amazonaws.com"
+    "wafv2.eu-west-1.amazonaws.com"
 )
 # 10s, not 30s: IAM/STS/EC2's global control-plane fleets are large enough that a single DNS
 # answer only ever returns a small slice of them, and each answer is cached for its TTL — querying
