@@ -300,7 +300,8 @@ resolve_and_add optional \
     "get.sdkman.io" \
     "api.sdkman.io" \
     "sh.rustup.rs" \
-    "static.rust-lang.org"
+    "static.rust-lang.org" \
+    "services.gradle.org"
 
 # --- Optional: Terraform CLI (labs64.io-devops/terraform, `just bootstrap-ci`) ---
 # registry.terraform.io serves the provider discovery document; the actual
