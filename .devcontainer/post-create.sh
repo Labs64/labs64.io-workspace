@@ -3,6 +3,11 @@ set -euo pipefail
 
 echo "=== Labs64.IO DevContainer Setup ==="
 
+# The ecosystem repos are bind-mounted from the host, so their owner uid rarely matches the
+# container user and git aborts with "detected dubious ownership". The container is a
+# single-user sandbox, so trust every directory.
+git config --global --replace-all safe.directory '*'
+
 # Removes a legacy whole-directory shared-skills symlink at $CLAUDE_CONFIG_DIR/skills or
 # $CODEX_HOME/skills, if one is still present. Such a symlink breaks scripts/sync-skills.sh
 # below: its `mkdir -p` is a no-op on an existing symlink, so the per-skill loop then reads
