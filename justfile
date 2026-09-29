@@ -30,11 +30,11 @@ clone:
 pull:
     #!/bin/bash
     echo "Pulling workspace root..."
-    git pull
+    git pull --rebase --autostash
     for repo in {{REPOS}}; do
         if [ -d "{{ROOT}}/$repo" ]; then
             echo "Pulling $repo..."
-            git -C "{{ROOT}}/$repo" pull
+            git -C "{{ROOT}}/$repo" pull --rebase --autostash
         fi
     done
 
