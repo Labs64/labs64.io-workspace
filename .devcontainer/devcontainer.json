@@ -67,6 +67,7 @@
     }
   },
   "runArgs": [
+    "--security-opt=seccomp=unconfined",
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
     "--name=labs64io-devcontainer",
