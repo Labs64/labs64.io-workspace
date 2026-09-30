@@ -376,6 +376,14 @@ resolve_and_add optional \
     "elasticloadbalancing.eu-west-1.amazonaws.com" \
     "wafv2.eu-west-1.amazonaws.com"
 
+# --- Optional: AWS Agent Toolkit (AWS skills + AWS MCP server for AI coding agents) ---
+# `aws` CLI's "Configure AWS skills and the AWS MCP server" prompt fetches the skill catalogue from
+# agent-toolkit.us-east-1.api.aws; the MCP server agents then talk to is aws-mcp.us-east-1.api.aws.
+# Both are CloudFront-fronted (rotating IPs), so they're also kept fresh in DYNAMIC_DOMAINS below.
+resolve_and_add optional \
+    "agent-toolkit.us-east-1.api.aws" \
+    "aws-mcp.us-east-1.api.aws"
+
 # --- Optional: payment provider server APIs ---
 # Payment Gateway uses these endpoints for Stripe Checkout, PayPal Orders,
 # captures, OAuth tokens and PayPal webhook signature verification.
@@ -556,6 +564,9 @@ DYNAMIC_DOMAINS=(
     "access-analyzer.eu-west-1.amazonaws.com"
     "cloudtrail.eu-west-1.amazonaws.com"
     "s3control.eu-west-1.amazonaws.com"
+    # AWS Agent Toolkit (skills catalogue + MCP server) - CloudFront-fronted, rotating IPs.
+    "agent-toolkit.us-east-1.api.aws"
+    "aws-mcp.us-east-1.api.aws"
     # Edge stack (Route 53 zone, ACM certificate, ALB/NLB target groups, WAFv2) - same rotating-fleet
     # failure mode: "Still creating..." hangs while the SDK retries against REJECTed IPs.
     "route53.amazonaws.com"
