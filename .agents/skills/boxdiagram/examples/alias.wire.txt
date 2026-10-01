@@ -1,0 +1,35 @@
++-- Clients --------------+        +-- External --+
+| [web]  [mobile]  [cli]  |        | [stripe]     |
++-------------------------+        | [mail]       |
+                                   +--------------+
++-- Platform -------------------------------------+
+| [gw]      +-- Services ----------+    [mq]      |
+|           | [auth]    [orders]   |              |
+|           | [billing] [notify]   |              |
+|           +----------------------+              |
++-------------------------------------------------+
+
+legend:
+web    = Web App {client}
+mobile = Mobile App {client}
+cli    = CLI {client}
+gw     = API Gateway | routing, rate limits {service}
+auth   = Auth {service}
+orders = Orders {service}
+billing= Billing {service}
+notify = Notifications {service}
+mq     = Message Queue | RabbitMQ {queue}
+stripe = Stripe {external}
+mail   = Email Provider {external}
+
+edges:
+web -> gw : HTTPS
+mobile -> gw : HTTPS
+cli -> gw : REST
+gw -> auth : JWT
+gw -> orders : gRPC
+orders -> billing : invoice
+orders -> mq : publish
+mq -> notify : consume
+billing -> stripe : charge
+notify -> mail : SMTP
