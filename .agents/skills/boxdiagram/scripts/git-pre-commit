@@ -1,0 +1,21 @@
+#!/bin/sh
+# boxdiagram git pre-commit hook: refuse the commit when a diagram SVG is missing/stale
+# or the layout has warnings. Fix with:  python3 <skill>/scripts/boxdiagram.py <source>
+#
+# Skill location: $BOXDIAGRAM_DIR, else <repo>/.claude/skills/boxdiagram.
+root=$(git rev-parse --show-toplevel) || exit 1
+dir=${BOXDIAGRAM_DIR:-$root/.claude/skills/boxdiagram}
+script=$dir/scripts/boxdiagram.py
+if [ ! -f "$script" ]; then
+  echo "boxdiagram hook: $script not found (set BOXDIAGRAM_DIR)" >&2
+  exit 1
+fi
+cd "$root" || exit 1
+# diagram sources known to git (index), incl. newly added ones
+files=$(git ls-files --cached '*.diagram.json' '*.wire.txt')
+[ -z "$files" ] && exit 0
+# shellcheck disable=SC2086
+python3 "$script" --check --strict $files || {
+  echo "boxdiagram hook: regenerate the SVGs above, 'git add' them, and commit again." >&2
+  exit 1
+}
