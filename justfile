@@ -384,3 +384,15 @@ verify-process:
         echo "skip: labs64.io-helm-charts not cloned (run 'just clone')"
     fi
     just check
+
+## 🛰️ Cockpit ##
+
+# Start the local Cockpit web UI (view-only PoC, see cockpit/design/DESIGN.md) on http://localhost:8850
+cockpit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test -d cockpit/.venv || python3 -m venv cockpit/.venv
+    cockpit/.venv/bin/pip install -q -r cockpit/requirements.txt
+    echo "Cockpit starting: http://localhost:8850"
+    echo "(if the browser doesn't open by itself, use the PORTS tab or open the URL above)"
+    cockpit/.venv/bin/python -m uvicorn cockpit.app:app --host 127.0.0.1 --port 8850 --reload --reload-dir cockpit
