@@ -87,6 +87,18 @@ Non-negotiable. Violations break builds, deployments, or observability.
 Decision record:
 `labs64.io-docs-internal/rfc/2026-08-12_RFC_09_service-principal-delegated-tenant-publishing.md`.
 
+## Pull requests
+
+Every PR opened in any of the 12 ecosystem repos must:
+
+- Be assigned to the GitHub user `gh` is authorized as (`gh pr create --assignee "@me" ...`,
+  or `gh pr edit <PR URL> --add-assignee "@me"` for one already open).
+- Be added to the GitHub Project `Labs64.IO` (org `Labs64`, project number 6):
+
+```bash
+gh project item-add 6 --owner Labs64 --url <PR URL>
+```
+
 ## Where to make common changes
 
 | Goal | Where |
