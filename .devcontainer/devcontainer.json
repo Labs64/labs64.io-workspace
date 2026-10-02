@@ -71,6 +71,13 @@
       ]
     }
   },
+  "forwardPorts": [8850],
+  "portsAttributes": {
+    "8850": {
+      "label": "Cockpit",
+      "onAutoForward": "notify"
+    }
+  },
   "runArgs": [
     "--security-opt=seccomp=unconfined",
     "--cap-add=NET_ADMIN",
