@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="/deployment/{{ entry_id }}">&larr; {{ row.label }}</a></p>
+<h1>
+  {{ action.label }}
+  {% if not ok %}<span class="badge badge-fail">failed</span>{% endif %}
+</h1>
+<p class="text-muted"><code>{{ action.command | join(" ") }}</code></p>
+<div class="card">
+  <pre>{{ output }}</pre>
+</div>
+{% endblock %}
