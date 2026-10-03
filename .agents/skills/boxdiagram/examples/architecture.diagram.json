@@ -1,0 +1,202 @@
+{
+ "type": "row",
+ "gap": 60,
+ "padding": 10,
+ "children": [
+  {
+   "type": "col",
+   "gap": 50,
+   "padding": 0,
+   "frame": false,
+   "children": [
+    {
+     "type": "row",
+     "title": "Clients",
+     "gap": 40,
+     "justify": "start",
+     "children": [
+      {
+       "id": "web",
+       "label": "Web App",
+       "style": "client"
+      },
+      {
+       "id": "mobile",
+       "label": "Mobile App",
+       "style": "client"
+      },
+      {
+       "id": "cli",
+       "label": "CLI",
+       "style": "client"
+      }
+     ]
+    },
+    {
+     "type": "row",
+     "title": "Platform (Kubernetes)",
+     "gap": 80,
+     "align": "center",
+     "children": [
+      {
+       "id": "gw",
+       "label": "API Gateway",
+       "sub": "routing, rate limits",
+       "style": "service"
+      },
+      {
+       "type": "grid",
+       "cols": 2,
+       "title": "Services",
+       "gap": 80,
+       "children": [
+        {
+         "id": "auth",
+         "label": "Auth",
+         "style": "service"
+        },
+        {
+         "id": "orders",
+         "label": "Orders",
+         "style": "service"
+        },
+        {
+         "id": "billing",
+         "label": "Billing",
+         "style": "service"
+        },
+        {
+         "id": "notify",
+         "label": "Notifications",
+         "style": "service"
+        }
+       ]
+      },
+      {
+       "id": "mq",
+       "label": "Message Queue",
+       "sub": "RabbitMQ",
+       "style": "queue"
+      }
+     ]
+    },
+    {
+     "type": "row",
+     "title": "Data",
+     "gap": 40,
+     "justify": "center",
+     "children": [
+      {
+       "id": "redis",
+       "label": "Redis",
+       "sub": "sessions",
+       "style": "store"
+      },
+      {
+       "id": "pg",
+       "label": "Postgres",
+       "sub": "primary DB",
+       "style": "store"
+      },
+      {
+       "id": "s3",
+       "label": "Object Storage",
+       "style": "store"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "col",
+   "title": "External",
+   "gap": 60,
+   "justify": "center",
+   "children": [
+    {
+     "id": "stripe",
+     "label": "Stripe",
+     "style": "external"
+    },
+    {
+     "id": "mail",
+     "label": "Email Provider",
+     "style": "external"
+    }
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "from": "web",
+   "to": "gw",
+   "label": "HTTPS"
+  },
+  {
+   "from": "mobile",
+   "to": "gw",
+   "label": "HTTPS"
+  },
+  {
+   "from": "cli",
+   "to": "gw",
+   "label": "REST"
+  },
+  {
+   "from": "gw",
+   "to": "auth",
+   "label": "JWT"
+  },
+  {
+   "from": "gw",
+   "to": "orders",
+   "label": "gRPC"
+  },
+  {
+   "from": "orders",
+   "to": "billing",
+   "label": "invoice"
+  },
+  {
+   "from": "orders",
+   "to": "mq",
+   "label": "publish"
+  },
+  {
+   "from": "mq",
+   "to": "notify",
+   "label": "consume"
+  },
+  {
+   "from": "billing",
+   "to": "stripe",
+   "label": "charge"
+  },
+  {
+   "from": "notify",
+   "to": "mail",
+   "label": "SMTP"
+  },
+  {
+   "from": "auth",
+   "to": "redis",
+   "label": "sessions"
+  },
+  {
+   "from": "orders",
+   "to": "pg",
+   "label": "SQL"
+  },
+  {
+   "from": "billing",
+   "to": "pg",
+   "label": "SQL"
+  },
+  {
+   "from": "orders",
+   "to": "s3",
+   "label": "PDFs",
+   "dashed": true
+  }
+ ]
+}
