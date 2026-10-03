@@ -41,7 +41,7 @@ Install these tools before cloning (or skip straight to the DevContainer, which 
 
 Optional tools:
 - Java 25 (Temurin) + Maven 3.6.3+ — needed to build Java backend images locally
-- Node.js 22+ — needed to build Vue frontend images locally
+- Node.js 26+ — needed to build Vue frontend images locally
 - [k9s](https://k9scli.io/) — Terminal UI to interact with your Kubernetes clusters (`brew install k9s`)
 
 Once cloned, run `just doctor` to check all of the above are installed and print their versions.
@@ -139,8 +139,8 @@ The workspace clones 12 repositories as siblings of itself — the runtime servi
 ### Universal DevContainer
 Open the folder in VS Code and click **"Reopen in Container"**. You get a consistent development environment with:
 - Java 25 & Maven 3.6.3+
-- Python 3.13
-- Node.js 22.x (Vue 3 ecosystem)
+- Python 3.14
+- Node.js 26.x (Vue 3 ecosystem)
 - Terraform
 - Docker (Docker-in-Docker)
 - All necessary build tools

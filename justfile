@@ -203,7 +203,7 @@ doctor:
     echo "--- optional (only needed to build images locally) ---"
     check "Java"  java "Temurin 25, https://adoptium.net/"     java --version
     check "Maven" mvn  "3.6.3+, https://maven.apache.org/"     mvn --version
-    check "Node"  node "22+, https://nodejs.org/"              node --version
+    check "Node"  node "26+, https://nodejs.org/"              node --version
     check "k9s"   k9s  "https://k9scli.io/"                    k9s version -s
     echo "---"
     if command -v helm >/dev/null 2>&1; then

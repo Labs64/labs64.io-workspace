@@ -54,7 +54,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Convention | Detail |
 | --- | --- |
 | Java | 25, Maven 3.6.3+, Spring Boot 4.x, OpenAPI-first |
-| Python | 3.13, FastAPI, Uvicorn |
+| Python | 3.14, FastAPI, Uvicorn |
 | Vue | 3, Composition API, Vite, Pinia, Bootstrap 5 |
 | Docker | All images run as `l64user` (uid/gid 1064) |
 | Tests | JUnit 5 (Java), pytest (Python), Vitest (Vue); black-box API-edge regression in `labs64.io-tests/` (Robot Framework) |

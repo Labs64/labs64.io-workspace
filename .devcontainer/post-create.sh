@@ -70,7 +70,7 @@ fi
 # Install helmfile
 if ! command -v helmfile &> /dev/null; then
     echo "Installing helmfile..."
-    HELMFILE_VERSION="1.7.4"
+    HELMFILE_VERSION="1.8.1"
     curl -fsSL "https://github.com/helmfile/helmfile/releases/download/v${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp helmfile
     sudo mv /tmp/helmfile /usr/local/bin/helmfile
     sudo chmod +x /usr/local/bin/helmfile
@@ -78,7 +78,7 @@ fi
 
 # Install required Helm plugins
 echo "Installing Helm plugins..."
-helm plugin install --version v3.15.11 --verify=false https://github.com/databus23/helm-diff 2>/dev/null || true
+helm plugin install --version v3.15.15 --verify=false https://github.com/databus23/helm-diff 2>/dev/null || true
 helm plugin install --verify=false https://github.com/dadav/helm-schema 2>/dev/null || true
 
 # Install Checkov (Terraform posture/security scanner — labs64.io-devops/terraform's `just
