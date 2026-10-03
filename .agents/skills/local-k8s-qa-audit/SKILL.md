@@ -18,10 +18,9 @@ Act as senior QA Engineer + Kubernetes Engineer + Solution Architect simultaneou
 ## Step 1 — Discover the ecosystem fresh (don't reuse a stale module list)
 
 - Read root `AGENTS.md` and every `<module>/AGENTS.md` before touching anything — conventions and each module's own documented data/event flow live there.
-- Run `graphify query "<question>"` for architecture/relationship questions (shared graph covers all repos).
 - Enumerate modules with `ls -d labs64.io-*/` and **audit every module found** — do not hardcode a fixed module list here, the ecosystem grows.
 - Read `labs64.io-helm-charts/DEVELOPERS.md` and its `justfile` for the actual local commands/topology.
-- **Important**: For a clean cluster test, run `just down` to destroy the existing environment, then run `just cluster-create` to start the registry, `just build-images` to push images, and finally `just up`. If the cluster is simply stopped, you can just run `just up`. Ensure any necessary local secrets are configured in `labs64.io-helm-charts/overrides/<module>/values.secrets.local.yaml` if the cluster fails to pull secrets.
+- For a clean cluster test, run `just down` (from `labs64.io-workspace/`) to destroy the existing environment, then `just up`, which creates the cluster and registry, builds and pushes the first-party images, and installs the stack. If the cluster is only stopped, `just up` alone brings it back. Ensure any necessary local secrets are configured in `labs64.io-helm-charts/overrides/<module>/values.secrets.local.yaml` if the cluster fails to pull secrets.
 
 ## Step 2 — Kubernetes audit
 
@@ -33,10 +32,10 @@ Pod readiness, liveness/readiness probes, restart counts, CrashLoopBackOff, imag
 
 ## Step 4 — Functional validation
 
-- **Test through Traefik, not the pod/service/tunnel.** Route every functional/e2e check through `gateway.localhost` (the same path real traffic takes — auth middleware, rate-limit, security headers, strip-prefix all included) instead of `kubectl port-forward`ing to a Service or execing into a pod. A port-forward bypasses the gateway entirely, so it can pass while the actual ingress path is broken (wrong strip-prefix, missing middleware, auth misconfigured) — that gap is exactly what functional validation exists to catch. Run `just urls` to discover every current `gateway.localhost/<module>/...` route (and which ones need a Bearer token) before hand-rolling endpoint paths. Only fall back to a direct pod/service/port-forward check when isolating *whether* a failure is in Traefik/middleware vs. the service itself — e.g. a Traefik-routed call fails, then a direct call to the Service succeeds, which localizes the bug to the gateway layer.
+- **Test through Traefik, not the pod/service/tunnel.** Route every functional/e2e check through `gateway.localhost` (the same path real traffic takes — auth middleware, rate-limit, security headers, strip-prefix all included) instead of `kubectl port-forward`ing to a Service or execing into a pod. A port-forward bypasses the gateway entirely, so it can pass while the actual ingress path is broken (wrong strip-prefix, missing middleware, auth misconfigured) — that gap is exactly what functional validation exists to catch. Run `just status` (in `labs64.io-helm-charts/`) to list the ingresses, and read each module's OpenAPI spec for paths and required scopes, before hand-rolling endpoint paths. Only fall back to a direct pod/service/port-forward check when isolating *whether* a failure is in Traefik/middleware vs. the service itself — e.g. a Traefik-routed call fails, then a direct call to the Service succeeds, which localizes the bug to the gateway layer.
 - **Skip checkout, payment-gateway, and customer-portal here** per the temporary exception noted above — deploy them, but don't run their functional/e2e checks until the user lifts the exception.
 - API Gateway routing (Traefik) — e.g. `gateway.localhost/swagger-ui/`.
-- AuthN/AuthZ + OIDC flow — e.g. `just e2e-auth-test` (no-token → 401, valid → pass, wrong-scope → 403). The OIDC provider is part of the local stack's shared tooling; validate the flow works, don't re-evaluate where it's deployed. Get a Bearer token via `just generate-jwt <scope>` for any protected route (`admin`/`auditflow`/`ecommerce` scopes).
+- AuthN/AuthZ + OIDC flow — e.g. `just smoke` from `labs64.io-workspace/`, or `robot --include auth` in `labs64.io-tests/` (no-token → 401, valid → pass, wrong-scope → 403). The OIDC provider is part of the local stack's shared tooling; validate the flow works, don't re-evaluate where it's deployed. Get a Bearer token via `just generate-jwt <scope>` for any protected route (`admin`/`auditflow`/`ecommerce` scopes).
 - Service-to-service communication, event/queue processing.
 - For each module with a multi-hop data or event flow (queue → service → downstream steps), check its own `AGENTS.md`/docs for the flow it claims to implement, then verify actual runtime behavior matches — request/response tracing, log correlation, whatever confirms the real path. Don't assume a flow shape; every module can differ. Trigger the flow through its `gateway.localhost` route, then trace the hops via `kubectl logs`.
 - Observability: confirm metrics/traces/logs actually reach Prometheus/Tempo/Loki via the OTel Collector. A bare `up` profile without the collector deployed will show expected OTLP export errors — check which profile is running before flagging this as a defect.
@@ -60,7 +59,6 @@ Helm chart consistency, manifest YAML quality, naming conventions, reuse opportu
 - Never edit OpenAPI-generated Java under `target/` — change the YAML spec instead (see `openapi-first-change`).
 - Never hardcode credentials — env vars / K8s Secrets only.
 - Preserve non-root `l64user` (uid/gid 1064) in Dockerfiles.
-- Never remove `OtelLogbackInstaller`.
 - Each repo has independent git history — never cross-commit between repos. Don't commit fixes unless the user asks; an audit run shouldn't commit unprompted.
 - Local-cluster fixes applied via Helm (upgrade/rollback) are reversible — apply obvious ones freely. Cluster-destructive ops (deleting PVCs, `helm uninstall`) need explicit confirmation first.
 
@@ -79,8 +77,6 @@ One Markdown report at `.agents/reports/`, named `QA_AUDIT_REPORT_YYYYMMDD.md` (
 
 ## Working principles
 
-- Understand before changing; follow existing conventions over introducing new ones.
-- Fix root causes, not symptoms; keep changes minimal — no drive-by refactors.
 - Record every modification made, however small.
 - If required info is missing or ambiguous, stop and ask concise clarifying questions before proceeding — don't guess scope.
 

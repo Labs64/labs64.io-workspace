@@ -1,6 +1,6 @@
 # Contract-Driven Test Coverage & Drift Detection
 
-Gatekeeper mechanism, preserved from the skill this one replaces. Treat each module's OpenAPI
+Treat each module's OpenAPI
 spec — standard OAuth `security` plus `x-labs64.auth` tenant/resource metadata — as the single
 source of truth for both **what to test** and **what auth the test should expect**. That same
 contract drives Cerbos policy generation at the authproxy edge, so this reads the same contract
@@ -14,7 +14,7 @@ the enforcement layer reads, not a parallel guess at it.
 
 ## Workflow
 
-1. **Locate the spec.** Canonical path is `<module>-api/src/main/resources/openapi/openapi-<module>*.yaml`,
+1. **Locate the spec.** Canonical path is `<module>-api/src/main/resources/openapi/openapi-*.yaml`,
    or `<module>-be/src/main/resources/openapi/` if the module hasn't split out an `-api`
    submodule yet (see the `openapi-first-change` skill). Never read `target/generated-*` — it's
    a build artifact, not the source.
@@ -26,21 +26,21 @@ the enforcement layer reads, not a parallel guess at it.
    authenticated without a scope requirement, while `security: []` explicitly overrides a
    protected root requirement.
 
-3. **Diff against `labs64.io-tests/tests/<module>/`.** Three checks, all matter:
+3. **Diff against `labs64.io-<module>/tests/e2e/`.** Three checks, all matter:
    - **Coverage gap** — an operation in the spec with no corresponding test anywhere in the module's test files.
    - **Drift** — a hardcoded path literal in a `.resource` or `.robot` file (e.g. `/audit/publish`, `/payment-providers/${id}`) that doesn't match any path in the current spec, accounting for path params. Treat any hit here as a real finding, not a style nit.
    - **Same-resource scope asymmetry** — group operations by path prefix and compare their required scopes. When two operations on the *same resource* require *different* scopes (e.g. `GET /payment-providers` needs `payment-provider:read` but `GET /payment-providers/{id}` needs `payment-provider:write` because the detail view exposes secrets), the "lower" scope must be explicitly proven to be **denied** on the "higher" operation. This asymmetry is invisible in a per-operation coverage count — a suite can have a test for every operation and still never prove that read-can-list-but-not-view. A missing denial test here is a real gap: silently widening the detail op to accept the read scope would leak, and nothing else would catch it.
 
 4. **Report before writing.** Present the gap/drift table to the user first. Don't silently rewrite tests — drift often means the test was guarding something real that moved, not something to delete.
 
-5. **Scaffold or update `tests/<module>/authz.robot`** following the extraction rules below,
+5. **Scaffold or update `labs64.io-<module>/tests/e2e/authz.robot`** following the extraction rules below,
    matching the conventions in `labs64.io-tests/AGENTS.md` (gateway-edge base URLs,
    `Create Session With Scope` from `resources/common.resource`, the tag taxonomy in
    `labs64.io-tests/README.md`). Reuse the existing file's `Test Teardown` / one-test-case-per-scenario shape — don't invent a new layout per module.
 
-6. **If this is a brand-new module, register it** — add it to the service matrix in
-   `.github/workflows/regression-suite.yml` and to `README.md`'s repository-structure and P0
-   coverage tables. Skipping this step means the tests exist but CI never runs them; nothing
+6. **If this is a brand-new module, register it** — add its `tests/e2e/` path to the robot data
+   sources in `.github/workflows/labs64io-regression-suite.yml` and to `ALL_TESTS` in the
+   `labs64.io-tests` justfile, and to `README.md`'s repository-structure and P0 coverage tables. Skipping this step means the tests exist but CI never runs them; nothing
    else in this workflow catches that omission.
 
 ## Extraction rules for OpenAPI auth
@@ -83,5 +83,5 @@ corroboration". Rules if you add these:
   tagged `contract` are informational, not this workflow's output.
 - Not a mocking framework — every generated test exercises the real gateway edge, never a
   stubbed backend.
-- Read-only against OpenAPI specs and backend code; write-only into `labs64.io-tests`. Never
+- Read-only against OpenAPI specs and backend code; write-only into `labs64.io-tests` and each module's `tests/e2e/`. Never
   edit a module's spec or generated sources from here.

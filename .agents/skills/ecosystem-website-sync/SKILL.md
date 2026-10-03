@@ -12,11 +12,11 @@ When the structure of the Labs64.IO ecosystem changes, the public-facing documen
 
 Whenever a major ecosystem change is made, execute the following updates in the `labs64.io-website` repository:
 
-1. **Add the module to `_data/modules.yml`**: This is the single source of truth for module identity and status. Add an entry with `id`, `name`, `tagline`, `url`, `repo`, `status`, `group`, and `known_gaps`.
+1. **Add the module to `_data/modules.yml`**: This is the single source of truth for module identity and status. Add an entry with `id`, `name`, `tagline`, `url`, `repo`, `status`, and `group`.
    - `status` must be honest and one of `beta`, `alpha`, `planned`, `exploring` — there is deliberately **no GA tier**.
    - `version` is optional: include it only if there is a real release tag. Never fabricate one — omit the field if there isn't.
    - `group` is `available` (shipped, usable today) or `planned` (not yet).
-2. **Add the module's id to `_data/navigation.yml`**: Add it to the appropriate `groups:` list under the "Modules" nav entry — `Available now` or `Planned` — matching the `group` you set in `modules.yml`. Do not hand-author a new dropdown or nav entry.
+2. **Add the module's id to `_data/navigation.yml`**: Append it to the `modules:` list on the "Modules" nav entry; the dropdown renders the name, tagline and status from `modules.yml`. Do not hand-author a new dropdown or nav entry.
 3. **Update `llms.txt`**: Add or remove the service from the "Service Catalog" section in `labs64.io-website/llms.txt`. Ensure its description accurately reflects its role (e.g. abstraction layer, core service).
 4. **Draft an Announcement Post**: Use `just new-post "Post Title"` to create a draft blog post announcing the new architecture, microservice, or deprecation. Follow the rules in `labs64.io-website/AGENTS.md` (e.g., ensure `layout: post`).
 5. **Update global `AGENTS.md`**: Verify that the global `AGENTS.md` at the workspace root correctly counts the number of independent git repos and lists the new module in the common changes table.

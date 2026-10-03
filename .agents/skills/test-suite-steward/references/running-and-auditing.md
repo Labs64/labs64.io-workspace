@@ -3,19 +3,22 @@
 ## Running
 
 ```bash
-python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+just install                                     # create .venv, install requirements.txt
 
-robot --include smoke tests/                    # fast, every-PR subset
-robot tests/auditflow/                          # one module, everything
-robot tests/auditflow/authz.robot               # one file
-robot --test "Publish With Correct Scope Is Allowed" tests/auditflow/authz.robot
-robot --include p0-blocker tests/                # never-skipped guard tests
-robot --include regression --exclude flaky tests/  # full nightly shape
-robot --include auth tests/                      # auth/authz matrix only, cross-module
+just smoke                                       # fast, every-PR subset, all modules
+just test-module auditflow                       # one module, everything (../labs64.io-auditflow/tests/e2e/)
+just test-file ../labs64.io-auditflow/tests/e2e/authz.robot
+just test-case "Publish With Correct Scope Is Allowed" ../labs64.io-auditflow/tests/e2e/authz.robot
+just regression                                  # full nightly shape
+just auth                                        # auth/authz matrix only, cross-module
 ```
 
+Run these from `labs64.io-tests/`. The recipes pass the suite paths (`ALL_TESTS` in the justfile:
+`tests/` plus each module's `tests/e2e/`) and the standard `--exclude` tags (`not-ga`, `known-bug`,
+`flaky`, `psp-stub`) to `robot`, so prefer them over a bare `robot` call.
+
 A running Labs64.IO stack reachable through its gateway edge is required — the local k3d cluster
-(`just local-up` from `labs64.io-helm-charts/`) or an equivalent with `gateway.localhost` and
+(`just up` from `labs64.io-workspace/`) or an equivalent with `gateway.localhost` and
 `mock-oidc.localhost` resolvable. Robot writes `output.xml`, `log.html`, `report.html` to the
 current directory (or `--outputdir <dir>`) — **read `log.html` first** on any failure; it has
 full request/response detail per keyword, which is almost always enough to diagnose without
@@ -30,7 +33,7 @@ always need `mock-oidc` itself, since they mint several distinct scope combinati
 
 | Trigger | Scope | Gates merge? |
 |---|---|---|
-| Every PR | `smoke` per service (parallel) + `p0-blocker` | Yes |
+| Every PR | `smoke`, all modules against one shared ephemeral k3d cluster | Yes |
 | Nightly | `regression`, excluding `flaky` | No (informational) |
 | Manual (`workflow_dispatch`) | Same as nightly | No |
 

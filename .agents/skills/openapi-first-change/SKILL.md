@@ -14,7 +14,7 @@ Every Java backend module in this ecosystem is OpenAPI-first: the YAML spec is t
 The standard layout is a dedicated `<module>-api` submodule (e.g. `auditflow-api`):
 
 ```
-<module>-api/src/main/resources/openapi/openapi-<module>.yaml
+<module>-api/src/main/resources/openapi/openapi-<name>-v<N>.yaml   # e.g. openapi-audit-v1.yaml
 ```
 
 `<module>-api` generates the Java models/client from that spec and is published as a versioned library to the **Labs64 Nexus** and **Maven Central** repositories — other services (in this ecosystem or external) consume the API contract as a dependency instead of copying types by hand. The module's own backend (`<module>-be`) also generates its server-side interfaces from the same spec file, so a spec change regenerates both consistently.
