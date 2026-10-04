@@ -73,9 +73,9 @@ def ecosystem(root: Path) -> Path:
     return root
 
 
-def run(root: Path) -> subprocess.CompletedProcess:
+def run(root: Path, *flags: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(SCRIPT), "--root", str(root)], capture_output=True, text=True
+        [sys.executable, str(SCRIPT), "--root", str(root), *flags], capture_output=True, text=True
     )
 
 
@@ -238,3 +238,27 @@ def test_cerbos_drift_between_chart_and_compose(tmp_path):
     proc = run(root)
     assert proc.returncode == 1
     assert "Cerbos PDP differs" in proc.stdout
+
+
+def test_strict_fails_when_a_required_repository_is_missing(tmp_path):
+    # the fixture has workspace, helm-charts and devops only
+    proc = run(ecosystem(tmp_path), "--strict")
+    assert proc.returncode == 1
+    assert "--strict: labs64.io-commons is not present" in proc.stdout
+    assert "--strict: labs64.io-devops" not in proc.stdout  # present, so not reported
+
+
+def test_strict_failure_names_the_private_repo_when_it_is_the_one_missing(tmp_path):
+    root = ecosystem(tmp_path)
+    import shutil
+    shutil.rmtree(root / "labs64.io-devops")
+    proc = run(root, "--strict")
+    assert proc.returncode == 1
+    assert "--strict: labs64.io-devops is not present" in proc.stdout
+
+
+def test_default_mode_still_skips_missing_repositories(tmp_path):
+    import shutil
+    root = ecosystem(tmp_path)
+    shutil.rmtree(root / "labs64.io-devops")
+    assert run(root).returncode == 0

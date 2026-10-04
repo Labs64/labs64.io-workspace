@@ -6,7 +6,7 @@ name: Labs64.IO - Workspace - CI
 #
 #   tooling    — tests for the gate scripts themselves, actionlint over every workflow, and the
 #                Renovate preset validated. On every change to this repository.
-#   ecosystem  — `just check` across all 13 repositories' `master`. Also daily, so drift that
+#   ecosystem  — `just check` across the ecosystem repositories' `master`. Also daily, so drift that
 #                lands in another repository (a bumped Cerbos tag, a hard-coded tool version) is
 #                reported here instead of being found at release time.
 
@@ -94,19 +94,33 @@ jobs:
   ecosystem:
     name: Cross-repository consistency (just check)
     runs-on: ubuntu-latest
+    # A pull request from a fork has no access to secrets, and this job needs one (below).
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@v7
         with:
           path: labs64.io-workspace
 
-      - name: Check out every ecosystem repository (master) as a sibling
+      # labs64.io-devops is PRIVATE and the gates read it (Terraform engine versions, the
+      # chart pins, CHART_VERSION): the workflow's own GITHUB_TOKEN can only read this
+      # repository, so a token that can read the others is required. ECOSYSTEM_READ_TOKEN is
+      # the dedicated one (read-only `contents` on labs64.io-devops is enough); RENOVATE_TOKEN,
+      # which already exists for renovate.yml, is accepted as a fallback.
+      # labs64.io-docs-internal is private too but no gate reads it, so it is not cloned.
+      - name: Check out the ecosystem repositories (master) as siblings
+        env:
+          GH_TOKEN: ${{ secrets.ECOSYSTEM_READ_TOKEN || secrets.RENOVATE_TOKEN }}
         run: |
           set -euo pipefail
-          for repo in docs docs-internal devops tests helm-charts commons authproxy auditflow checkout customer-portal payment-gateway; do
-            git clone --depth 1 --quiet "https://github.com/Labs64/labs64.io-${repo}.git" "labs64.io-${repo}"
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::neither ECOSYSTEM_READ_TOKEN nor RENOVATE_TOKEN is set — labs64.io-devops is private and cannot be read with the workflow token"
+            exit 1
+          fi
+          for repo in devops docs tests helm-charts commons authproxy auditflow checkout customer-portal payment-gateway; do
+            gh repo clone "Labs64/labs64.io-${repo}" "labs64.io-${repo}" -- --depth 1 --quiet
           done
           # The website repository is named labs64.io but cloned as labs64.io-website (see `just clone`).
-          git clone --depth 1 --quiet https://github.com/Labs64/labs64.io.git labs64.io-website
+          gh repo clone Labs64/labs64.io labs64.io-website -- --depth 1 --quiet
 
       - uses: actions/setup-python@v7
         with:
@@ -119,4 +133,5 @@ jobs:
         run: python3 labs64.io-workspace/scripts/check-release-wiring.py --root .
 
       - name: Shared version pins agree
-        run: python3 labs64.io-workspace/scripts/check-version-pins.py --root .
+        # --strict: a repository that failed to clone must fail the job, not silently weaken it.
+        run: python3 labs64.io-workspace/scripts/check-version-pins.py --root . --strict

@@ -13,7 +13,9 @@ repository's CI can see the other side, so it runs here, across the whole checko
     scripts/check-version-pins.py
     just check-pins
 
-Repositories that are not cloned are skipped, not failed: a partial checkout is normal.
+Repositories that are not cloned are skipped, not failed: a partial checkout is normal on a
+developer machine. CI passes --strict instead, which fails when a repository the checks read is
+missing — otherwise a failed clone would turn the gate into a silently weaker one.
 """
 
 from __future__ import annotations
@@ -29,6 +31,19 @@ import yaml
 
 problems: list[str] = []
 notes: list[str] = []
+
+# Every repository at least one check reads. --strict requires all of them.
+REQUIRED_REPOS = (
+    "labs64.io-workspace",
+    "labs64.io-helm-charts",
+    "labs64.io-devops",
+    "labs64.io-commons",
+    "labs64.io-auditflow",
+    "labs64.io-payment-gateway",
+    "labs64.io-checkout",
+    "labs64.io-authproxy",
+    "labs64.io-customer-portal",
+)
 
 
 def ok(what: str, value: str) -> None:
@@ -442,10 +457,20 @@ def check_java(root: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--root", default="..", help="ecosystem root (default: ..)")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="fail when a repository the checks read is not present (CI); default is to skip it",
+    )
     args = parser.parse_args()
     root = Path(args.root).resolve()
     if not (root / "labs64.io-workspace").is_dir():
         raise SystemExit(f"no labs64.io-workspace under {root}")
+
+    if args.strict:
+        for repo in REQUIRED_REPOS:
+            if not (root / repo).is_dir():
+                fail(f"--strict: {repo} is not present under {root}, so its checks did not run")
 
     for check in (
         check_toolchain,
