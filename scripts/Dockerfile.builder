@@ -1,8 +1,9 @@
 ARG BASE_IMAGE=maven:3.9-eclipse-temurin-25
 FROM ${BASE_IMAGE}
 
-# Install Docker CLI for Docker-outside-of-Docker (DooD)
-RUN apt-get update && apt-get install -y docker.io curl bash && rm -rf /var/lib/apt/lists/*
+# Docker CLI for Docker-outside-of-Docker (DooD); git to rebuild pinned internal
+# releases from their tags (scripts/lib/internal-deps.sh).
+RUN apt-get update && apt-get install -y docker.io curl bash git && rm -rf /var/lib/apt/lists/*
 
 ARG USER_ID=1000
 ARG GROUP_ID=1000

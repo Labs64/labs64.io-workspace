@@ -41,4 +41,7 @@ for repo in "${repos[@]}"; do
 done
 
 cd "${DEST_ROOT}/${WORKSPACE_NAME}"
+# The staged copy has no .git; pinned internal releases are rebuilt from tags read
+# straight from the (read-only) source mount.
+export GIT_ROOT="$SOURCE_ROOT"
 exec ./scripts/build-images.sh "$BUILD_TARGET"

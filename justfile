@@ -176,46 +176,64 @@ logs app="":
         just logs-errors
     fi
 
-# Check that required local tooling is installed
+# Check that required local tooling is installed, at the versions pinned in tool-versions.env
 doctor:
     #!/usr/bin/env bash
     set -euo pipefail
-    ok=0; missing=0
+    # shellcheck source=tool-versions.env
+    source tool-versions.env
+    ok=0; missing=0; drift=0
+    # check <name> <cmd> <install hint> <expected version | ""> <version command...>
     check() {
-        local name=$1 cmd=$2 hint=$3
-        if command -v "$cmd" >/dev/null 2>&1; then
-            echo "✅ $name: $("${@:4}" 2>&1 | head -1)"
-            ok=$((ok + 1))
-        else
+        local name=$1 cmd=$2 hint=$3 want=$4
+        if ! command -v "$cmd" >/dev/null 2>&1; then
             echo "❌ $name not found. Install: $hint"
             missing=$((missing + 1))
+            return
         fi
+        local have
+        have="$("${@:5}" 2>&1 | head -1)"
+        if [ -n "$want" ] && [[ "$have" != *"$want"* ]]; then
+            echo "⚠️  $name: $have — tool-versions.env pins $want"
+            drift=$((drift + 1))
+        else
+            echo "✅ $name: $have"
+        fi
+        ok=$((ok + 1))
     }
-    check "Docker"   docker   "https://www.docker.com/products/docker-desktop/" docker --version
-    check "k3d"      k3d      "https://k3d.io/"                                 k3d --version
-    check "Helm"     helm     "https://helm.sh/"                                helm version --short
-    check "Helmfile" helmfile "https://helmfile.io/"                            helmfile --version
-    check "kubectl"  kubectl  "https://kubernetes.io/docs/tasks/tools/"         kubectl version --client
-    check "just"     just     "https://github.com/casey/just"                   just --version
-    check "Terraform" terraform "https://developer.hashicorp.com/terraform"     terraform --version
-    check "AWS CLI"  aws      "https://aws.amazon.com/cli/"                     aws --version
-    check "curl"     curl     "https://curl.se/"                                curl --version
+    check "Docker"    docker    "https://www.docker.com/products/docker-desktop/" ""                     docker --version
+    check "k3d"       k3d       "https://k3d.io/"                                 "v${K3D_VERSION}"       k3d --version
+    check "Helm"      helm      "https://helm.sh/"                                "v${HELM_VERSION}"      helm version --short
+    check "Helmfile"  helmfile  "https://helmfile.io/"                            "${HELMFILE_VERSION}"   helmfile --version
+    check "kubectl"   kubectl   "https://kubernetes.io/docs/tasks/tools/"         ""                      kubectl version --client
+    check "just"      just      "https://github.com/casey/just"                   "${JUST_VERSION}"       just --version
+    check "Terraform" terraform "https://developer.hashicorp.com/terraform"       "v${TERRAFORM_VERSION}" terraform --version
+    check "AWS CLI"   aws       "https://aws.amazon.com/cli/"                     ""                      aws --version
+    check "curl"      curl      "https://curl.se/"                                ""                      curl --version
     echo "--- optional (only needed to build images locally) ---"
-    check "Java"  java "Temurin 25, https://adoptium.net/"     java --version
-    check "Maven" mvn  "3.6.3+, https://maven.apache.org/"     mvn --version
-    check "Node"  node "26+, https://nodejs.org/"              node --version
-    check "k9s"   k9s  "https://k9scli.io/"                    k9s version -s
+    check "Java"  java "Temurin ${JAVA_VERSION}, https://adoptium.net/" " ${JAVA_VERSION}."  java --version
+    check "Maven" mvn  "3.6.3+, https://maven.apache.org/"              ""                    mvn --version
+    check "Node"  node "${NODE_VERSION}+, https://nodejs.org/"          "v${NODE_VERSION}."   node --version
+    check "k9s"   k9s  "https://k9scli.io/"                             "v${K9S_VERSION}"     k9s version -s
     echo "---"
     if command -v helm >/dev/null 2>&1; then
-        if helm plugin list 2>/dev/null | grep -q '^diff'; then
-            echo "✅ helm-diff plugin installed"
-        else
-            echo "❌ helm-diff plugin missing. Install: helm plugin install https://github.com/databus23/helm-diff --version v3.15.11 --verify=false"
-            missing=$((missing + 1))
-        fi
+        for plugin in "diff:${HELM_DIFF_VERSION}:https://github.com/databus23/helm-diff --version v${HELM_DIFF_VERSION}" \
+                      "schema:${HELM_SCHEMA_VERSION}:https://github.com/dadav/helm-schema --version ${HELM_SCHEMA_VERSION}"; do
+            name="${plugin%%:*}"; rest="${plugin#*:}"; want="${rest%%:*}"; source_url="${rest#*:}"
+            have="$(helm plugin list 2>/dev/null | awk -v n="$name" '$1 == n {print $2}')"
+            if [ -z "$have" ]; then
+                echo "❌ helm-$name plugin missing. Install: helm plugin install $source_url --verify=false"
+                missing=$((missing + 1))
+            elif [ "$have" != "$want" ]; then
+                echo "⚠️  helm-$name plugin: $have — tool-versions.env pins $want"
+                drift=$((drift + 1))
+            else
+                echo "✅ helm-$name plugin: $have"
+            fi
+        done
     fi
     echo "---"
-    echo "$ok OK, $missing missing"
+    echo "$ok OK, $missing missing, $drift differ from tool-versions.env"
     [ "$missing" -eq 0 ]
 
 # Verify all Java modules can resolve their dependencies offline (catches broken/missing artifacts early)
@@ -223,23 +241,26 @@ verify-deps verbose="1":
     #!/usr/bin/env bash
     set -euo pipefail
     export VERBOSE="{{verbose}}"
+    ROOT="{{ROOT}}"
     source scripts/lib/progress.sh
-    # labs64.io-commons libraries are consumed by other modules via the local Maven repo, so they
-    # must be installed (like a real build does), not just dependency:go-offline'd, before the
-    # modules below can resolve against them.
+    source scripts/lib/internal-deps.sh
+    # Internal artifacts are consumed through the local Maven repo, so they must be installed
+    # (like a real build does), not just dependency:go-offline'd, before the modules below can
+    # resolve against them: commons at HEAD (0.0.0-SNAPSHOT), every released version a module
+    # pins (rebuilt from its tag), then auditflow-api, which payment-gateway consumes.
+    if [ -d "{{ROOT}}/labs64.io-commons" ]; then
+        install_commons_dev
+    else
+        echo "skip: labs64.io-commons (not cloned, run 'just clone')"
+    fi
+    ensure_pinned_releases
+    if [ -d "{{ROOT}}/labs64.io-auditflow/auditflow-api" ]; then
+        run_step "deps: auditflow-api (install)" -- bash -c "cd '{{ROOT}}/labs64.io-auditflow/auditflow-api' && mvn -B install -Dmaven.test.skip=true"
+    else
+        echo "skip: labs64.io-auditflow (not cloned, run 'just clone')"
+    fi
     for dir in \
-        {{ROOT}}/labs64.io-commons/auth-context-java \
-        {{ROOT}}/labs64.io-commons/openapi-spring-boot-starter \
-        {{ROOT}}/labs64.io-commons/authz-queryplan-jpa \
-        {{ROOT}}/labs64.io-auditflow/auditflow-api; do
-        if [ -d "$dir" ]; then
-            run_step "deps: $dir (install)" -- bash -c "cd '$dir' && mvn -B install -Dmaven.test.skip=true"
-        else
-            echo "skip: $dir (not cloned, run 'just clone')"
-        fi
-    done
-    for dir in \
-        {{ROOT}}/labs64.io-auditflow/auditflow-be \
+        {{ROOT}}/labs64.io-auditflow \
         {{ROOT}}/labs64.io-checkout/checkout-be \
         {{ROOT}}/labs64.io-payment-gateway; do
         if [ -d "$dir" ]; then
@@ -248,46 +269,6 @@ verify-deps verbose="1":
             echo "skip: $dir (not cloned, run 'just clone')"
         fi
     done
-
-# Update dependencies to the latest versions for all cloned ecosystem repositories
-update-deps:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for repo in {{REPOS}}; do
-        if [ -d "{{ROOT}}/$repo" ]; then
-            echo "=== Updating dependencies in $repo ==="
-
-            # 1. Update Maven dependencies and plugins
-            # versions:update-properties also updates plugin versions if they are controlled via properties.
-            echo "  -> Checking Maven (pom.xml)..."
-            find "{{ROOT}}/$repo" -name "pom.xml" -type f \
-                -execdir mvn versions:update-parent versions:update-properties versions:use-latest-versions versions:use-latest-releases -DallowSnapshots=false -DgenerateBackupPoms=false -Dmaven.version.ignore='(?i).*[.-]?(alpha|beta|RC|M).*' \;
-
-            # 2. Update Node.js (NPM) dependencies
-            # Using npx npm-check-updates to actually bump the package.json versions to latest
-            echo "  -> Checking NPM (package.json)..."
-            find "{{ROOT}}/$repo" -name "package.json" -type f -not -path "*/node_modules/*" \
-                -execdir bash -c 'npx --yes npm-check-updates -u && npm install' \;
-
-            # 3. Update Python packages (requirements.txt)
-            # This uses 'pur' (pip update requirements) which bumps versions in requirements.txt without messing up comments or formatting
-            echo "  -> Checking Python (requirements.txt)..."
-            find "{{ROOT}}/$repo" -name "requirements.txt" -type f -not -path "*/venv/*" -not -path "*/.venv/*" \
-                -execdir bash -c 'pip install pur && pur -r {}' \;
-
-            # 4. Update Helm charts (Chart.yaml)
-            echo "  -> Checking Helm charts..."
-            find "{{ROOT}}/$repo" -name "Chart.yaml" -type f \
-                -execdir helm dependency update \;
-
-            # 5. Update Docker Images (pull latest for docker-compose)
-            echo "  -> Checking Docker images (docker-compose.yml)..."
-            find "{{ROOT}}/$repo" -name "docker-compose*.yml" -type f \
-                -execdir docker compose pull \;
-
-        fi
-    done
-    echo "=== DONE! ==="
 
 # Run a test-suite recipe against the explicitly selected or deployed identity provider.
 _test-with-identity recipe:
@@ -345,6 +326,17 @@ smoke:
 regression:
     @just _test-with-identity regression
 
-# Verify the cross-repo release wiring
-check-release:
-    @python3 {{ROOT}}/labs64.io-workspace/scripts/check-release-wiring.py --root {{ROOT}}
+# Verify the cross-repo release wiring: every released image reaches its chart
+check-release-wiring:
+    @python3 scripts/check-release-wiring.py --root {{ROOT}}
+
+alias check-release := check-release-wiring
+
+# Verify that every version pin shared by more than one file or repository agrees (tool
+# versions, charts held in lockstep with labs64.io-devops, Cerbos, OTel) and that no pom
+# hard-codes a version or the Spring Boot parent
+check-pins:
+    @python3 scripts/check-version-pins.py --root {{ROOT}}
+
+# Run every cross-repo consistency gate
+check: check-release-wiring check-pins

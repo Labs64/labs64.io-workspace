@@ -92,33 +92,9 @@ jobs:
         if: inputs.extra-env != ''
         run: echo "${{ inputs.extra-env }}" >> "$GITHUB_ENV"
 
-      - name: Prepare Maven settings.xml
-        working-directory: .
-        env:
-          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
-          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
-        run: |
-          if [ -z "$L64_PUB_CI_USERNAME" ]; then
-            echo "No credentials provided, skipping settings.xml generation."
-            exit 0
-          fi
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml <<'EOF'
-          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
-            <servers>
-              <server>
-                <id>labs64-nexus</id>
-                <username>${env.L64_PUB_CI_USERNAME}</username>
-                <password>${env.L64_PUB_CI_PASSWORD}</password>
-              </server>
-              <server>
-                <id>labs64-nexus-snapshots</id>
-                <username>${env.L64_PUB_CI_USERNAME}</username>
-                <password>${env.L64_PUB_CI_PASSWORD}</password>
-              </server>
-            </servers>
-          </settings>
-          EOF
+      - uses: Labs64/labs64.io-workspace/.github/actions/maven-settings@v1
+        with:
+          nexus-username: ${{ secrets.L64_PUB_CI_USERNAME }}
 
       # Waits for every service in the compose file to report healthy (or, for
       # services with no healthcheck, merely running) before handing control
@@ -171,9 +147,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-name }}
+          # `**/target` so a reactor root (working-directory: .) uploads its modules' reports too.
           path: |
-            ${{ inputs.working-directory }}/target/surefire-reports/**
-            ${{ inputs.working-directory }}/target/failsafe-reports/**
+            ${{ inputs.working-directory }}/**/target/surefire-reports/**
+            ${{ inputs.working-directory }}/**/target/failsafe-reports/**
           if-no-files-found: ignore
           retention-days: 7
 

@@ -1,0 +1,70 @@
+# Renovate for the whole ecosystem, run from this repository.
+#
+# One runner visits every Labs64.IO repository that carries a renovate.json. The rules
+# (managers, groups, schedules) are the shared preset in ../../default.json; this workflow
+# only supplies the schedule and the credentials:
+#
+#   RENOVATE_TOKEN        PAT that can open PRs in the ecosystem repositories
+#                         (contents + pull requests + workflows: write). Required.
+#   L64_PUB_CI_USERNAME / L64_PUB_CI_PASSWORD
+#                         Labs64 Nexus read access, so io.labs64 releases
+#                         (labs64io-parent, auditflow-api) are proposed like any other.
+#
+# The hosted Mend Renovate app is an equivalent alternative: install it on the
+# organization, give it the Nexus host rule as an encrypted secret, and delete this file.
+name: Renovate
+
+on:
+  schedule:
+    # Hourly: most runs are no-ops (the preset's own schedule decides when routine PRs are
+    # opened), but a published umbrella chart or commons release is proposed to its
+    # consumers within the hour.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      log-level:
+        description: Renovate log level
+        type: choice
+        options: [info, debug]
+        default: info
+      dry-run:
+        description: Dry run (extract and look up, open nothing)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the token
+        env:
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+        run: |
+          if [[ -z "$RENOVATE_TOKEN" ]]; then
+            echo "::error::RENOVATE_TOKEN is not configured — see the header of this workflow."
+            exit 1
+          fi
+
+      - name: Dry run requested
+        if: inputs.dry-run
+        run: echo "RENOVATE_DRY_RUN=full" >> "$GITHUB_ENV"
+
+      - uses: renovatebot/github-action@v46.3.6
+        with:
+          configurationFile: renovate/config.js
+          token: ${{ secrets.RENOVATE_TOKEN }}
+        env:
+          LOG_LEVEL: ${{ inputs.log-level || 'info' }}
+          # toJSON quotes and escapes each secret, so a password containing a quote
+          # cannot break out of the JSON document.
+          RENOVATE_HOST_RULES: ${{ format('[{{"matchHost":"nexus.labs64.com","username":{0},"password":{1}}}]', toJSON(secrets.L64_PUB_CI_USERNAME), toJSON(secrets.L64_PUB_CI_PASSWORD)) }}

@@ -1,0 +1,261 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Shared Renovate preset for every Labs64.IO repository.",
+    "Each repository's renovate.json only contains: { \"extends\": [\"github>Labs64/labs64.io-workspace\"] }.",
+    "Rules live here so that a pin shared by several repositories is grouped and scheduled identically everywhere."
+  ],
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":disableRateLimiting"
+  ],
+  "timezone": "Europe/Berlin",
+  "schedule": [
+    "before 6am on monday"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "rebaseWhen": "conflicted",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": [
+        "Any pin annotated on the line above with `# renovate: datasource=<ds> depName=<name>`",
+        "(optionally packageName= registryUrl= versioning= extractVersion=).",
+        "Covers justfile constants (`X := \"1.2.3\"`), shell/env files (`X=1.2.3`, `X=\"${Y:-1.2.3}\"`),",
+        "Dockerfile ARGs, YAML scalars (`appVersion: 1.2.3`) and commented JSON (`\"helm\": \"1.2.3\"`)."
+      ],
+      "managerFilePatterns": [
+        "/(^|/)justfile$/",
+        "/(^|/)tool-versions\\.env$/",
+        "/\\.sh$/",
+        "/(^|/)Dockerfile[^/]*$/",
+        "/(^|/)devcontainer\\.json$/",
+        "/(^|/)Chart\\.yaml$/",
+        "/(^|/)overrides/.+\\.ya?ml$/",
+        "/(^|/)\\.github/workflows/[^/]+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "(?:#|//)\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>\\S+)(?:\\s+packageName=(?<packageName>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+extractVersion=(?<extractVersion>\\S+))?\\s*\\n[^\\n]*?(?::=|=|:)\\s*[\"']?(?:\\$\\{[A-Za-z0-9_]+:-)?(?<currentValue>v?\\d[^\\s\"'}]*)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": [
+        "Maven version properties that no <dependency>/<plugin> in the same repository references,",
+        "so the maven manager cannot see them: Spring Boot BOM overrides and versions that only",
+        "consumers of io.labs64:labs64io-parent use. Annotated with",
+        "`<!-- renovate: datasource=maven depName=<groupId>:<artifactId> -->` on the line above."
+      ],
+      "managerFilePatterns": [
+        "/(^|/)pom\\.xml$/"
+      ],
+      "matchStrings": [
+        "<!--\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?\\s*-->\\s*\\n\\s*<[^>/]+>(?<currentValue>[^<]+)</"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Majors are a deliberate decision: label them so they are never merged as routine.",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "addLabels": [
+        "major-update"
+      ]
+    },
+    {
+      "description": "Internal Labs64.IO artifacts live in Labs64 Nexus; propose a new release as soon as it exists.",
+      "matchDatasources": [
+        "maven"
+      ],
+      "matchPackageNames": [
+        "io.labs64:**"
+      ],
+      "registryUrls": [
+        "https://nexus.labs64.com/repository/labs64.io-releases/"
+      ],
+      "groupName": "Labs64.IO internal artifacts",
+      "schedule": [
+        "at any time"
+      ]
+    },
+    {
+      "description": [
+        "Inside labs64.io-commons the io.labs64 artifacts are the repository's own modules, all",
+        "versioned by the `revision` property. Its 0.0.0-SNAPSHOT default must never be",
+        "\"updated\" to a release: the version comes from the tag (-Drevision)."
+      ],
+      "matchRepositories": [
+        "Labs64/labs64.io-commons"
+      ],
+      "matchDatasources": [
+        "maven"
+      ],
+      "matchPackageNames": [
+        "io.labs64:**"
+      ],
+      "enabled": false
+    },
+    {
+      "description": [
+        "auditflow-api 0.1.0 was published out of sequence (before 0.0.14) and sorts above the",
+        "real 0.0.x line. Remove this rule once AuditFlow itself has released past 0.1.0."
+      ],
+      "matchDatasources": [
+        "maven"
+      ],
+      "matchPackageNames": [
+        "io.labs64:auditflow-api"
+      ],
+      "allowedVersions": "!/^0\\.1\\.0$/"
+    },
+    {
+      "description": "Labs64.IO Helm charts (umbrella + preflight): the deployed pin follows a chart release immediately.",
+      "matchDatasources": [
+        "helm"
+      ],
+      "matchPackageNames": [
+        "labs64io-ecosystem",
+        "preflight"
+      ],
+      "groupName": "Labs64.IO Helm charts",
+      "schedule": [
+        "at any time"
+      ]
+    },
+    {
+      "description": "First-party images are pinned by digest by the release pipeline (module-released event), never by Renovate.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "labs64/**",
+        "localhost:5005/**"
+      ],
+      "enabled": false
+    },
+    {
+      "description": [
+        "Data-store images track the managed engine versions Terraform provisions on AWS",
+        "(labs64.io-devops: rds_engine_version, cache_engine_version, mq_engine_version).",
+        "Only patch updates are routine; a new minor or major is an infrastructure decision."
+      ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "postgres",
+        "rabbitmq",
+        "library/rabbitmq",
+        "docker.io/library/rabbitmq",
+        "valkey/valkey"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Spring Boot and the BOM overrides that ride ahead of it move as one change.",
+      "matchDatasources": [
+        "maven"
+      ],
+      "matchPackageNames": [
+        "org.springframework.boot:**",
+        "tools.jackson:jackson-bom",
+        "com.fasterxml.jackson:jackson-bom",
+        "org.apache.tomcat.embed:tomcat-embed-core",
+        "io.netty:netty-bom",
+        "com.rabbitmq:amqp-client"
+      ],
+      "groupName": "Spring Boot and BOM overrides"
+    },
+    {
+      "description": [
+        "The overrides exist to pull security patches ahead of Spring Boot; they must stay on",
+        "the minor line Boot itself ships (Jackson 3.1.x with 2.21.x, Tomcat 11.0.x, Netty 4.2.x).",
+        "A new minor arrives with the Boot upgrade, never on its own."
+      ],
+      "matchDatasources": [
+        "maven"
+      ],
+      "matchPackageNames": [
+        "tools.jackson:jackson-bom",
+        "com.fasterxml.jackson:jackson-bom",
+        "org.apache.tomcat.embed:tomcat-embed-core",
+        "io.netty:netty-bom"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "OpenTelemetry Python packages release together and must stay on one line.",
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "/^opentelemetry-/"
+      ],
+      "groupName": "OpenTelemetry (Python)"
+    },
+    {
+      "description": "OTel Java agent bundled into every Java image (Dockerfile ARG OTEL_JAVAAGENT_VERSION).",
+      "matchPackageNames": [
+        "open-telemetry/opentelemetry-java-instrumentation"
+      ],
+      "groupName": "OpenTelemetry Java agent"
+    },
+    {
+      "description": "Cerbos PDP: chart appVersion, compose files and the policy build/validate scripts.",
+      "matchPackageNames": [
+        "ghcr.io/cerbos/cerbos",
+        "cerbos/cerbos"
+      ],
+      "groupName": "Cerbos"
+    },
+    {
+      "description": "Pins that labs64.io-helm-charts and labs64.io-devops must hold in lockstep (`just check-pins`).",
+      "matchPackageNames": [
+        "kubernetes-sigs/gateway-api",
+        "external-secrets",
+        "ghcr.io/external-secrets/charts/external-secrets",
+        "keycloakx",
+        "ghcr.io/codecentric/helm-charts/keycloakx"
+      ],
+      "groupName": "Platform lockstep pins",
+      "addLabels": [
+        "lockstep"
+      ]
+    },
+    {
+      "description": "Kubernetes CLI toolchain (tool-versions.env and the devcontainer pins that mirror it).",
+      "matchFileNames": [
+        "tool-versions.env",
+        ".devcontainer/devcontainer.json"
+      ],
+      "groupName": "CLI toolchain"
+    },
+    {
+      "description": "GitHub Actions bumps are routine; one PR per repository.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "A chart dependency bump must also bump the chart's own version, or chart-releaser skips publishing it.",
+      "matchManagers": [
+        "helmv3"
+      ],
+      "bumpVersion": "patch"
+    }
+  ]
+}

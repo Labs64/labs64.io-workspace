@@ -1,0 +1,50 @@
+# Writes ~/.m2/settings.xml with the Labs64 Nexus (and Maven Central publishing) server
+# entries. Credentials are NOT written to disk: the file references environment variables
+# (L64_PUB_CI_USERNAME / L64_PUB_CI_PASSWORD, OSS_USER / OSS_PASS), which the calling
+# workflow sets on its `mvn` steps.
+#
+# A no-op when no Nexus username is supplied, so a fork without the secrets still builds
+# whatever it can resolve from Maven Central.
+name: Labs64.IO - Maven Settings
+description: Generate the Maven settings.xml used to resolve from and deploy to Labs64 Nexus
+
+inputs:
+  nexus-username:
+    description: Labs64 Nexus username; settings.xml is only generated when this is non-empty
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare Maven settings.xml
+      shell: bash
+      env:
+        NEXUS_USERNAME: ${{ inputs.nexus-username }}
+      run: |
+        if [ -z "$NEXUS_USERNAME" ]; then
+          echo "No Nexus credentials provided, skipping settings.xml generation."
+          exit 0
+        fi
+        mkdir -p ~/.m2
+        cat > ~/.m2/settings.xml <<'XML'
+        <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+          <servers>
+            <server>
+              <id>labs64-nexus</id>
+              <username>${env.L64_PUB_CI_USERNAME}</username>
+              <password>${env.L64_PUB_CI_PASSWORD}</password>
+            </server>
+            <server>
+              <id>labs64-nexus-snapshots</id>
+              <username>${env.L64_PUB_CI_USERNAME}</username>
+              <password>${env.L64_PUB_CI_PASSWORD}</password>
+            </server>
+            <server>
+              <id>ossrh</id>
+              <username>${env.OSS_USER}</username>
+              <password>${env.OSS_PASS}</password>
+            </server>
+          </servers>
+        </settings>
+        XML

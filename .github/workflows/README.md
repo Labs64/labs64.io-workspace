@@ -4,6 +4,23 @@ Shared CI/CD building blocks for the Labs64.IO ecosystem. Each module repo
 calls these instead of maintaining its own workflow logic, so build/test/
 publish behavior stays consistent across the polyglot fleet.
 
+## One release model
+
+Every repository releases the same way: **publish a GitHub Release whose tag is the
+version `X.Y.Z`**. Nothing is committed back and no file is edited to "set the version".
+
+- **Java** poms declare `<version>${revision}</version>` (default `0.0.0-SNAPSHOT`,
+  inherited from `io.labs64:labs64io-parent`). The release build runs with
+  `-Drevision=<tag>`, so the jar, the image and the tag agree. Because the project is
+  then a release, the `requireReleaseDeps` enforcer rule in `labs64io-parent` fails the
+  build on any `-SNAPSHOT` parent or dependency — a tag can always be rebuilt.
+- **Images** are pushed as `<image>:<tag>`, labelled
+  `org.opencontainers.image.version=<tag>`, and identified downstream by digest.
+- **Charts**: the release dispatches the digests to `labs64.io-helm-charts`, which opens
+  a PR pinning them, setting `appVersion`, and bumping the module chart **and** the
+  `labs64io-ecosystem` umbrella. The published umbrella version is the ecosystem
+  release; Renovate proposes it to `labs64.io-devops` (`CHART_VERSION`).
+
 ## Workflows
 
 - **`java-ci.yml`** — Maven build + test (Java 25 / Spring Boot modules).
@@ -40,12 +57,27 @@ publish behavior stays consistent across the polyglot fleet.
 - **`maven-publish.yml`** — Publishes to Labs64 Nexus via the poms'
   `distributionManagement` (credentials are injected for server ids
   `labs64-nexus` / `labs64-nexus-snapshots`). `mode: snapshot` deploys the current
-  `-SNAPSHOT` (no-op if the pom isn't a SNAPSHOT); `mode: release` sets the
-  version, GPG-signs and deploys, commits + tags, then bumps to the next
-  `-SNAPSHOT`. Callers must grant `permissions: contents: write` on the
-  calling job for **both** modes — this workflow declares `contents: write`
-  at its own top level and GitHub enforces that against the caller
-  regardless of which mode runs.
+  `-SNAPSHOT` (no-op if the pom isn't a SNAPSHOT). `mode: release` builds the
+  checked-out commit with `-Drevision=<version>` and deploys it GPG-signed
+  (`-P release`), after verifying that the pom really takes its version from
+  `${revision}`; `publish-central: true` additionally publishes to Maven Central.
+  It never commits, tags or pushes, so callers need only `contents: read`. Used by
+  `labs64.io-commons` (the whole reactor) and `labs64.io-auditflow` (`auditflow-api`).
+- **`renovate.yml`** — not reusable: the scheduled Renovate run for the whole
+  ecosystem (see [Dependency updates](#dependency-updates)).
+
+## Composite actions
+
+In `.github/actions/`, referenced like the workflows
+(`Labs64/labs64.io-workspace/.github/actions/<name>@v1`):
+
+- **`tool-versions`** — exports every pin in [`tool-versions.env`](../../tool-versions.env)
+  as an environment variable (`TERRAFORM_VERSION`, `HELM_DOCS_VERSION`, …).
+- **`setup-k8s-tools`** — installs helm, helm plugins, helmfile, k3d and just at those
+  versions (and exports them). No workflow anywhere installs one of these tools by hand
+  or names a version; `just check-pins` fails if one does.
+- **`maven-settings`** — writes the `settings.xml` with the Labs64 Nexus / Maven Central
+  server entries; used by the three Maven-running workflows above.
 
 
   `java-ci.yml`'s reusable-workflow `permissions:` block was deliberately left
@@ -57,13 +89,13 @@ publish behavior stays consistent across the polyglot fleet.
 
 ## Calling convention
 
-Callers pin the reusable workflow to `@master` and forward all secrets with
-`secrets: inherit`:
+Callers reference the workflows and actions at the moving major tag `@v1` and forward
+all secrets with `secrets: inherit`:
 
 ```yaml
 jobs:
   ci:
-    uses: Labs64/labs64.io-workspace/.github/workflows/java-ci.yml@master
+    uses: Labs64/labs64.io-workspace/.github/workflows/java-ci.yml@v1
     with:
       working-directory: my-service-be
       artifact-name: my-service-test-reports
@@ -72,6 +104,45 @@ jobs:
 
 See each workflow's `on.workflow_call.inputs` block for the full set of
 inputs and defaults.
+
+### Versioning these workflows
+
+Every module's CI and release pipeline runs this repository's code, so a change here is a
+change to twelve pipelines at once. `v1` is a tag, not a branch: merging to `master` does
+**not** change what callers run until the tag is moved.
+
+```bash
+# after merging a backwards-compatible change and seeing it green here
+git tag -f v1 origin/master && git push -f origin v1
+```
+
+A change that callers must adapt to (a renamed input, a new required secret, different
+semantics) gets a new major tag (`v2`); callers move to it one repository at a time, and
+`v1` keeps working until the last one has moved.
+
+## Dependency updates
+
+Renovate, configured once: [`default.json`](../../default.json) at the root of this
+repository is the shared preset, and each repository's `renovate.json` contains only
+`{"extends": ["github>Labs64/labs64.io-workspace"]}`.
+
+Beyond the usual manifests (Maven, npm, pip, Dockerfiles, compose, GitHub Actions,
+Terraform, helmfile, Helm chart dependencies) it follows pins that live outside any
+package manifest, wherever the line above them says what they are:
+
+```
+# renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
+GATEWAY_API_VERSION := "v1.6.2"
+```
+
+Add that annotation whenever a version has to be written in a justfile, a shell script, an
+env file, a Dockerfile `ARG` or a Chart.yaml `appVersion` (XML:
+`<!-- renovate: datasource=maven depName=group:artifact -->` above a pom property).
+
+`renovate.yml` runs it for every repository with a `renovate.json`. It needs the
+`RENOVATE_TOKEN` secret (a PAT that may open PRs in the ecosystem repositories) and
+reuses `L64_PUB_CI_USERNAME` / `L64_PUB_CI_PASSWORD` so that releases in the private
+Labs64 Nexus (`labs64io-parent`, `auditflow-api`) are proposed too.
 
 ## Consuming the digest
 
@@ -83,7 +154,7 @@ content than the run that validated it; the digest cannot move.
 ```yaml
 jobs:
   publish-be:
-    uses: Labs64/labs64.io-workspace/.github/workflows/docker-publish.yml@master
+    uses: Labs64/labs64.io-workspace/.github/workflows/docker-publish.yml@v1
     with:
       image: labs64/checkout
       context: ./checkout-be

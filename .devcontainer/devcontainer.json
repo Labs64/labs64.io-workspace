@@ -20,13 +20,17 @@
       "version": "3.14"
     },
     "ghcr.io/devcontainers/features/github-cli:1": {},
+    // helm and terraform mirror tool-versions.env (this file cannot read it);
+    // `just check-pins` fails if they drift, and Renovate bumps both places together.
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
       "version": "latest",
-      "helm": "latest",
+      // renovate: datasource=github-releases depName=helm/helm extractVersion=^v(?<version>.*)$
+      "helm": "4.3.0",
       "minikube": "none"
     },
     "ghcr.io/devcontainers/features/terraform:1": {
-      "version": "latest"
+      // renovate: datasource=github-releases depName=hashicorp/terraform extractVersion=^v(?<version>.*)$
+      "version": "1.16.5"
     },
     "ghcr.io/devcontainers/features/aws-cli:1": {
       "version": "latest"

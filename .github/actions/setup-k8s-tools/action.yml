@@ -1,0 +1,95 @@
+# Installs the Kubernetes CLI toolchain at the versions pinned in the workspace's
+# tool-versions.env — the same file the dev container installs from, so CI and a
+# developer's machine cannot drift apart. Also exports every pin as an environment
+# variable (HELM_DOCS_VERSION, ...) for later steps.
+#
+#   - uses: Labs64/labs64.io-workspace/.github/actions/setup-k8s-tools@v1
+#     with:
+#       helm-plugins: diff schema
+#       helmfile: "true"
+#       k3d: "true"
+name: Labs64.IO - Setup Kubernetes Tools
+description: Install helm, helm plugins, helmfile, k3d and just at the ecosystem's pinned versions
+
+inputs:
+  helm:
+    description: Install Helm
+    required: false
+    default: "true"
+  helm-plugins:
+    description: "Space-separated Helm plugins to install: diff, schema"
+    required: false
+    default: ""
+  helmfile:
+    description: Install helmfile
+    required: false
+    default: "false"
+  k3d:
+    description: Install k3d
+    required: false
+    default: "false"
+  just:
+    description: Install just
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Export tool versions
+      shell: bash
+      run: grep -E '^[A-Z0-9_]+=' "$GITHUB_ACTION_PATH/../../../tool-versions.env" | tee -a "$GITHUB_ENV"
+
+    - name: Install Helm
+      if: inputs.helm == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        curl -fsSL -o "$RUNNER_TEMP/get_helm.sh" "https://raw.githubusercontent.com/helm/helm/v${HELM_VERSION}/scripts/get-helm-4"
+        DESIRED_VERSION="v${HELM_VERSION}" bash "$RUNNER_TEMP/get_helm.sh"
+        helm version --short
+
+    - name: Install Helm plugins
+      if: inputs.helm-plugins != ''
+      shell: bash
+      env:
+        PLUGINS: ${{ inputs.helm-plugins }}
+      # Helm 4 verifies plugins by default, but Git sources cannot provide provenance.
+      run: |
+        set -euo pipefail
+        for plugin in $PLUGINS; do
+          case "$plugin" in
+            diff)   helm plugin install https://github.com/databus23/helm-diff --version "v${HELM_DIFF_VERSION}" --verify=false ;;
+            schema) helm plugin install https://github.com/dadav/helm-schema --version "${HELM_SCHEMA_VERSION}" --verify=false ;;
+            *) echo "::error::unknown helm plugin '$plugin' (diff|schema)"; exit 1 ;;
+          esac
+        done
+        helm plugin list
+
+    - name: Install helmfile
+      if: inputs.helmfile == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        arch="$(dpkg --print-architecture)"
+        curl -fsSL "https://github.com/helmfile/helmfile/releases/download/v${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION}_linux_${arch}.tar.gz" \
+          | tar -xz -C "$RUNNER_TEMP" helmfile
+        sudo install -m 0755 "$RUNNER_TEMP/helmfile" /usr/local/bin/helmfile
+        helmfile --version
+
+    - name: Install k3d
+      if: inputs.k3d == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        curl -fsSL "https://raw.githubusercontent.com/k3d-io/k3d/v${K3D_VERSION}/install.sh" | TAG="v${K3D_VERSION}" bash
+        k3d version
+
+    - name: Install just
+      if: inputs.just == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh \
+          | sudo bash -s -- --tag "${JUST_VERSION}" --to /usr/local/bin
+        just --version

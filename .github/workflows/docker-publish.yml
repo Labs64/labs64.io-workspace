@@ -3,6 +3,13 @@
 #   mode: release -> <image>:<version> + :latest   (GitHub release)
 # build-command runs before docker build (e.g. mvn package for jar-based images).
 #
+# One version per release: in mode=release the Maven pre-build runs with
+# -Drevision=<version> (exported as MAVEN_ARGS), so the jar inside the image carries the
+# same version as the tag and the image — and, because the project is then a release,
+# the requireReleaseDeps rule in io.labs64:labs64io-parent fails the build on any
+# -SNAPSHOT parent or dependency. The image is also labelled with that version
+# (org.opencontainers.image.version); Dockerfiles take it as `ARG VERSION`.
+#
 # Emits the pushed image digest as a workflow output. Neither Docker Hub nor GHCR can
 # enforce tag immutability, so `<image>:<version>` may later resolve to different content
 # than what this run validated — the digest is the only identity that cannot move. Callers
@@ -34,10 +41,11 @@ on:
         required: false
         type: string
         default: ""
+      # JDK for build-command; only set up when a build-command is given.
       java-version:
         required: false
         type: string
-        default: ""
+        default: "25"
     secrets:
       DOCKERHUB_USERNAME:
         required: true
@@ -77,55 +85,39 @@ jobs:
       MODE: ${{ inputs.mode }}
       VERSION: ${{ inputs.version }}
       BUILD_CMD: ${{ inputs.build-command }}
+      CONTEXT: ${{ inputs.context }}
     steps:
       - name: Validate inputs
         run: |
           case "$MODE" in
             edge) ;;
             release)
-              if [[ -z "$VERSION" ]]; then
-                echo "mode=release requires a version input"; exit 1
+              if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::mode=release requires a version X.Y.Z (got '$VERSION')"; exit 1
               fi ;;
-            *) echo "Unknown mode '$MODE' (edge|release)"; exit 1 ;;
+            *) echo "::error::unknown mode '$MODE' (edge|release)"; exit 1 ;;
           esac
 
       - uses: actions/checkout@v7
 
       - name: Set up JDK
-        if: inputs.java-version != ''
+        if: inputs.build-command != ''
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ inputs.java-version }}
           cache: maven
 
-      - name: Prepare Maven settings.xml
+      - uses: Labs64/labs64.io-workspace/.github/actions/maven-settings@v1
         if: inputs.build-command != ''
-        env:
-          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
-          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
-        run: |
-          if [ -z "$L64_PUB_CI_USERNAME" ]; then
-            echo "No credentials provided, skipping settings.xml generation."
-            exit 0
-          fi
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml <<'EOF'
-          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
-            <servers>
-              <server>
-                <id>labs64-nexus</id>
-                <username>${env.L64_PUB_CI_USERNAME}</username>
-                <password>${env.L64_PUB_CI_PASSWORD}</password>
-              </server>
-              <server>
-                <id>labs64-nexus-snapshots</id>
-                <username>${env.L64_PUB_CI_USERNAME}</username>
-                <password>${env.L64_PUB_CI_PASSWORD}</password>
-              </server>
-            </servers>
-          </settings>
-          EOF
+        with:
+          nexus-username: ${{ secrets.L64_PUB_CI_USERNAME }}
+
+      # MAVEN_ARGS is read by every `mvn` invocation (Maven >= 3.9), so the caller's
+      # build-command needs no version flag of its own.
+      - name: Build the release at the tag's version
+        if: inputs.mode == 'release' && inputs.build-command != ''
+        run: echo "MAVEN_ARGS=-Drevision=${VERSION}" >> "$GITHUB_ENV"
 
       - name: Pre-build
         if: inputs.build-command != ''
@@ -133,6 +125,28 @@ jobs:
           L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
           L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
         run: $BUILD_CMD
+
+      # A pom that hardcodes its version ignores -Drevision; the image would then ship a
+      # jar whose version disagrees with its own tag. Read from the manifest rather than
+      # the file name (a module may set <finalName>). Only meaningful for Maven contexts.
+      - name: Verify the jar carries the release version
+        if: inputs.mode == 'release' && inputs.build-command != ''
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=("$CONTEXT"/target/*.jar)
+          if [[ ${#jars[@]} -eq 0 ]]; then
+            echo "No jar in $CONTEXT/target — not a Maven build, skipping."
+            exit 0
+          fi
+          for jar in "${jars[@]}"; do
+            JAR_VERSION="$(unzip -p "$jar" META-INF/MANIFEST.MF | tr -d '\r' | sed -n 's/^Implementation-Version: //p')"
+            if [[ "$JAR_VERSION" != "$VERSION" ]]; then
+              echo "::error::$jar is version '${JAR_VERSION}', expected '${VERSION}' — the pom must declare <version>\${revision}</version>"
+              exit 1
+            fi
+            echo "$jar: Implementation-Version ${JAR_VERSION}"
+          done
 
       - name: Compute tags
         id: tags
@@ -166,6 +180,7 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             GIT_REVISION=${{ github.sha }}
+            VERSION=${{ steps.tags.outputs.primary }}
           cache-from: type=gha,scope=${{ inputs.image }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image }}
 
@@ -215,11 +230,18 @@ jobs:
       - name: Verify required OCI labels
         env:
           IMAGE_REF: ${{ steps.identity.outputs.image-ref }}
+          PRIMARY_TAG: ${{ steps.tags.outputs.primary }}
         run: |
           set -euo pipefail
           docker pull "$IMAGE_REF"
           LABELS="$(docker inspect --format '{{json .Config.Labels}}' "$IMAGE_REF")"
-          for key in org.opencontainers.image.licenses org.opencontainers.image.revision org.opencontainers.image.source io.labs64.edition; do
+          for key in org.opencontainers.image.licenses org.opencontainers.image.revision org.opencontainers.image.source org.opencontainers.image.version io.labs64.edition; do
             echo "$LABELS" | jq -e --arg k "$key" 'has($k) and (.[$k] | length > 0)' >/dev/null \
               || { echo "::error::missing or empty OCI label '$key' on $IMAGE_REF"; exit 1; }
           done
+          # The image must say which release it is: the label equals the tag it was pushed as.
+          LABEL_VERSION="$(echo "$LABELS" | jq -r '."org.opencontainers.image.version"')"
+          if [[ "$LABEL_VERSION" != "$PRIMARY_TAG" ]]; then
+            echo "::error::org.opencontainers.image.version is '$LABEL_VERSION', expected '$PRIMARY_TAG'"
+            exit 1
+          fi

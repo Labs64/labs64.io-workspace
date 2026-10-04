@@ -84,8 +84,8 @@ Once cloned, run `just doctor` to check all of the above are installed and print
    corresponding issuer.
 
 > **Deploying elsewhere?** The steps above spin up the **Local Development** mode (Helmfile + k3d).
-> The Helm charts also support an **AWS QA / Staging / Prod Environment** mode (ArgoCD + Terraform,
-> see `labs64.io-devops/`) and a **Users' Own Infrastructure (BYO Infra)** mode for your own cluster
+> The Helm charts also support an **AWS QA / Staging / Prod Environment** mode (Terraform + the
+> umbrella chart, see `labs64.io-devops/`) and a **Users' Own Infrastructure (BYO Infra)** mode for your own cluster
 > (GCP, Azure, on-prem) without cloning this whole workspace — cherry-pick individual charts via
 > `helm repo add labs64io https://labs64.github.io/labs64.io-helm-charts`. See
 > [Deployment Modes](https://github.com/Labs64/labs64.io-helm-charts#deployment-modes) in the
@@ -127,8 +127,8 @@ The workspace clones 12 repositories as siblings of itself — the runtime servi
 | Repository | Description |
 |------------|-------------|
 | [**labs64.io-commons**](https://github.com/Labs64/labs64.io-commons) | Shared Java libraries (auth SDK, business telemetry, common utilities) consumed by the backend services. |
-| [**labs64.io-helm-charts**](https://github.com/Labs64/labs64.io-helm-charts) | Kubernetes Helm charts, ArgoCD deployments, and the centralized observability stack. |
-| [**labs64.io-devops**](https://github.com/Labs64/labs64.io-devops) | Infrastructure-as-Code (Terraform), CI/CD pipelines, and GitOps automation. |
+| [**labs64.io-helm-charts**](https://github.com/Labs64/labs64.io-helm-charts) | Kubernetes Helm charts (module charts + the `labs64io-ecosystem` umbrella), the local Helmfile stack, and the centralized observability stack. |
+| [**labs64.io-devops**](https://github.com/Labs64/labs64.io-devops) | Infrastructure-as-Code (Terraform) and the AWS install/operations runbooks; pins the umbrella chart version each environment runs. |
 | [**labs64.io-tests**](https://github.com/Labs64/labs64.io-tests) | Black-box, contract-first API regression & integration test suite (Robot Framework). |
 | [**labs64.io-docs**](https://github.com/Labs64/labs64.io-docs) | Public-facing product documentation and developer integration guides. |
 | [**labs64.io-docs-internal**](https://github.com/Labs64/labs64.io-docs-internal) | Internal architecture docs, RFCs, and design decisions. |
@@ -180,11 +180,35 @@ just down         # tear down the local cluster (images/registry untouched)
 just pull               # pull latest changes in all repos
 just status             # check git status across all repos
 just verify-deps        # confirm every Java module resolves its dependencies offline
+just check              # cross-repo gates: release wiring + shared version pins
 just logs [app]         # tail error logs for all modules, or one (e.g. `just logs checkout`)
 just smoke              # run the fast, PR-gating smoke tests
 just test               # run normal regression + PSP-stub tests, then restore normal PG
 just regression         # run ordinary regression without changing provider endpoints
 ```
+
+### 🔖 Versions, releases & dependency updates
+
+Every version has exactly one owner; nothing below is restated anywhere else.
+
+| What | Single source |
+|------|---------------|
+| CLI toolchain (helm, helmfile, k3d, terraform, …) for the dev container **and** CI | [`tool-versions.env`](tool-versions.env) — `just doctor` reports drift |
+| Spring Boot line, BOM overrides, shared Java dependency/plugin versions, commons libraries | `io.labs64:labs64io-parent` in `labs64.io-commons` |
+| Third-party Helm chart versions and repositories | `labs64.io-helm-charts/helmfile.yaml.gotmpl` |
+| What an AWS environment runs | `CHART_VERSION` in `labs64.io-devops/justfile` (the umbrella chart version = the ecosystem release) |
+| Dependency updates in all repositories | Renovate, shared preset [`default.json`](default.json) |
+
+**Releasing** is the same gesture in every repository: publish a GitHub Release whose tag is the
+version (`X.Y.Z`). No pom carries a version — the tag becomes the jar, the image tag and label,
+and the chart `appVersion`; the module chart and the umbrella are bumped by an automated PR, and
+Renovate proposes the new umbrella to `labs64.io-devops`. Release order when commons changed:
+`commons` → modules pin the new `labs64io-parent` → module releases. See
+[`.github/workflows/README.md`](.github/workflows/README.md) for the pipeline in detail.
+
+`just check` verifies the parts no single repository can see: `check-release-wiring` (every
+released image reaches its chart) and `check-pins` (pins that two files or repositories must
+share actually agree; no pom hard-codes a version).
 
 Set `VERBOSE=0` to switch to a quieter animated-progress mode that only prints a module's log if it fails, e.g. `VERBOSE=0 just build`.
 

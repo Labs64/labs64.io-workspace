@@ -1,0 +1,17 @@
+# Exports every pin in the workspace's tool-versions.env as an environment variable
+# (HELM_VERSION, TERRAFORM_VERSION, ...) for the remaining steps of the calling job, so
+# no workflow in any repository writes a tool version of its own.
+#
+#   - uses: Labs64/labs64.io-workspace/.github/actions/tool-versions@v1
+#   - uses: hashicorp/setup-terraform@v4
+#     with:
+#       terraform_version: ${{ env.TERRAFORM_VERSION }}
+name: Labs64.IO - Tool Versions
+description: Export the ecosystem's pinned CLI tool versions as environment variables
+
+runs:
+  using: composite
+  steps:
+    - name: Export tool versions
+      shell: bash
+      run: grep -E '^[A-Z0-9_]+=' "$GITHUB_ACTION_PATH/../../../tool-versions.env" | tee -a "$GITHUB_ENV"

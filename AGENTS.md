@@ -4,7 +4,7 @@ Guidance for AI agents working in the Labs64.IO workspace. Read this before maki
 
 ## What this is
 
-Open-source digital commerce platform — polyglot microservices ecosystem. 12 independent git repos, shared Helm charts, ArgoCD deployment. **Not a monorepo.**
+Open-source digital commerce platform — polyglot microservices ecosystem. 12 independent git repos, shared Helm charts; AWS environments are installed from `labs64.io-devops` (Terraform + the `labs64io-ecosystem` umbrella chart). **Not a monorepo.**
 
 ## Repository layout
 
@@ -25,7 +25,7 @@ The 12 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not 
 | What you need | Where to look |
 | --- | --- |
 | Work on a module | `<module>/AGENTS.md` (always read before changes) |
-| Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS QA/Staging/Prod, BYO Infra) + `labs64.io-devops/` for the ArgoCD/Terraform path |
+| Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS QA/Staging/Prod, BYO Infra) + `labs64.io-devops/` for the AWS (Terraform + umbrella chart) path |
 | Write infrastructure | `labs64.io-devops/terraform/` |
 | Write an RFC | `labs64.io-docs-internal/rfc/RFC_TEMPLATE.md` |
 | Write public docs (onboarding, config, technical reference) | `labs64.io-docs/` (its `AGENTS.md` first — the ultimate reference for running/using/configuring modules; mirrors module ids from `labs64.io-website/_data/modules.yml`, never restates status/version) |
@@ -42,7 +42,20 @@ Non-negotiable. Violations break builds, deployments, or observability.
 3. **Preserve non-root user `l64user`** (uid/gid 1064) in all Dockerfiles (exception: nginx-based UI frontends may use UID 101).
 4. **Observability is infrastructure-owned.** Never add OpenTelemetry SDK/starter dependencies or SDK bootstrap to services; the OTel Java Agent (bundled in images) / `opentelemetry-instrument` (entrypoint) provide instrumentation, toggled purely by deployment env (`observability.enabled` in Helm, obs compose overlay). Business telemetry goes through each service's thin `BusinessTelemetry` abstraction. See `labs64.io-helm-charts/OBSERVABILITY.md` (canonical model).
 5. **Keep transformer/sink ID validation regex consistent** across Java and Python (`^[a-zA-Z0-9_]+$`).
-6. **Chart versions must match** between Helm `Chart.yaml` and ArgoCD ApplicationSet pin.
+6. **Every version has one owner — never restate a pin, never write a version into a pom.**
+   - Chart versions and Helm repositories: `labs64.io-helm-charts/helmfile.yaml.gotmpl`.
+     Spring Boot line, BOM overrides, shared Java versions: `io.labs64:labs64io-parent`
+     (`labs64.io-commons`). CLI tools: `tool-versions.env` here.
+   - What an AWS environment runs: `CHART_VERSION` in `labs64.io-devops/justfile` — the
+     umbrella chart version is the ecosystem release number and the pin of record (there is no
+     GitOps controller). A chart change bumps its `version` and every chart vendoring it,
+     umbrella included (`just bump <chart>` in helm-charts; chart CI enforces it).
+   - Java poms declare `<version>${revision}</version>` (default `0.0.0-SNAPSHOT`). A release is
+     a GitHub Release tagged `X.Y.Z`: the tag becomes the jar version, image tag/label and chart
+     `appVersion`. Never commit a version bump, and never release against a `-SNAPSHOT` parent
+     or dependency — the release build refuses it (`requireReleaseDeps` in `labs64io-parent`).
+   - A pin that two places genuinely must share is verified by `just check-pins`; add it there
+     instead of writing "keep in sync" in a comment.
 7. **Network policies must preserve explicit communication paths** — allow ingress from
    Traefik/AuthProxy for external routes and from the specific caller modules for direct
    in-cluster integrations.
@@ -58,6 +71,9 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Vue | 3, Composition API, Vite, Pinia, Bootstrap 5 |
 | Docker | All images run as `l64user` (uid/gid 1064) |
 | Tests | JUnit 5 (Java), pytest (Python), Vitest (Vue); black-box API-edge regression in `labs64.io-tests/` (Robot Framework) |
+| Versions | One owner per pin (guardrail 6); runtime/tool versions in `tool-versions.env`; `just doctor` reports local drift |
+| Dependency updates | Renovate; every repo's `renovate.json` only extends the shared preset `default.json` in this repo. Pins outside a package manifest carry a `# renovate: datasource=… depName=…` line directly above them |
+| CI building blocks | Reusable workflows and composite actions in `.github/` here, referenced as `…@v1` (see `.github/workflows/README.md`) |
 | Task runner | `just` — check each repo's justfile |
 | Observability | Infrastructure-owned; runtime auto-instrumentation (OTel Java Agent / opentelemetry-instrument) → OTel Collector → Tempo (traces) / Loki compose (logs) / Prometheus (metrics) → Grafana; Java metrics via Micrometer `/actuator/prometheus`. Canonical model: `labs64.io-helm-charts/OBSERVABILITY.md` |
 
@@ -85,6 +101,26 @@ Non-negotiable. Violations break builds, deployments, or observability.
 Decision record:
 `labs64.io-docs-internal/rfc/2026-08-12_RFC_09_service-principal-delegated-tenant-publishing.md`.
 
+## Releases
+
+One gesture in every repository: **publish a GitHub Release whose tag is the version `X.Y.Z`.**
+
+| Repository | What the release publishes |
+| --- | --- |
+| `labs64.io-commons` | `labs64io-parent` + every Java library at `X.Y.Z` (Labs64 Nexus) |
+| `labs64.io-auditflow` | three images + `io.labs64:auditflow-api`, all `X.Y.Z`; chart PR |
+| `labs64.io-checkout`, `-payment-gateway`, `-customer-portal`, `-authproxy` | image(s) `X.Y.Z`; chart PR |
+| `labs64.io-helm-charts` | every push to `master` touching `charts/**` publishes the bumped charts |
+
+The chain after a module release is automatic up to the deploy decision: images by digest →
+PR pinning them into the module chart and bumping the umbrella → published umbrella →
+Renovate PR bumping `CHART_VERSION` in `labs64.io-devops`. Merging that last PR and running
+`just modules-install <env>` is the deliberate rollout.
+
+Order matters only when commons changed: release `commons`, move the modules to the new
+`labs64io-parent` (Renovate opens those PRs), then release the modules. `just check` (here)
+runs the cross-repo gates; its `note` lines list modules still on a `-SNAPSHOT` parent.
+
 ## Pull requests
 
 Every PR opened in any of the 12 ecosystem repos must:
@@ -111,6 +147,10 @@ gh project item-add 6 --owner Labs64 --url <PR URL>
 | Terraform infrastructure | `labs64.io-devops/terraform/` |
 | Network policies | `labs64.io-devops/kubernetes/network-policies/` |
 | Website / Marketing Content | `labs64.io-website/` |
+| Bump a 3pp chart / Helm repo | `labs64.io-helm-charts/helmfile.yaml.gotmpl` (only there) |
+| Bump Spring Boot or a shared Java dependency | `labs64.io-commons/labs64io-parent/pom.xml` (only there), then release commons and move the modules' parent version |
+| Bump a CLI tool (dev container + CI) | `tool-versions.env` |
+| Roll a release out to an AWS environment | `CHART_VERSION` in `labs64.io-devops/justfile`, then `just modules-install <env>` |
 | Module status / website module list | `labs64.io-website/_data/modules.yml` (single source; rendered into nav, module pages, roadmap; `labs64.io-docs` must never restate this — link/copy from here) |
 | Module technical/integration docs | `labs64.io-docs/<module>/` (dir name must match the module's `id` in `labs64.io-website/_data/modules.yml`) |
 | Add/audit/run tests for a module | `labs64.io-<module>/tests/e2e/` (shared keywords in `labs64.io-tests/resources/`; see `test-suite-steward` skill) |

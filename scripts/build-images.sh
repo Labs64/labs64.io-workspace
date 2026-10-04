@@ -41,6 +41,9 @@ REGISTRY="host.docker.internal:5005"
 # path is resolved against the ecosystem root one level up.
 ROOT=${ROOT:-".."}
 
+# shellcheck source=lib/internal-deps.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/internal-deps.sh"
+
 BUILD_ACTION="--push"
 if [[ "$TARGET" != "commons" ]] && ! curl -s --connect-timeout 2 "http://${REGISTRY}/v2/" > /dev/null; then
     echo "INFO: Local registry at ${REGISTRY} is not reachable."
@@ -81,10 +84,11 @@ image_step() {
     run_step "$label" -- bash -c "cd '$dir' && build_image localhost:5005/${image}:latest ."
 }
 
+# The commons checkout at HEAD (as 0.0.0-SNAPSHOT), plus every released internal
+# artifact a module pins — see lib/internal-deps.sh.
 build_commons() {
-    mvn_step "commons: auth-context-java" "${ROOT}/labs64.io-commons/auth-context-java" clean install -Dmaven.test.skip=true
-    mvn_step "commons: openapi-spring-boot-starter" "${ROOT}/labs64.io-commons/openapi-spring-boot-starter" clean install -Dmaven.test.skip=true
-    mvn_step "commons: authz-queryplan-jpa" "${ROOT}/labs64.io-commons/authz-queryplan-jpa" clean install -Dmaven.test.skip=true
+    install_commons_dev
+    ensure_pinned_releases
 }
 
 build_traefik_authproxy() {
@@ -129,15 +133,18 @@ case "$TARGET" in
         build_traefik_authproxy
         ;;
     auditflow)
+        ensure_pinned_releases
         build_auditflow
         ;;
     checkout)
+        ensure_pinned_releases
         build_checkout
         ;;
     customer-portal|customer-portal-ui)
         build_customer_portal
         ;;
     payment-gateway)
+        ensure_pinned_releases
         build_payment_gateway
         ;;
     *)

@@ -1,16 +1,17 @@
 # Reusable Maven publish to Labs64 Nexus.
-#   mode: snapshot -> deploy current -SNAPSHOT (skips silently if pom version
+#   mode: snapshot -> deploy the current -SNAPSHOT (skips silently if the pom version
 #                     is not a SNAPSHOT — never pushes a release to snapshots)
-#   mode: release  -> versions:set <version>, GPG-signed deploy (-P release),
-#                     commit + tag <tag-prefix><version>, bump to next -SNAPSHOT
-# Caller must grant `permissions: contents: write` on the CALLING JOB for
-# BOTH modes (snapshot and release) — this workflow declares contents:write
-# at its own top level (needed for the release path's commit/tag/push), and
-# GitHub Actions enforces that declaration against the caller for every
-# invocation regardless of which mode branch actually runs. Omitting it
-# produces a startup_failure ("is only allowed 'contents: read'") even for
-# mode=snapshot, which performs no git writes at all.
-# mode=release requires a branch ref (workflow_dispatch on a branch); it pushes version-bump commits back to that branch.
+#   mode: release  -> GPG-signed deploy of <version> (-Drevision=<version> -P release)
+#
+# Releases are tag-driven: no pom in the ecosystem carries a real version (they declare
+# `<version>${revision}</version>` with a 0.0.0-SNAPSHOT default), so a release is the
+# tagged commit built with -Drevision=<tag>. This workflow therefore never commits,
+# tags or pushes — the caller is a GitHub Release (or a manual run on the tag) and only
+# needs `contents: read`.
+#
+# A release build fails if any parent or dependency is still a -SNAPSHOT (the
+# requireReleaseDeps enforcer rule in io.labs64:labs64io-parent), and Nexus refuses to
+# overwrite an existing release, so re-running a release is safe.
 name: Reusable - Maven Publish
 
 on:
@@ -23,10 +24,7 @@ on:
         required: true
         type: string
       version:
-        required: false
-        type: string
-        default: ""
-      next-version:
+        description: "Release version X.Y.Z (mode: release) — normally the release tag"
         required: false
         type: string
         default: ""
@@ -34,10 +32,11 @@ on:
         required: false
         type: string
         default: "25"
-      tag-prefix:
+      publish-central:
+        description: "mode: release only — also publish to Maven Central (-P release,central)"
         required: false
-        type: string
-        default: "v"
+        type: boolean
+        default: false
     secrets:
       L64_PUB_CI_USERNAME:
         required: true
@@ -47,19 +46,22 @@ on:
         required: false
       GPG_KEY_PASS:
         required: false
+      OSS_USER:
+        required: false
+      OSS_PASS:
+        required: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     env:
-      WD: ${{ inputs.working-directory }}
       MODE: ${{ inputs.mode }}
       RELEASE_VERSION: ${{ inputs.version }}
-      NEXT_VERSION: ${{ inputs.next-version }}
-      TAG_PREFIX: ${{ inputs.tag-prefix }}
+      L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+      L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
@@ -71,9 +73,9 @@ jobs:
             snapshot) ;;
             release)
               if ! [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                echo "Invalid release version '$RELEASE_VERSION' (expected X.Y.Z)"; exit 1
+                echo "::error::invalid release version '$RELEASE_VERSION' (expected X.Y.Z)"; exit 1
               fi ;;
-            *) echo "Unknown mode '$MODE' (snapshot|release)"; exit 1 ;;
+            *) echo "::error::unknown mode '$MODE' (snapshot|release)"; exit 1 ;;
           esac
 
       - uses: actions/checkout@v7
@@ -84,35 +86,12 @@ jobs:
           java-version: ${{ inputs.java-version }}
           cache: maven
 
-      - name: Prepare Maven settings.xml
-        working-directory: .
-        env:
-          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
-          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml <<'EOF'
-          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
-            <servers>
-              <server>
-                <id>labs64-nexus</id>
-                <username>${env.L64_PUB_CI_USERNAME}</username>
-                <password>${env.L64_PUB_CI_PASSWORD}</password>
-              </server>
-              <server>
-                <id>labs64-nexus-snapshots</id>
-                <username>${env.L64_PUB_CI_USERNAME}</username>
-                <password>${env.L64_PUB_CI_PASSWORD}</password>
-              </server>
-            </servers>
-          </settings>
-          EOF
+      - uses: Labs64/labs64.io-workspace/.github/actions/maven-settings@v1
+        with:
+          nexus-username: ${{ secrets.L64_PUB_CI_USERNAME }}
 
       - name: Deploy snapshot
         if: inputs.mode == 'snapshot'
-        env:
-          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
-          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
         run: |
           VERSION="$(mvn -q -ntp -DforceStdout help:evaluate -Dexpression=project.version)"
           echo "Current version: $VERSION"
@@ -120,12 +99,16 @@ jobs:
             echo "Version $VERSION is not a SNAPSHOT — skipping snapshot deploy."
             exit 0
           fi
-          mvn -U -B -ntp -s ~/.m2/settings.xml clean deploy
+          mvn -U -B -ntp clean deploy
 
       - name: Import GPG key
         if: inputs.mode == 'release'
         working-directory: .
+        env:
+          GPG_KEY: ${{ secrets.GPG_KEY }}
+          GPG_KEY_PASS: ${{ secrets.GPG_KEY_PASS }}
         run: |
+          set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq pinentry-curses
           mkdir -p ~/.gnupg
@@ -134,38 +117,42 @@ jobs:
           echo "pinentry-program $(command -v pinentry-curses)" >> ~/.gnupg/gpg-agent.conf
           echo "pinentry-mode loopback" > ~/.gnupg/gpg.conf
           gpgconf --kill gpg-agent
-          echo "${{ secrets.GPG_KEY }}" | base64 -d | \
-            gpg --batch --pinentry-mode loopback --passphrase "${{ secrets.GPG_KEY_PASS }}" --import
+          printf '%s' "$GPG_KEY" | base64 -d | \
+            gpg --batch --pinentry-mode loopback --passphrase "$GPG_KEY_PASS" --import
 
-      - name: Configure Git
+      # A pom that still hardcodes its version would silently ignore -Drevision and
+      # deploy something other than the tag; refuse before anything is published.
+      - name: Verify the build takes its version from the tag
         if: inputs.mode == 'release'
-        working-directory: .
         run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "netlicensing@labs64.com"
+          EFFECTIVE="$(mvn -q -ntp -DforceStdout -Drevision="$RELEASE_VERSION" help:evaluate -Dexpression=project.version)"
+          if [[ "$EFFECTIVE" != "$RELEASE_VERSION" ]]; then
+            echo "::error::project.version resolves to '$EFFECTIVE', not '$RELEASE_VERSION' — the pom must declare <version>\${revision}</version>"
+            exit 1
+          fi
 
       - name: Release
         if: inputs.mode == 'release'
         env:
-          L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
-          L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS }}
         run: |
-          if [[ "$GITHUB_REF_TYPE" != "branch" ]]; then
-            echo "mode=release must be invoked from a branch ref (workflow_dispatch), not a tag/release event"
-            exit 1
-          fi
-          mvn -U -B -ntp versions:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
-          mvn -U -B -ntp -s ~/.m2/settings.xml clean deploy -P release -Dgpg.pinentryMode=loopback
-          git add -- pom.xml ':(glob)**/pom.xml'
-          git commit -m "chore: release $WD $RELEASE_VERSION"
-          git tag -a "${TAG_PREFIX}${RELEASE_VERSION}" -m "Release ${RELEASE_VERSION}"
-          if [[ -z "$NEXT_VERSION" ]]; then
-            IFS=. read -r MA MI PA <<< "$RELEASE_VERSION"
-            NEXT_VERSION="${MA}.${MI}.$((PA+1))-SNAPSHOT"
-          fi
-          mvn -U -B -ntp versions:set -DnewVersion="$NEXT_VERSION" -DgenerateBackupPoms=false
-          git add -- pom.xml ':(glob)**/pom.xml'
-          git commit -m "chore: start $NEXT_VERSION"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-          git push origin "${TAG_PREFIX}${RELEASE_VERSION}"
+          mvn -U -B -ntp -Drevision="$RELEASE_VERSION" -P release \
+            -Dgpg.pinentryMode=loopback clean deploy
+          {
+            echo "### Published ${RELEASE_VERSION} to Labs64 Nexus"
+            echo
+            echo "Built from \`${GITHUB_SHA}\` (\`${GITHUB_REF_NAME}\`) with \`-Drevision=${RELEASE_VERSION}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Central runs AFTER the Nexus deploy so a Central failure never loses the Nexus
+      # release. central-publishing-maven-plugin (extensions=true) takes over the deploy
+      # phase, so this does not push to Nexus a second time.
+      - name: Publish to Maven Central
+        if: inputs.mode == 'release' && inputs.publish-central
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS }}
+          OSS_USER: ${{ secrets.OSS_USER }}
+          OSS_PASS: ${{ secrets.OSS_PASS }}
+        run: |
+          mvn -U -B -ntp -Drevision="$RELEASE_VERSION" -P release,central \
+            -Dgpg.pinentryMode=loopback clean deploy
