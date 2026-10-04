@@ -181,6 +181,7 @@ just pull               # pull latest changes in all repos
 just status             # check git status across all repos
 just verify-deps        # confirm every Java module resolves its dependencies offline
 just check              # cross-repo gates: release wiring + shared version pins
+just verify-process     # the gates' own tests (here + helm-charts), then every gate (CI runs the same daily)
 just logs [app]         # tail error logs for all modules, or one (e.g. `just logs checkout`)
 just smoke              # run the fast, PR-gating smoke tests
 just test               # run normal regression + PSP-stub tests, then restore normal PG

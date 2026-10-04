@@ -1,0 +1,122 @@
+name: Labs64.IO - Workspace - CI
+
+# The workspace owns the checks no single repository can run: the release-wiring and version-pin
+# gates read ALL the repositories at once, and the reusable workflows every repository calls live
+# here. Without this workflow they only ran when someone remembered to.
+#
+#   tooling    — tests for the gate scripts themselves, actionlint over every workflow, and the
+#                Renovate preset validated. On every change to this repository.
+#   ecosystem  — `just check` across all 13 repositories' `master`. Also daily, so drift that
+#                lands in another repository (a bumped Cerbos tag, a hard-coded tool version) is
+#                reported here instead of being found at release time.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "scripts/**"
+      - ".github/**"
+      - "tool-versions.env"
+      - "default.json"
+      - "renovate/**"
+      - ".devcontainer/**"
+  pull_request:
+    paths:
+      - "scripts/**"
+      - ".github/**"
+      - "tool-versions.env"
+      - "default.json"
+      - "renovate/**"
+      - ".devcontainer/**"
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspace-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tooling:
+    name: Tooling (tests, workflow lint, Renovate preset)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: labs64.io-workspace
+    steps:
+      # Laid out like a developer's machine: this repository and its siblings side by side.
+      - uses: actions/checkout@v7
+        with:
+          path: labs64.io-workspace
+
+      # A sibling checkout the wiring tests reuse (they skip themselves when it is absent).
+      - name: Check out the Helm charts repository next to this one
+        uses: actions/checkout@v7
+        with:
+          repository: Labs64/labs64.io-helm-charts
+          path: labs64.io-helm-charts
+
+      # A local action resolves from the job's workspace root, not from `path` above.
+      - uses: ./labs64.io-workspace/.github/actions/tool-versions
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install test dependencies
+        run: pip install pyyaml pytest
+
+      - name: Test the gate scripts
+        # A gate nobody tests reports "clean" forever.
+        run: pytest scripts/tests -q
+
+      - name: Lint every workflow (actionlint + shellcheck)
+        # Intentional findings (the unquoted $GOALS in java-ci.yml is meant to word-split) are not
+        # suppressed here: if this step goes red for one, quote it or add `# shellcheck disable`.
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+
+      - uses: actions/setup-node@v7
+        with:
+          # Renovate's supported Node range lags the newest release; it runs in its own
+          # container in renovate.yml, so this only needs to satisfy the validator.
+          node-version: "24"
+
+      - name: Validate the Renovate preset
+        run: npx --yes --package renovate@44 -- renovate-config-validator default.json renovate.json
+
+  ecosystem:
+    name: Cross-repository consistency (just check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: labs64.io-workspace
+
+      - name: Check out every ecosystem repository (master) as a sibling
+        run: |
+          set -euo pipefail
+          for repo in docs docs-internal devops tests helm-charts commons authproxy auditflow checkout customer-portal payment-gateway; do
+            git clone --depth 1 --quiet "https://github.com/Labs64/labs64.io-${repo}.git" "labs64.io-${repo}"
+          done
+          # The website repository is named labs64.io but cloned as labs64.io-website (see `just clone`).
+          git clone --depth 1 --quiet https://github.com/Labs64/labs64.io.git labs64.io-website
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Every released image reaches its chart
+        run: python3 labs64.io-workspace/scripts/check-release-wiring.py --root .
+
+      - name: Shared version pins agree
+        run: python3 labs64.io-workspace/scripts/check-version-pins.py --root .

@@ -83,6 +83,16 @@ if ! command -v helmfile &> /dev/null; then
     sudo chmod +x /usr/local/bin/helmfile
 fi
 
+# Install helm-docs (chart README generator). The docs recipe prefers this pinned binary because
+# its Docker-image fallback cannot bind-mount a path inside the dev container.
+if ! command -v helm-docs &> /dev/null || [ "$(helm-docs --version | awk '{print $NF}')" != "${HELM_DOCS_VERSION}" ]; then
+    echo "Installing helm-docs ${HELM_DOCS_VERSION}..."
+    case "$ARCH" in amd64) DOCS_ARCH=x86_64 ;; *) DOCS_ARCH="$ARCH" ;; esac
+    curl -fsSL "https://github.com/norwoodj/helm-docs/releases/download/v${HELM_DOCS_VERSION}/helm-docs_${HELM_DOCS_VERSION}_Linux_${DOCS_ARCH}.tar.gz" | tar -xz -C /tmp helm-docs
+    sudo mv /tmp/helm-docs /usr/local/bin/helm-docs
+    sudo chmod +x /usr/local/bin/helm-docs
+fi
+
 # Install required Helm plugins
 echo "Installing Helm plugins..."
 helm plugin install --version "v${HELM_DIFF_VERSION}" --verify=false https://github.com/databus23/helm-diff 2>/dev/null || true

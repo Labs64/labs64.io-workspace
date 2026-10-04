@@ -65,6 +65,12 @@ version `X.Y.Z`**. Nothing is committed back and no file is edited to "set the v
   `labs64.io-commons` (the whole reactor) and `labs64.io-auditflow` (`auditflow-api`).
 - **`renovate.yml`** — not reusable: the scheduled Renovate run for the whole
   ecosystem (see [Dependency updates](#dependency-updates)).
+- **`labs64io-ci.yml`** — not reusable: this repository's own CI. `tooling` runs the gate
+  scripts' tests, `actionlint` (with shellcheck) over every workflow here, and validates the
+  Renovate preset; `ecosystem` runs `check-release-wiring.py` and `check-version-pins.py` over
+  `master` of all 13 repositories, on every change here **and daily** — so drift that lands in
+  another repository is reported here, not found at release time. `just verify-process` runs the
+  same checks locally.
 
 ## Composite actions
 

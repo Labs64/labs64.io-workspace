@@ -135,9 +135,13 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           jars=("$CONTEXT"/target/*.jar)
+          # This step only runs when a build-command was given, and every build-command in the
+          # ecosystem is a Maven build that must leave a jar for the Dockerfile to copy. Finding
+          # none means the build did nothing (wrong module, skipped phase): fail here, not later
+          # in an image that silently carries a stale or missing jar.
           if [[ ${#jars[@]} -eq 0 ]]; then
-            echo "No jar in $CONTEXT/target — not a Maven build, skipping."
-            exit 0
+            echo "::error::no jar in $CONTEXT/target after the build-command — did it build the right module?"
+            exit 1
           fi
           for jar in "${jars[@]}"; do
             JAR_VERSION="$(unzip -p "$jar" META-INF/MANIFEST.MF | tr -d '\r' | sed -n 's/^Implementation-Version: //p')"

@@ -76,6 +76,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Versions | One owner per pin (guardrail 6); runtime/tool versions in `tool-versions.env`; `just doctor` reports local drift |
 | Dependency updates | Renovate; every repo's `renovate.json` only extends the shared preset `default.json` in this repo. Pins outside a package manifest carry a `# renovate: datasource=… depName=…` line directly above them |
 | CI building blocks | Reusable workflows and composite actions in `.github/` here, referenced as `…@v1` (see `.github/workflows/README.md`) |
+| Process self-checks | `just verify-process` (tests of the gate scripts + `just check`); this repo's `labs64io-ci.yml` runs them on every change and daily across all repositories |
 | Task runner | `just` — check each repo's justfile |
 | Observability | Infrastructure-owned; runtime auto-instrumentation (OTel Java Agent / opentelemetry-instrument) → OTel Collector → Tempo (traces) / Loki compose (logs) / Prometheus (metrics) → Grafana; Java metrics via Micrometer `/actuator/prometheus`. Canonical model: `labs64.io-helm-charts/OBSERVABILITY.md` |
 

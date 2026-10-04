@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
           docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" up -d
           services="$(docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" config --services)"
-          for i in {1..60}; do
+          for _ in {1..60}; do
             all_ok=true
             for svc in $services; do
               cid="$(docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" ps -q "$svc" || true)"
@@ -140,7 +140,10 @@ jobs:
         env:
           L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
           L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
-        run: mvn -U -B -ntp -f "$WD/pom.xml" $GOALS
+        run: |
+          # GOALS is deliberately word-split: callers pass several goals/options ("-pl x -am verify").
+          # shellcheck disable=SC2086
+          mvn -U -B -ntp -f "$WD/pom.xml" $GOALS
 
       - name: Upload test reports
         if: always() && inputs.artifact-name != ''

@@ -191,8 +191,11 @@ doctor:
             missing=$((missing + 1))
             return
         fi
+        # Capture everything, then keep the first line: `| head -1` closes the pipe early, and a
+        # tool that keeps writing (k9s) then dies of SIGPIPE, failing the recipe under pipefail.
         local have
-        have="$("${@:5}" 2>&1 | head -1)"
+        have="$("${@:5}" 2>&1 || true)"
+        have="${have%%$'\n'*}"
         if [ -n "$want" ] && [[ "$have" != *"$want"* ]]; then
             echo "⚠️  $name: $have — tool-versions.env pins $want"
             drift=$((drift + 1))
@@ -215,6 +218,7 @@ doctor:
     check "Maven" mvn  "3.6.3+, https://maven.apache.org/"              ""                    mvn --version
     check "Node"  node "${NODE_VERSION}+, https://nodejs.org/"          "v${NODE_VERSION}."   node --version
     check "k9s"   k9s  "https://k9scli.io/"                             "v${K9S_VERSION}"     k9s version -s
+    check "helm-docs" helm-docs "https://github.com/norwoodj/helm-docs/releases (or rebuild the dev container)" "${HELM_DOCS_VERSION}" helm-docs --version
     echo "---"
     if command -v helm >/dev/null 2>&1; then
         for plugin in "diff:${HELM_DIFF_VERSION}:https://github.com/databus23/helm-diff --version v${HELM_DIFF_VERSION}" \
@@ -340,3 +344,17 @@ check-pins:
 
 # Run every cross-repo consistency gate
 check: check-release-wiring check-pins
+
+# Verify the release and maintenance tooling itself, offline (no cluster, no registry writes):
+# the gate scripts' own tests (here and in labs64.io-helm-charts), then every cross-repo gate.
+# Needs `pytest` and `pyyaml`; CI runs the same steps (.github/workflows/labs64io-ci.yml).
+verify-process:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 -m pytest scripts/tests -q -p no:cacheprovider
+    if [ -d "{{ROOT}}/labs64.io-helm-charts/scripts" ]; then
+        (cd "{{ROOT}}/labs64.io-helm-charts" && python3 -m pytest scripts -q -p no:cacheprovider)
+    else
+        echo "skip: labs64.io-helm-charts not cloned (run 'just clone')"
+    fi
+    just check
