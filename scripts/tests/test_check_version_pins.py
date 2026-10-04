@@ -203,12 +203,98 @@ POM = """<project>
 """
 
 
-def test_pom_with_revision_is_clean_but_noted_as_snapshot(tmp_path):
+def release_repo(root: Path, repo: str, remote_tags: tuple[str, ...] = (), local_tags: tuple[str, ...] = ()) -> None:
+    """A cloned repository whose origin is a local bare repository holding `remote_tags`.
+
+    `local_tags` exist only in the clone: tagged, never released.
+    """
+    git = ["git", "-c", "user.email=t@example.com", "-c", "user.name=t"]
+    remote = root / ".remotes" / f"{repo}.git"  # not labs64.io-*, so the checker never globs it
+    remote.parent.mkdir(exist_ok=True)
+    subprocess.run([*git, "init", "-q", "--bare", str(remote)], check=True)
+    work = root / repo
+    work.mkdir(parents=True, exist_ok=True)
+    subprocess.run([*git, "init", "-q"], cwd=work, check=True)
+    subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "init"], cwd=work, check=True)
+    subprocess.run([*git, "remote", "add", "origin", str(remote)], cwd=work, check=True)
+    for tag in (*remote_tags, *local_tags):
+        subprocess.run([*git, "tag", tag], cwd=work, check=True)
+    for tag in remote_tags:
+        subprocess.run([*git, "push", "-q", "origin", f"refs/tags/{tag}"], cwd=work, check=True)
+
+
+def pinned(version: str) -> str:
+    return POM.replace("<version>0.0.0-SNAPSHOT</version>", f"<version>{version}</version>")
+
+
+PG_BE_POM = POM.replace("<artifactId>demo</artifactId>", "<artifactId>payment-gateway</artifactId>").replace(
+    "<version>0.0.0-SNAPSHOT</version>", "<version>0.0.4</version>"
+).replace("</project>", "  <properties><auditflow-api.version>AUDITFLOW_API</auditflow-api.version></properties>\n</project>")
+
+
+def test_snapshot_pin_is_rejected_and_names_the_repository_to_release_first(tmp_path):
     root = ecosystem(tmp_path)
     write(root, "labs64.io-demo/demo-be/pom.xml", POM)
     proc = run(root)
+    assert proc.returncode == 1
+    assert "labs64io-parent is pinned to 0.0.0-SNAPSHOT" in proc.stdout
+    assert "Release labs64.io-commons first" in proc.stdout
+
+
+def test_pin_on_a_released_version_is_clean(tmp_path):
+    root = ecosystem(tmp_path)
+    release_repo(root, "labs64.io-commons", remote_tags=("0.0.4",))
+    write(root, "labs64.io-demo/demo-be/pom.xml", pinned("0.0.4"))
+    proc = run(root)
     assert proc.returncode == 0, proc.stdout
-    assert "labs64io-parent 0.0.0-SNAPSHOT" in proc.stdout  # the release-blocking note
+    assert "labs64io-parent 0.0.4 released by labs64.io-commons" in proc.stdout
+
+
+def test_pin_on_a_version_nobody_released_is_rejected(tmp_path):
+    root = ecosystem(tmp_path)
+    release_repo(root, "labs64.io-commons", remote_tags=("0.0.3",))
+    write(root, "labs64.io-demo/demo-be/pom.xml", pinned("0.0.4"))
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "labs64.io-commons has no release tag 0.0.4" in proc.stdout
+
+
+def test_a_tag_that_only_exists_locally_is_not_a_release(tmp_path):
+    root = ecosystem(tmp_path)
+    release_repo(root, "labs64.io-commons", local_tags=("0.0.4",))
+    write(root, "labs64.io-demo/demo-be/pom.xml", pinned("0.0.4"))
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "has no release tag 0.0.4" in proc.stdout
+
+
+def test_unreachable_remote_is_a_note_not_a_failure(tmp_path):
+    root = ecosystem(tmp_path)
+    release_repo(root, "labs64.io-commons")
+    subprocess.run(
+        ["git", "remote", "set-url", "origin", str(tmp_path / "does-not-exist.git")],
+        cwd=root / "labs64.io-commons",
+        check=True,
+    )
+    write(root, "labs64.io-demo/demo-be/pom.xml", pinned("0.0.4"))
+    proc = run(root)
+    assert proc.returncode == 0, proc.stdout
+    assert "could not confirm that labs64.io-commons released 0.0.4" in proc.stdout
+
+
+def test_auditflow_api_pin_must_be_released_by_auditflow(tmp_path):
+    root = ecosystem(tmp_path)
+    release_repo(root, "labs64.io-commons", remote_tags=("0.0.4",))
+    release_repo(root, "labs64.io-auditflow", remote_tags=("0.0.18",))
+    be = "labs64.io-payment-gateway/payment-gateway-be/pom.xml"
+    write(root, be, PG_BE_POM.replace("AUDITFLOW_API", "0.0.18"))
+    assert run(root).returncode == 0
+    write(root, be, PG_BE_POM.replace("AUDITFLOW_API", "0.0.19"))
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "auditflow-api is pinned to 0.0.19, but labs64.io-auditflow has no release tag 0.0.19" in proc.stdout
+    write(root, be, PG_BE_POM.replace("AUDITFLOW_API", "0.0.0-SNAPSHOT"))
+    assert "Release labs64.io-auditflow first" in run(root).stdout
 
 
 def test_pom_with_hardcoded_version_is_rejected(tmp_path):

@@ -13,6 +13,11 @@ repository's CI can see the other side, so it runs here, across the whole checko
     scripts/check-version-pins.py
     just check-pins
 
+It also enforces release order. A service pins released versions of commons
+(labs64io-parent) and of auditflow-api; a tagged build refuses -SNAPSHOT inputs, and a pin on
+a version nobody released cannot resolve. Both fail here, naming the repository to release
+first, so the mistake is caught on master instead of at the first release tag.
+
 Repositories that are not cloned are skipped, not failed: a partial checkout is normal on a
 developer machine. CI passes --strict instead, which fails when a repository the checks read is
 missing — otherwise a failed clone would turn the gate into a silently weaker one.
@@ -24,6 +29,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -126,6 +132,52 @@ def major(version: str | None) -> str | None:
 def minor_line(version: str | None) -> str | None:
     parts = _numeric(version)[:2]
     return ".".join(parts) if parts else None
+
+
+def _git(cwd: Path | None, *args: str) -> subprocess.CompletedProcess | None:
+    """Run git quietly and never prompt; None when git cannot run or times out."""
+    try:
+        return subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+_tag_cache: dict[tuple[str, str], bool | None] = {}
+
+
+def release_tag_exists(root: Path, repo: str, tag: str) -> bool | None:
+    """Whether `repo` has release tag `tag` on its remote.
+
+    The remote is the authority (a tag that only exists in a local clone was never released).
+    When it cannot be reached, a local tag is accepted; otherwise the answer is None: unknown.
+    """
+    key = (repo, tag)
+    if key in _tag_cache:
+        return _tag_cache[key]
+    checkout = root / repo
+    cloned = (checkout / ".git").exists()
+    url = None
+    if cloned:
+        origin = _git(checkout, "remote", "get-url", "origin")
+        url = origin.stdout.strip() if origin and origin.returncode == 0 else None
+    url = url or f"https://github.com/Labs64/{repo}.git"
+    answer: bool | None = None
+    remote = _git(None, "ls-remote", "--tags", url, f"refs/tags/{tag}")
+    if remote and remote.returncode == 0:
+        answer = bool(remote.stdout.strip())
+    elif cloned:
+        local = _git(checkout, "tag", "--list", tag)
+        if local and local.returncode == 0 and local.stdout.strip():
+            answer = True
+    _tag_cache[key] = answer
+    return answer
 
 
 # --- checks ---------------------------------------------------------------------
@@ -397,6 +449,30 @@ def check_opentelemetry(root: Path) -> None:
         ok("OpenTelemetry Python requirements", f"{len(python)} identical files")
 
 
+def check_release_order(root: Path, pins: list[tuple[str, str, str, str]]) -> None:
+    """A pin on a Labs64 artifact must be a real release, and that release must exist.
+
+    Release order is commons, then auditflow (auditflow-api), then the services that pin
+    them. Renovate cannot help before the first release: it only proposes versions it finds
+    on Nexus, so a pin on an unreleased version has to be fixed by hand.
+    """
+    for where, what, version, owner in pins:
+        if version.endswith("-SNAPSHOT"):
+            fail(
+                f"{where}: {what} is pinned to {version} — a tagged build refuses -SNAPSHOT inputs, so this "
+                f"commit cannot be released. Release {owner} first, then pin that version "
+                f"(Renovate proposes it once the release exists)"
+            )
+            continue
+        exists = release_tag_exists(root, owner, version)
+        if exists is False:
+            fail(f"{where}: {what} is pinned to {version}, but {owner} has no release tag {version} — release {owner} first")
+        elif exists is None:
+            notes.append(f"{where}: could not confirm that {owner} released {version} (remote unreachable)")
+        else:
+            ok(f"{what} {version} released by {owner}", where)
+
+
 def check_java(root: Path) -> None:
     poms = [
         p
@@ -425,9 +501,6 @@ def check_java(root: Path) -> None:
         if parent and parent.group(1) != "${revision}":
             parent_pins[rel] = parent.group(1)
 
-    for rel, version in parent_pins.items():
-        if version.endswith("-SNAPSHOT"):
-            notes.append(f"{rel}: labs64io-parent {version} — a release build of this module will be refused")
     if parent_pins:
         ok("labs64io-parent pinned by", f"{len(parent_pins)} module poms")
 
@@ -435,18 +508,26 @@ def check_java(root: Path) -> None:
     auditflow_api = first(
         r"<auditflow-api\.version>([^<]+)</auditflow-api\.version>", read(pg / "payment-gateway-be/pom.xml")
     )
-    if auditflow_api and auditflow_api.endswith("-SNAPSHOT"):
-        notes.append(
-            f"labs64.io-payment-gateway: auditflow-api {auditflow_api} — a release build of payment-gateway will be refused"
+    schema_generator = first(
+        r"<openapi-schema-generator\.version>([^<]+)<", read(pg / "payment-gateway-api/pom.xml")
+    )
+
+    # (where, what, pinned version, repository that releases it)
+    pins = [(rel, "labs64io-parent", v, "labs64.io-commons") for rel, v in parent_pins.items()]
+    if auditflow_api:
+        pins.append(("labs64.io-payment-gateway/payment-gateway-be/pom.xml", "auditflow-api", auditflow_api, "labs64.io-auditflow"))
+    if schema_generator:
+        pins.append(
+            ("labs64.io-payment-gateway/payment-gateway-api/pom.xml", "openapi-schema-generator", schema_generator, "labs64.io-commons")
         )
+    check_release_order(root, pins)
+
     # payment-gateway-api is a standalone pom, so it names the commons version it runs
     # its schema generator from; it must be the commons release the backend inherits.
     expect_equal(
         "payment-gateway: commons version (api vs backend parent)",
         {
-            "payment-gateway-api openapi-schema-generator.version": first(
-                r"<openapi-schema-generator\.version>([^<]+)<", read(pg / "payment-gateway-api/pom.xml")
-            ),
+            "payment-gateway-api openapi-schema-generator.version": schema_generator,
             "payment-gateway-be labs64io-parent": parent_pins.get(
                 "labs64.io-payment-gateway/payment-gateway-be/pom.xml"
             ),

@@ -73,6 +73,17 @@ version `X.Y.Z`**. Nothing is committed back and no file is edited to "set the v
   needs the secret `ECOSYSTEM_READ_TOKEN` (or, as a fallback, `RENOVATE_TOKEN`); it is skipped for fork PRs. `just verify-process` runs the
   same checks locally.
 
+### Release order
+
+`labs64.io-commons` releases first, then `labs64.io-auditflow` (`auditflow-api`), then the services
+that pin them (`labs64io-parent`, `auditflow-api`, `openapi-schema-generator`). A tagged build refuses
+`-SNAPSHOT` inputs, and Renovate can only propose a version it finds on Nexus, so a pin on something not
+yet released is fixed by hand. `check-version-pins.py` therefore fails when a service pom pins one of
+those artifacts to a `-SNAPSHOT`, or to a version whose release tag the owning repository does not have
+on its remote, and names the repository to release first. Master must always be taggable; develop
+against unreleased commons on a branch. The check confirms the tag, not that the publish job
+succeeded — look at the owner's release workflow if a pinned build cannot resolve.
+
 ## Composite actions
 
 In `.github/actions/`, referenced like the workflows
