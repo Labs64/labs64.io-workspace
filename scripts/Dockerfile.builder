@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=maven:3.9-eclipse-temurin-25
+ARG BASE_IMAGE=maven:3.10-eclipse-temurin-25
 FROM ${BASE_IMAGE}
 
 # Docker CLI for Docker-outside-of-Docker (DooD); git to rebuild pinned internal
