@@ -46,9 +46,11 @@ Non-negotiable. Violations break builds, deployments, or observability.
    - Chart versions and Helm repositories: `labs64.io-helm-charts/helmfile.yaml.gotmpl`.
      Spring Boot line, BOM overrides, shared Java versions: `io.labs64:labs64io-parent`
      (`labs64.io-commons`). CLI tools: `tool-versions.env` here.
-   - What an AWS environment runs: `CHART_VERSION` in `labs64.io-devops/justfile` — the
+   - What an AWS environment runs: `CHART_VERSION` in `labs64.io-devops/justfile.versions` — the
      umbrella chart version is the ecosystem release number and the pin of record (there is no
-     GitOps controller). A chart change bumps its `version` and every chart vendoring it,
+     GitOps controller). Versions never go back into a justfile: `labs64.io-devops` and
+     `labs64.io-helm-charts` keep theirs in `justfile.versions`, which the justfile imports
+     (`just check-pins` fails on a `*_VERSION :=` in a justfile). A chart change bumps its `version` and every chart vendoring it,
      umbrella included (`just bump <chart>` in helm-charts; chart CI enforces it).
    - Java poms declare `<version>${revision}</version>` (default `0.0.0-SNAPSHOT`). A release is
      a GitHub Release tagged `X.Y.Z`: the tag becomes the jar version, image tag/label and chart
@@ -150,7 +152,9 @@ gh project item-add 6 --owner Labs64 --url <PR URL>
 | Bump a 3pp chart / Helm repo | `labs64.io-helm-charts/helmfile.yaml.gotmpl` (only there) |
 | Bump Spring Boot or a shared Java dependency | `labs64.io-commons/labs64io-parent/pom.xml` (only there), then release commons and move the modules' parent version |
 | Bump a CLI tool (dev container + CI) | `tool-versions.env` |
-| Roll a release out to an AWS environment | `CHART_VERSION` in `labs64.io-devops/justfile`, then `just modules-install <env>` |
+| Roll a release out to an AWS environment | `CHART_VERSION` in `labs64.io-devops/justfile.versions`, then `just modules-install <env>` |
+| Bump a CRD set, an AWS platform chart, or a canary/load-test image | `justfile.versions` of `labs64.io-helm-charts` / `labs64.io-devops` (only there) |
+| Upgrade Kubernetes / PostgreSQL / Valkey / RabbitMQ on AWS | `labs64.io-devops/terraform/variables.tf`, then the local stack to match (`just check-pins` names what differs) |
 | Module status / website module list | `labs64.io-website/_data/modules.yml` (single source; rendered into nav, module pages, roadmap; `labs64.io-docs` must never restate this — link/copy from here) |
 | Module technical/integration docs | `labs64.io-docs/<module>/` (dir name must match the module's `id` in `labs64.io-website/_data/modules.yml`) |
 | Add/audit/run tests for a module | `labs64.io-<module>/tests/e2e/` (shared keywords in `labs64.io-tests/resources/`; see `test-suite-steward` skill) |

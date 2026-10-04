@@ -29,6 +29,7 @@
       ],
       "managerFilePatterns": [
         "/(^|/)justfile$/",
+        "/(^|/)justfile\\.versions$/",
         "/(^|/)tool-versions\\.env$/",
         "/\\.sh$/",
         "/(^|/)Dockerfile[^/]*$/",

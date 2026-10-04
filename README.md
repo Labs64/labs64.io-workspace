@@ -196,7 +196,9 @@ Every version has exactly one owner; nothing below is restated anywhere else.
 | CLI toolchain (helm, helmfile, k3d, terraform, …) for the dev container **and** CI | [`tool-versions.env`](tool-versions.env) — `just doctor` reports drift |
 | Spring Boot line, BOM overrides, shared Java dependency/plugin versions, commons libraries | `io.labs64:labs64io-parent` in `labs64.io-commons` |
 | Third-party Helm chart versions and repositories | `labs64.io-helm-charts/helmfile.yaml.gotmpl` |
-| What an AWS environment runs | `CHART_VERSION` in `labs64.io-devops/justfile` (the umbrella chart version = the ecosystem release) |
+| CRD sets applied outside Helm (Gateway API, Traefik CRDs) | `labs64.io-helm-charts/justfile.versions` |
+| What an AWS environment runs, platform charts, canary/load-test images | `labs64.io-devops/justfile.versions` (`CHART_VERSION` = the umbrella chart version = the ecosystem release) |
+| Kubernetes, PostgreSQL, Valkey, RabbitMQ engine lines on AWS | `labs64.io-devops/terraform/variables.tf` (local stack must match; checked) |
 | Dependency updates in all repositories | Renovate, shared preset [`default.json`](default.json) |
 
 **Releasing** is the same gesture in every repository: publish a GitHub Release whose tag is the
@@ -208,7 +210,14 @@ Renovate proposes the new umbrella to `labs64.io-devops`. Release order when com
 
 `just check` verifies the parts no single repository can see: `check-release-wiring` (every
 released image reaches its chart) and `check-pins` (pins that two files or repositories must
-share actually agree; no pom hard-codes a version).
+share actually agree; no pom hard-codes a version; no version constant creeps back into a
+justfile; the local k3s minor equals EKS and the local PostgreSQL, Valkey and RabbitMQ lines
+equal the AWS ones).
+
+The two justfile repositories keep their pins in a `justfile.versions` that the justfile `import`s,
+so recipes still use `{{CHART_VERSION}}` etc. unchanged. (`just` loads only one dotenv file, and both
+justfiles already use theirs, so the `tool-versions.env` approach is not available there.)
+To bump a version, edit that one file or merge the Renovate PR.
 
 Set `VERBOSE=0` to switch to a quieter animated-progress mode that only prints a module's log if it fails, e.g. `VERBOSE=0 just build`.
 

@@ -2,8 +2,9 @@
 """Check that every version pin shared across files or repositories agrees.
 
 Most pins in the ecosystem have exactly one owner (helmfile.yaml.gotmpl for chart
-versions, labs64io-parent for the Java stack, tool-versions.env for the CLI toolchain).
-A few cannot: a file that is unable to read its owner (devcontainer.json), or two
+versions, labs64io-parent for the Java stack, tool-versions.env for the CLI toolchain,
+justfile.versions in labs64.io-helm-charts and labs64.io-devops for everything else those two
+pin). A few cannot: a file that is unable to read its owner (devcontainer.json), or two
 repositories that must hold the same value because they install the same thing on
 different paths (helm-charts locally, devops on AWS). Those used to be kept together by
 "keep in lockstep" comments. This is the gate that replaces the comments — no single
@@ -87,6 +88,29 @@ def helmfile_versions(text: str | None) -> dict[str, str]:
 
 def just_constant(text: str | None, name: str) -> str | None:
     return first(rf'^{name}\s*:=\s*"([^"]+)"', text)
+
+
+def tf_default(text: str | None, name: str) -> str | None:
+    """Default of `variable "<name>"` in a Terraform variables file."""
+    if text is None:
+        return None
+    m = re.search(rf'variable "{name}" \{{(.*?)(?=\nvariable "|\Z)', text, re.S)
+    return first(r'^\s*default\s*=\s*"([^"]+)"', m.group(1) if m else None)
+
+
+def _numeric(version: str | None) -> list[str]:
+    """Leading numeric components of an image tag: '9.1-alpine' -> ['9', '1']."""
+    m = re.match(r"\d+(?:\.\d+)*", version or "")
+    return m.group(0).split(".") if m else []
+
+
+def major(version: str | None) -> str | None:
+    return _numeric(version)[0] if _numeric(version) else None
+
+
+def minor_line(version: str | None) -> str | None:
+    parts = _numeric(version)[:2]
+    return ".".join(parts) if parts else None
 
 
 # --- checks ---------------------------------------------------------------------
@@ -174,32 +198,32 @@ def check_toolchain(root: Path) -> None:
 
 def check_platform_lockstep(root: Path) -> None:
     charts = root / "labs64.io-helm-charts"
-    devops_just = read(root / "labs64.io-devops" / "justfile")
-    charts_just = read(charts / "justfile")
+    devops_just = read(root / "labs64.io-devops" / "justfile.versions")
+    charts_just = read(charts / "justfile.versions")
     helmfile = helmfile_versions(read(charts / "helmfile.yaml.gotmpl"))
 
     expect_equal(
         "External Secrets Operator chart",
         {
             "helm-charts helmfile (external-secrets)": helmfile.get("external-secrets"),
-            "devops justfile ESO_CHART_VERSION": just_constant(devops_just, "ESO_CHART_VERSION"),
+            "devops justfile.versions ESO_CHART_VERSION": just_constant(devops_just, "ESO_CHART_VERSION"),
         },
     )
     expect_equal(
         "Keycloak (keycloakx) chart",
         {
             "helm-charts helmfile (keycloak)": helmfile.get("keycloak"),
-            "devops justfile KEYCLOAK_CHART_VERSION": just_constant(devops_just, "KEYCLOAK_CHART_VERSION"),
+            "devops justfile.versions KEYCLOAK_CHART_VERSION": just_constant(devops_just, "KEYCLOAK_CHART_VERSION"),
         },
     )
     expect_equal(
         "Gateway API CRDs",
         {
-            "helm-charts justfile": just_constant(charts_just, "GATEWAY_API_VERSION"),
+            "helm-charts justfile.versions": just_constant(charts_just, "GATEWAY_API_VERSION"),
             "helm-charts install.sh": first(
                 r'^GATEWAY_API_VERSION="\$\{LABS64_GATEWAY_API_VERSION:-([^}]+)\}"', read(charts / "install.sh")
             ),
-            "devops justfile": just_constant(devops_just, "GATEWAY_API_VERSION"),
+            "devops justfile.versions": just_constant(devops_just, "GATEWAY_API_VERSION"),
         },
     )
 
@@ -212,6 +236,106 @@ def check_platform_lockstep(root: Path) -> None:
                 f"{dependency} chart: helmfile vs umbrella Chart.yaml",
                 {f"helmfile ({release})": helmfile.get(release), "labs64io-ecosystem": deps.get(dependency)},
             )
+
+
+def check_version_files(root: Path) -> None:
+    """Versions live in justfile.versions / tool-versions.env, never back in a justfile."""
+    constant = re.compile(r"^[A-Z0-9_]*VERSION\s*:=", re.M)
+    for repo in ("labs64.io-helm-charts", "labs64.io-devops"):
+        versions = read(root / repo / "justfile.versions")
+        justfile = read(root / repo / "justfile")
+        if versions is None:
+            if justfile is not None:
+                fail(f"{repo}/justfile.versions is missing — its pinned versions belong there")
+            continue
+        if justfile is not None and "import 'justfile.versions'" not in justfile:
+            fail(f"{repo}/justfile does not import justfile.versions")
+        for number, line in enumerate((justfile or "").splitlines(), 1):
+            if constant.match(line):
+                fail(f"{repo}/justfile:{number}: version constant outside justfile.versions — move it there")
+        # Every pin in justfile.versions must be visible to Renovate: annotated on the line above.
+        lines = versions.splitlines()
+        for number, line in enumerate(lines, 1):
+            if constant.match(line) and not (number > 1 and lines[number - 2].lstrip().startswith("# renovate:")):
+                fail(f"{repo}/justfile.versions:{number}: {line.split(':=')[0].strip()} has no `# renovate:` annotation")
+    ok("justfile.versions: imported, annotated, no constants in justfiles", "helm-charts, devops")
+
+
+def check_data_stores(root: Path) -> None:
+    """Engine lines that local/charts and the AWS Terraform path must agree on."""
+    charts = root / "labs64.io-helm-charts"
+    tfvars = read(root / "labs64.io-devops" / "terraform" / "variables.tf")
+    devops_just = read(root / "labs64.io-devops" / "justfile.versions")
+    helmfile = helmfile_versions(read(charts / "helmfile.yaml.gotmpl"))
+
+    # Local Kubernetes tracks the EKS control plane.
+    k3s = first(r"^image:\s*rancher/k3s:v(\d+\.\d+)", read(charts / "k3d" / "labs64io.yaml"))
+    expect_equal(
+        "Kubernetes minor: local k3s vs EKS",
+        {"k3d/labs64io.yaml": k3s, "terraform eks_cluster_version": tf_default(tfvars, "eks_cluster_version")},
+    )
+
+    # PostgreSQL major.
+    pg_chart = helmfile.get("postgresql")
+    expect_equal(
+        "PostgreSQL major",
+        {
+            "terraform rds_engine_version": tf_default(tfvars, "rds_engine_version"),
+            "bitnami/postgresql chart (helmfile)": major(pg_chart),
+            "chart-libs _job.tpl": major(first(r"image:\s*postgres:(\d[^\s\"']*)", read(charts / "charts/chart-libs/templates/_job.tpl"))),
+            "preflight values": major(first(r"postgres:(\d[^\s\"']*)", read(charts / "charts/preflight/values.yaml"))),
+            "keycloak override": major(first(r"image:\s*postgres:(\d[^\s\"']*)", read(charts / "overrides/keycloak/values.yaml"))),
+        },
+    )
+
+    # Valkey / RabbitMQ minor line.
+    expect_equal(
+        "Valkey line: AWS ElastiCache vs local",
+        {
+            "terraform cache_engine_version": tf_default(tfvars, "cache_engine_version"),
+            "preflight values": minor_line(first(r"valkey/valkey:(\d[^\s\"']*)", read(charts / "charts/preflight/values.yaml"))),
+            "auditflow docker-compose": minor_line(
+                first(r"valkey/valkey:(\d[^\s\"']*)", read(root / "labs64.io-auditflow/docker-compose.yml"))
+            ),
+        },
+    )
+    expect_equal(
+        "RabbitMQ line: Amazon MQ vs local",
+        {
+            "terraform mq_engine_version": tf_default(tfvars, "mq_engine_version"),
+            "overrides/rabbitmq chart": minor_line(first(r"tag:\s*(\d[^\s\"']*)", read(charts / "overrides/rabbitmq/chart/values.yaml"))),
+            "umbrella values": minor_line(first(r"tag:\s*\"(4\.[^\"]*)\"", read(charts / "charts/labs64io-ecosystem/values.yaml"))),
+            "auditflow docker-compose": minor_line(
+                first(r"image:\s*rabbitmq:(\d[^\s\"']*)", read(root / "labs64.io-auditflow/docker-compose.yml"))
+            ),
+        },
+    )
+
+    # Utility images used by chart tests and jobs. Templates cannot be updated by Renovate, so
+    # this is what notices when a bump reaches the values but not the templates.
+    busybox: dict[str, str | None] = {}
+    for rel in (
+        "charts/chart-libs/templates/_tests.tpl",
+        "charts/checkout/templates/tests/ui-test-connection.yaml",
+        "charts/customer-portal/templates/tests/ui-test-connection.yaml",
+        "charts/labs64io-ecosystem/values.yaml",
+        "charts/preflight/values.yaml",
+    ):
+        found = set(re.findall(r"busybox:(\d[^\s\"']*)", read(charts / rel) or ""))
+        if found:
+            busybox[rel] = ",".join(sorted(found))
+    busybox["overrides/opentelemetry operator"] = first(
+        r"repository:\s*busybox\s*\n(?:\s*#.*\n)*\s*tag:\s*(\S+)",
+        read(charts / "overrides/opentelemetry/values-operator.local.yaml"),
+    )
+    expect_equal("busybox image", busybox)
+    expect_equal(
+        "curl image: preflight vs devops canary/load test",
+        {
+            "preflight values": first(r"curlimages/curl:(\S+)", read(charts / "charts/preflight/values.yaml")),
+            "devops justfile.versions CANARY_CURL_VERSION": just_constant(devops_just, "CANARY_CURL_VERSION"),
+        },
+    )
 
 
 def check_cerbos(root: Path) -> None:
@@ -323,7 +447,15 @@ def main() -> int:
     if not (root / "labs64.io-workspace").is_dir():
         raise SystemExit(f"no labs64.io-workspace under {root}")
 
-    for check in (check_toolchain, check_platform_lockstep, check_cerbos, check_opentelemetry, check_java):
+    for check in (
+        check_toolchain,
+        check_version_files,
+        check_platform_lockstep,
+        check_data_stores,
+        check_cerbos,
+        check_opentelemetry,
+        check_java,
+    ):
         check(root)
 
     if notes:

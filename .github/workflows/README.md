@@ -135,7 +135,7 @@ package manifest, wherever the line above them says what they are:
 GATEWAY_API_VERSION := "v1.6.2"
 ```
 
-Add that annotation whenever a version has to be written in a justfile, a shell script, an
+Add that annotation whenever a version has to be written in a `justfile.versions`, a shell script, an
 env file, a Dockerfile `ARG` or a Chart.yaml `appVersion` (XML:
 `<!-- renovate: datasource=maven depName=group:artifact -->` above a pom property).
 

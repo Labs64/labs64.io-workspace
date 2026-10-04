@@ -52,7 +52,8 @@
     "vscode": {
       "settings": {
         "java.jdt.ls.java.home": "/usr/local/sdkman/candidates/java/current",
-        "remote.autoForwardPorts": false
+        "remote.autoForwardPorts": false,
+        "files.associations": { "justfile.*": "just" }
       },
       "extensions": [
         "vscjava.vscode-java-pack",
