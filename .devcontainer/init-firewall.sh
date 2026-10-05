@@ -312,6 +312,12 @@ resolve_and_add optional \
     "registry.terraform.io" \
     "releases.hashicorp.com"
 
+# --- Optional: Labs64 development service endpoints ---
+# The local NetLicensing Core uses this Keycloak endpoint to obtain AuditFlow
+# client-credentials tokens over HTTPS.
+resolve_and_add optional \
+    "auth.dev.labs64.io"
+
 # --- Optional: tflint plugin install (`just lint` in labs64.io-devops) ---
 # `tflint --init` verifies the AWS ruleset's signature via sigstore's TUF repo
 # (GCP load-balancer fronted); the plugin binary itself comes from GitHub
@@ -522,6 +528,8 @@ DYNAMIC_DOMAINS=(
     # Terraform's provider registry/release hosts are Fastly-fronted and rotate.
     "registry.terraform.io"
     "releases.hashicorp.com"
+    # Labs64 development endpoints can move between gateway/CDN addresses.
+    "auth.dev.labs64.io"
     # sigstore TUF metadata for `tflint --init` (see the tflint block above).
     "tuf-repo-cdn.sigstore.dev"
     # PSP API hosts are backed by distributed infrastructure and can return
