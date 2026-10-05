@@ -28,7 +28,7 @@ The 12 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not 
 | Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS QA/Staging/Prod, BYO Infra) + `labs64.io-devops/` for the AWS (Terraform + umbrella chart) path |
 | Write infrastructure | `labs64.io-devops/terraform/` |
 | Write an RFC | `labs64.io-docs-internal/rfc/RFC_TEMPLATE.md` |
-| Write public docs (onboarding, config, technical reference) | `labs64.io-docs/` (its `AGENTS.md` first — the ultimate reference for running/using/configuring modules; mirrors module ids from `labs64.io-website/_data/modules.yml`, never restates status/version) |
+| Write public docs (onboarding, config, technical reference) | `labs64.io-docs/` (its `AGENTS.md` first — the ultimate reference for running/using/configuring modules; mirrors module ids from `labs64.io/_data/modules.yml`, never restates status/version) |
 | Set up local k8s | `labs64.io-helm-charts/DEVELOPERS.md` |
 | Understand observability | `labs64.io-helm-charts/OBSERVABILITY.md` |
 | Run/add regression & integration tests | `labs64.io-tests/` (`AGENTS.md` first — contract-first, gateway-edge only) |
@@ -149,15 +149,15 @@ gh project item-add 6 --owner Labs64 --url <PR URL>
 | Helm chart templates | `labs64.io-helm-charts/charts/<chart>/templates/` |
 | Terraform infrastructure | `labs64.io-devops/terraform/` |
 | Network policies | `labs64.io-devops/kubernetes/network-policies/` |
-| Website / Marketing Content | `labs64.io-website/` |
+| Website / Marketing Content | `labs64.io/` |
 | Bump a 3pp chart / Helm repo | `labs64.io-helm-charts/helmfile.yaml.gotmpl` (only there) |
 | Bump Spring Boot or a shared Java dependency | `labs64.io-commons/labs64io-parent/pom.xml` (only there), then release commons and move the modules' parent version |
 | Bump a CLI tool (dev container + CI) | `tool-versions.env` |
 | Roll a release out to an AWS environment | `CHART_VERSION` in `labs64.io-devops/justfile.versions`, then `just modules-install <env>` |
 | Bump a CRD set, an AWS platform chart, or a canary/load-test image | `justfile.versions` of `labs64.io-helm-charts` / `labs64.io-devops` (only there) |
 | Upgrade Kubernetes / PostgreSQL / Valkey / RabbitMQ on AWS | `labs64.io-devops/terraform/variables.tf`, then the local stack to match (`just check-pins` names what differs) |
-| Module status / website module list | `labs64.io-website/_data/modules.yml` (single source; rendered into nav, module pages, roadmap; `labs64.io-docs` must never restate this — link/copy from here) |
-| Module technical/integration docs | `labs64.io-docs/<module>/` (dir name must match the module's `id` in `labs64.io-website/_data/modules.yml`) |
+| Module status / website module list | `labs64.io/_data/modules.yml` (single source; rendered into nav, module pages, roadmap; `labs64.io-docs` must never restate this — link/copy from here) |
+| Module technical/integration docs | `labs64.io-docs/<module>/` (dir name must match the module's `id` in `labs64.io/_data/modules.yml`) |
 | Add/audit/run tests for a module | `labs64.io-<module>/tests/e2e/` (shared keywords in `labs64.io-tests/resources/`; see `test-suite-steward` skill) |
 
 ## Superpowers
@@ -188,7 +188,7 @@ matches the task at hand:
 - `test-suite-steward` — add/audit/run tests in `labs64.io-tests/`
 - `helm-config-binding-check` — Helm chart config changes
 - `local-k8s-qa-audit` — QA against the local k3d cluster
-- `ecosystem-website-sync` — keep `labs64.io-website` module data in sync
+- `ecosystem-website-sync` — keep `labs64.io` module data in sync
 
 Adding a skill: create `.agents/skills/<name>/SKILL.md` with `name`/`description`
 frontmatter (Claude Code's skill format), then run `just sync-skills` (or rebuild the

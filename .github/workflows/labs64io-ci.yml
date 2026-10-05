@@ -119,8 +119,7 @@ jobs:
           for repo in devops docs tests helm-charts commons authproxy auditflow checkout customer-portal payment-gateway; do
             gh repo clone "Labs64/labs64.io-${repo}" "labs64.io-${repo}" -- --depth 1 --quiet
           done
-          # The website repository is named labs64.io but cloned as labs64.io-website (see `just clone`).
-          gh repo clone Labs64/labs64.io labs64.io-website -- --depth 1 --quiet
+          gh repo clone Labs64/labs64.io labs64.io -- --depth 1 --quiet
 
       - uses: actions/setup-python@v7
         with:

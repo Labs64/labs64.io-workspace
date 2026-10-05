@@ -1,7 +1,7 @@
 # Optional internal commands; the public workspace works without this sibling.
 mod? ee '../labs64.io-workspace-ee/justfile'
 
-REPOS := "labs64.io-docs labs64.io-docs-internal labs64.io-devops labs64.io-tests labs64.io-helm-charts labs64.io-commons labs64.io-authproxy labs64.io-auditflow labs64.io-checkout labs64.io-customer-portal labs64.io-payment-gateway labs64.io-website"
+REPOS := "labs64.io-docs labs64.io-docs-internal labs64.io-devops labs64.io-tests labs64.io-helm-charts labs64.io-commons labs64.io-authproxy labs64.io-auditflow labs64.io-checkout labs64.io-customer-portal labs64.io-payment-gateway labs64.io"
 GITHUB_ORG := "https://github.com/Labs64"
 # Ecosystem root: repositories are cloned as siblings of this workspace, not inside it.
 ROOT := ".."
@@ -10,24 +10,43 @@ ROOT := ".."
 default:
     @just --list
 
+# One-time migration: the website repo used to be cloned as labs64.io-website. Rename an existing
+# checkout so it matches a fresh one (plain `mv`: branches, stashes and uncommitted work are kept).
+# Safe to remove once everyone has run any recipe below after pulling this change.
+_migrate-website-folder:
+    #!/bin/bash
+    set -euo pipefail
+    old="{{ROOT}}/labs64.io-website"
+    new="{{ROOT}}/labs64.io"
+    [ -d "$old/.git" ] || exit 0
+    if [ -e "$new" ]; then
+        echo "WARNING: both $old and $new exist, leaving both untouched."
+        echo "         Keep $new; delete $old once it holds no unpushed work."
+        exit 0
+    fi
+    url=$(git -C "$old" remote get-url origin 2>/dev/null | tr 'A-Z' 'a-z' || true)
+    url="${url%/}"; url="${url%.git}"
+    case "$url" in
+        *[/:]labs64/labs64.io) ;;
+        *) echo "WARNING: $old is not a Labs64/labs64.io clone (origin: ${url:-none}), leaving it alone."; exit 0 ;;
+    esac
+    echo "Renaming $old -> $new (the website repo is now cloned as labs64.io)..."
+    mv "$old" "$new"
+
 # Clone all ecosystem repositories (as siblings of this workspace)
-clone:
+clone: _migrate-website-folder
     #!/bin/bash
     for repo in {{REPOS}}; do
         if [ ! -d "{{ROOT}}/$repo" ]; then
             echo "Cloning $repo..."
-            remote_repo="$repo"
-            if [ "$repo" = "labs64.io-website" ]; then
-                remote_repo="labs64.io"
-            fi
-            git clone "{{GITHUB_ORG}}/$remote_repo.git" "{{ROOT}}/$repo"
+            git clone "{{GITHUB_ORG}}/$repo.git" "{{ROOT}}/$repo"
         else
             echo "$repo already exists, skipping."
         fi
     done
 
 # Pull latest master/main on all repositories
-pull:
+pull: _migrate-website-folder
     #!/bin/bash
     echo "Pulling workspace root..."
     git pull --rebase --autostash
@@ -39,7 +58,7 @@ pull:
     done
 
 # Show git status across all repositories
-status:
+status: _migrate-website-folder
     #!/bin/bash
     echo "=== workspace root ==="
     git status -s
@@ -51,7 +70,7 @@ status:
     done
 
 # Show open pull requests across all repositories (requires an authenticated gh)
-pr:
+pr: _migrate-website-folder
     #!/bin/bash
     if ! command -v gh >/dev/null 2>&1; then
         echo "gh CLI not found" >&2
