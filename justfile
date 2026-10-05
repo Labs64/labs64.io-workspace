@@ -50,6 +50,31 @@ status:
         fi
     done
 
+# Show open pull requests across all repositories (requires an authenticated gh)
+pr:
+    #!/bin/bash
+    if ! command -v gh >/dev/null 2>&1; then
+        echo "gh CLI not found" >&2
+        exit 1
+    fi
+    list_prs() {
+        local rows
+        rows=$(gh pr list --state open --json number,title,headRefName,createdAt,url \
+            --template '{{ "{{" }}range .{{ "}}" }}#{{ "{{" }}.number{{ "}}" }}{{ "{{" }}"\t"{{ "}}" }}{{ "{{" }}.title{{ "}}" }}{{ "{{" }}"\t"{{ "}}" }}{{ "{{" }}.headRefName{{ "}}" }}{{ "{{" }}"\t"{{ "}}" }}{{ "{{" }}.createdAt | timefmt "2006-01-02 15:04"{{ "}}" }}{{ "{{" }}"\t"{{ "}}" }}{{ "{{" }}.url{{ "}}" }}{{ "{{" }}"\n"{{ "}}" }}{{ "{{" }}end{{ "}}" }}')
+        if [ -n "$rows" ]; then
+            printf 'ID\tTITLE\tBRANCH\tCREATED AT\tLINK\n%s\n' "$rows" | column -t -s $'\t'
+        fi
+    }
+    echo "=== workspace root ==="
+    list_prs
+    for repo in {{REPOS}}; do
+        if [ -d "{{ROOT}}/$repo" ]; then
+            echo
+            echo "=== $repo ==="
+            (cd "{{ROOT}}/$repo" && list_prs)
+        fi
+    done
+
 # Re-sync shared skills into Claude Code's and Codex CLI's user-level skills dirs on demand
 sync-skills:
     ./scripts/sync-skills.sh
