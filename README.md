@@ -132,7 +132,7 @@ The workspace clones 12 repositories as siblings of itself — the runtime servi
 | [**labs64.io-tests**](https://github.com/Labs64/labs64.io-tests) | Black-box, contract-first API regression & integration test suite (Robot Framework). |
 | [**labs64.io-docs**](https://github.com/Labs64/labs64.io-docs) | Public-facing product documentation and developer integration guides. |
 | [**labs64.io-docs-internal**](https://github.com/Labs64/labs64.io-docs-internal) | Internal architecture docs, RFCs, and design decisions. |
-| [**labs64.io-website**](https://github.com/Labs64/labs64.io-website) | Public marketing website (labs64.io). |
+| [**labs64.io**](https://github.com/Labs64/labs64.io) | Public marketing website (labs64.io). |
 
 ## 🎯 Key Features
 
