@@ -283,6 +283,24 @@ def check_platform_lockstep(root: Path) -> None:
             "devops justfile.versions KEYCLOAK_CHART_VERSION": just_constant(devops_just, "KEYCLOAK_CHART_VERSION"),
         },
     )
+    # Installed by helmfile locally and by `just traefik-install` / `just metrics-install` on AWS,
+    # with the same overrides/ values files: one chart version on both paths.
+    expect_equal(
+        "Traefik chart",
+        {
+            "helm-charts helmfile (traefik)": helmfile.get("traefik"),
+            "devops justfile.versions TRAEFIK_CHART_VERSION": just_constant(devops_just, "TRAEFIK_CHART_VERSION"),
+        },
+    )
+    expect_equal(
+        "OpenTelemetry Collector chart",
+        {
+            "helm-charts helmfile (opentelemetry-collector)": helmfile.get("opentelemetry-collector"),
+            "devops justfile.versions OTEL_COLLECTOR_CHART_VERSION": just_constant(
+                devops_just, "OTEL_COLLECTOR_CHART_VERSION"
+            ),
+        },
+    )
     expect_equal(
         "Gateway API CRDs",
         {
@@ -413,6 +431,12 @@ def check_cerbos(root: Path) -> None:
             "helm-charts charts/authz-pdp appVersion": first(
                 r'^appVersion:\s*"?([^"\s]+)', read(root / "labs64.io-helm-charts/charts/authz-pdp/Chart.yaml")
             ),
+            # The digest in values.yaml wins over the tag at render time: the version it was taken
+            # from must be the appVersion, or the chart deploys another Cerbos than it says.
+            "helm-charts charts/authz-pdp values.yaml image.digest (renovate-digest version=)": first(
+                r"renovate-digest:.*depName=ghcr\.io/cerbos/cerbos\s+version=(\S+)",
+                read(root / "labs64.io-helm-charts/charts/authz-pdp/values.yaml"),
+            ),
             "commons auth-policy-cerbos/validate.sh": first(
                 r'^CERBOS_VERSION="([^"]+)"', read(root / "labs64.io-commons/auth-policy-cerbos/validate.sh")
             ),
@@ -425,6 +449,36 @@ def check_cerbos(root: Path) -> None:
             ),
         },
     )
+
+
+def check_collector_image(root: Path) -> None:
+    """The collector image tag is the appVersion of the pinned collector chart, kept by hand.
+
+    Renovate proposes the chart only, so a chart bump would leave the image on the old collector
+    against a newer config schema. Each values file stamps the chart version its tag was taken from
+    (`# chart-pin: opentelemetry-collector <chart version>` directly above `tag:`): the stamp must
+    equal the helmfile's, so a chart bump fails here until someone has read the new appVersion.
+    """
+    charts = root / "labs64.io-helm-charts"
+    chart = helmfile_versions(read(charts / "helmfile.yaml.gotmpl")).get("opentelemetry-collector")
+    tags: dict[str, str | None] = {}
+    for kind in ("local", "aws"):
+        rel = f"overrides/opentelemetry/values-collector.{kind}.yaml"
+        text = read(charts / rel)
+        if text is None:
+            continue
+        m = re.search(r"^\s*#\s*chart-pin:\s*opentelemetry-collector\s+(\S+)\s*\n\s*tag:\s*[\"']?([0-9][^\s\"']*)", text, re.M)
+        if not m:
+            fail(f"labs64.io-helm-charts/{rel}: image.tag has no `# chart-pin: opentelemetry-collector <version>` line above it")
+            continue
+        stamp, tag = m.groups()
+        tags[f"helm-charts {kind} collector values"] = tag
+        if chart is not None and stamp != chart:
+            fail(
+                f"labs64.io-helm-charts/{rel}: image.tag {tag} was taken from collector chart {stamp}, but "
+                f"helmfile.yaml.gotmpl pins {chart} — read that chart's appVersion, then set tag and chart-pin"
+            )
+    expect_equal("OpenTelemetry Collector image tag (local vs AWS)", tags)
 
 
 def check_opentelemetry(root: Path) -> None:
@@ -559,6 +613,7 @@ def main() -> int:
         check_platform_lockstep,
         check_data_stores,
         check_cerbos,
+        check_collector_image,
         check_opentelemetry,
         check_java,
     ):

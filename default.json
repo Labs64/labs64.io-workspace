@@ -45,6 +45,22 @@
     {
       "customType": "regex",
       "description": [
+        "A third-party image pinned by digest in a chart's values.yaml, annotated above the key (blank and",
+        "comment lines may follow the annotation) with",
+        "`# renovate-digest: datasource=docker depName=<image> version=<tag>`. The digest wins over the",
+        "tag at render time, so the tag in the comment and the digest must move in one update: both are",
+        "captured here, next to the chart's appVersion (first manager) in the same package group."
+      ],
+      "managerFilePatterns": [
+        "/(^|/)charts/[^/]+/values\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate-digest:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>\\S+)\\s+version=(?<currentValue>\\S+)[^\\S\\n]*\\n(?:[^\\S\\n]*(?:#[^\\n]*)?\\n)*\\s*digest:\\s*[\"']?(?<currentDigest>sha256:[a-f0-9]{64})"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": [
         "Maven version properties that no <dependency>/<plugin> in the same repository references,",
         "so the maven manager cannot see them: Spring Boot BOM overrides and versions that only",
         "consumers of io.labs64:labs64io-parent use. Annotated with",
@@ -229,7 +245,9 @@
         "external-secrets",
         "ghcr.io/external-secrets/charts/external-secrets",
         "keycloakx",
-        "ghcr.io/codecentric/helm-charts/keycloakx"
+        "ghcr.io/codecentric/helm-charts/keycloakx",
+        "traefik",
+        "opentelemetry-collector"
       ],
       "groupName": "Platform lockstep pins",
       "addLabels": [

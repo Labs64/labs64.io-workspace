@@ -326,6 +326,74 @@ def test_cerbos_drift_between_chart_and_compose(tmp_path):
     assert "Cerbos PDP differs" in proc.stdout
 
 
+def test_traefik_chart_drift_between_helmfile_and_devops(tmp_path):
+    root = ecosystem(tmp_path)
+    replace(root, "labs64.io-helm-charts/helmfile.yaml.gotmpl", "releases:\n", "releases:\n  - name: traefik\n    version: 41.6.1\n")
+    replace(root, "labs64.io-devops/justfile.versions", "ESO_CHART_VERSION", 'TRAEFIK_CHART_VERSION := "41.6.0"\nESO_CHART_VERSION')
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "Traefik chart differs" in proc.stdout
+
+
+def test_cerbos_digest_annotation_must_name_the_appversion(tmp_path):
+    root = ecosystem(tmp_path)
+    write(root, "labs64.io-helm-charts/charts/authz-pdp/Chart.yaml", 'appVersion: "0.57.0"\n')
+    write(
+        root,
+        "labs64.io-helm-charts/charts/authz-pdp/values.yaml",
+        "image:\n  # renovate-digest: datasource=docker depName=ghcr.io/cerbos/cerbos version=0.56.0\n  digest: sha256:" + "a" * 64 + "\n",
+    )
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "Cerbos PDP differs" in proc.stdout
+
+
+COLLECTOR_VALUES = "image:\n  # chart-pin: opentelemetry-collector 0.175.0\n  tag: 0.161.0\n"
+
+
+def collector_ecosystem(root: Path) -> Path:
+    ecosystem(root)
+    replace(
+        root,
+        "labs64.io-helm-charts/helmfile.yaml.gotmpl",
+        "releases:\n",
+        "releases:\n  - name: opentelemetry-collector\n    version: 0.175.0\n",
+    )
+    for kind in ("local", "aws"):
+        write(root, f"labs64.io-helm-charts/overrides/opentelemetry/values-collector.{kind}.yaml", COLLECTOR_VALUES)
+    return root
+
+
+def test_collector_image_pin_is_clean_when_stamped_for_the_pinned_chart(tmp_path):
+    proc = run(collector_ecosystem(tmp_path))
+    assert proc.returncode == 0, proc.stdout
+    assert "OpenTelemetry Collector image tag" in proc.stdout
+
+
+def test_collector_chart_bump_without_rereading_the_appversion_is_rejected(tmp_path):
+    root = collector_ecosystem(tmp_path)
+    replace(root, "labs64.io-helm-charts/helmfile.yaml.gotmpl", "version: 0.175.0", "version: 0.176.0")
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "was taken from collector chart 0.175.0" in proc.stdout
+
+
+def test_collector_image_tag_must_match_between_local_and_aws(tmp_path):
+    root = collector_ecosystem(tmp_path)
+    replace(root, "labs64.io-helm-charts/overrides/opentelemetry/values-collector.aws.yaml", "tag: 0.161.0", "tag: 0.160.0")
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "OpenTelemetry Collector image tag (local vs AWS) differs" in proc.stdout
+
+
+def test_collector_image_tag_without_a_chart_pin_stamp_is_rejected(tmp_path):
+    root = collector_ecosystem(tmp_path)
+    write(root, "labs64.io-helm-charts/overrides/opentelemetry/values-collector.local.yaml", "image:\n  tag: 0.161.0\n")
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "has no `# chart-pin: opentelemetry-collector <version>` line" in proc.stdout
+
+
 def test_strict_fails_when_a_required_repository_is_missing(tmp_path):
     # the fixture has workspace, helm-charts and devops only
     proc = run(ecosystem(tmp_path), "--strict")
