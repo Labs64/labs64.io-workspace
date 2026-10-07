@@ -394,6 +394,138 @@ def test_collector_image_tag_without_a_chart_pin_stamp_is_rejected(tmp_path):
     assert "has no `# chart-pin: opentelemetry-collector <version>` line" in proc.stdout
 
 
+PINNED_CHART = 'image:\n  repository: labs64/auditflow\n  tag: ""\n  digest: "sha256:' + "b" * 64 + '"\n'
+LOCAL_OVERRIDE = "image:\n  repository: localhost:5005/auditflow\n  tag: latest\n"
+
+
+def pinned_chart(root: Path, override: str = LOCAL_OVERRIDE + '  digest: ""\n') -> Path:
+    ecosystem(root)
+    write(root, "labs64.io-helm-charts/charts/auditflow/values.yaml", PINNED_CHART)
+    write(root, "labs64.io-helm-charts/overrides/auditflow/values.local.yaml", override)
+    return root
+
+
+def test_override_that_sets_tag_and_clears_the_digest_is_clean(tmp_path):
+    proc = run(pinned_chart(tmp_path))
+    assert proc.returncode == 0, proc.stdout
+    assert "image tag overrides state their digest" in proc.stdout
+
+
+def test_override_that_sets_only_a_tag_on_a_pinned_image_is_rejected(tmp_path):
+    proc = run(pinned_chart(tmp_path, LOCAL_OVERRIDE))
+    assert proc.returncode == 1
+    assert "overrides/auditflow/values.local.yaml: image.tag is set" in proc.stdout
+    assert "a digest wins over the tag" in proc.stdout
+
+
+def test_override_that_leaves_the_pinned_image_alone_is_clean(tmp_path):
+    proc = run(pinned_chart(tmp_path, "replicaCount: 1\n"))
+    assert proc.returncode == 0, proc.stdout
+
+
+def test_umbrella_profile_that_sets_only_a_tag_on_a_pinned_image_is_rejected(tmp_path):
+    root = pinned_chart(tmp_path)
+    write(root, "labs64.io-helm-charts/charts/labs64io-ecosystem/values.demo.yaml", "auditflow:\n  image:\n    tag: edge\n")
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "values.demo.yaml: auditflow.image.tag is set" in proc.stdout
+
+
+TRAEFIK_AWS = "providers: {}\n# chart-pin: traefik 41.6.1\nrbac:\n  enabled: false\nextraObjects: []\n"
+
+
+def traefik_ecosystem(root: Path, values: str = TRAEFIK_AWS) -> Path:
+    ecosystem(root)
+    replace(root, "labs64.io-helm-charts/helmfile.yaml.gotmpl", "releases:\n", "releases:\n  - name: traefik\n    version: 41.6.1\n")
+    write(root, "labs64.io-helm-charts/overrides/traefik/values.aws.yaml", values)
+    return root
+
+
+def test_traefik_rbac_copy_stamped_for_the_pinned_chart_is_clean(tmp_path):
+    proc = run(traefik_ecosystem(tmp_path))
+    assert proc.returncode == 0, proc.stdout
+    assert "Traefik replacement RBAC compared with chart" in proc.stdout
+
+
+def test_traefik_chart_bump_without_comparing_the_rbac_copy_is_rejected(tmp_path):
+    root = traefik_ecosystem(tmp_path)
+    replace(root, "labs64.io-helm-charts/helmfile.yaml.gotmpl", "version: 41.6.1", "version: 42.0.0")
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "was compared with traefik chart 41.6.1" in proc.stdout
+
+
+def test_traefik_rbac_copy_without_a_stamp_is_rejected(tmp_path):
+    proc = run(traefik_ecosystem(tmp_path, "rbac:\n  enabled: false\n"))
+    assert proc.returncode == 1
+    assert "has no `# chart-pin: traefik <version>` line" in proc.stdout
+
+
+def test_traefik_values_that_keep_the_chart_rbac_need_no_stamp(tmp_path):
+    proc = run(traefik_ecosystem(tmp_path, "rbac:\n  enabled: true\n"))
+    assert proc.returncode == 0, proc.stdout
+
+
+NARROW_CHART = "networkPolicy:\n  enabled: false\n  ingressPorts:\n    - 8080\n  ingressFrom:\n    - payment-gateway\n"
+OPEN_CHART = "networkPolicy:\n  enabled: false\n"
+AWS_PROFILE = "auditflow:\n  networkPolicy:\n    enabled: true\n"
+
+
+def baseline(*excluded: str) -> str:
+    selector = (
+        "  podSelector:\n    matchExpressions:\n      - key: app.kubernetes.io/name\n        operator: NotIn\n"
+        f"        values: [{', '.join(excluded)}]\n"
+        if excluded
+        else "  podSelector: {}\n"
+    )
+    return (
+        "apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: default-deny-ingress\nspec:\n"
+        "  podSelector: {}\n  policyTypes: [Ingress]\n---\n"
+        "apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: allow-same-namespace\nspec:\n"
+        + selector
+        + "  policyTypes: [Ingress]\n  ingress:\n    - from:\n        - podSelector: {}\n"
+    )
+
+
+def baseline_ecosystem(root: Path, chart: str, policies: str, profile: str = AWS_PROFILE) -> Path:
+    ecosystem(root)
+    write(root, "labs64.io-helm-charts/charts/auditflow/values.yaml", chart)
+    write(root, "labs64.io-helm-charts/charts/labs64io-ecosystem/values.aws.yaml", profile)
+    write(root, "labs64.io-devops/kubernetes/network-policies/labs64io.yaml", policies)
+    return root
+
+
+def test_baseline_that_excludes_the_narrowed_chart_is_clean(tmp_path):
+    proc = run(baseline_ecosystem(tmp_path, NARROW_CHART, baseline("auditflow")))
+    assert proc.returncode == 0, proc.stdout
+    assert "baseline policies leave narrowed charts alone" in proc.stdout
+
+
+def test_baseline_fallback_that_reopens_a_narrowed_chart_is_rejected(tmp_path):
+    proc = run(baseline_ecosystem(tmp_path, NARROW_CHART, baseline()))
+    assert proc.returncode == 1
+    assert "allow-same-namespace selects the auditflow pods" in proc.stdout
+
+
+def test_baseline_that_excludes_a_chart_which_does_not_narrow_is_rejected(tmp_path):
+    proc = run(baseline_ecosystem(tmp_path, OPEN_CHART, baseline("auditflow")))
+    assert proc.returncode == 1
+    assert "allow-same-namespace excludes auditflow, but charts/auditflow does not narrow" in proc.stdout
+
+
+def test_excluded_chart_without_an_enabled_policy_on_aws_is_rejected(tmp_path):
+    proc = run(baseline_ecosystem(tmp_path, NARROW_CHART, baseline("auditflow"), profile="auditflow: {}\n"))
+    assert proc.returncode == 1
+    assert "its NetworkPolicy is not enabled" in proc.stdout
+
+
+def test_narrowing_set_only_in_the_aws_profile_counts(tmp_path):
+    profile = "auditflow:\n  networkPolicy:\n    enabled: true\n    ingressPorts: [8080]\n"
+    proc = run(baseline_ecosystem(tmp_path, OPEN_CHART, baseline(), profile=profile))
+    assert proc.returncode == 1
+    assert "allow-same-namespace selects the auditflow pods" in proc.stdout
+
+
 def test_strict_fails_when_a_required_repository_is_missing(tmp_path):
     # the fixture has workspace, helm-charts and devops only
     proc = run(ecosystem(tmp_path), "--strict")

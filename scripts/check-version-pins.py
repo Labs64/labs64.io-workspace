@@ -481,6 +481,183 @@ def check_collector_image(root: Path) -> None:
     expect_equal("OpenTelemetry Collector image tag (local vs AWS)", tags)
 
 
+def load_yaml(path: Path):
+    """Parsed YAML of a values file, or None when it is absent, empty or not a mapping."""
+    text = read(path)
+    if text is None:
+        return None
+    try:
+        doc = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
+def _dig(doc, path: list[str]):
+    for key in path:
+        if not isinstance(doc, dict) or key not in doc:
+            return None
+        doc = doc[key]
+    return doc
+
+
+def _pinned_image_blocks(values) -> list[list[str]]:
+    """Paths of the image blocks of a chart's values.yaml whose `digest` is set."""
+    found: list[list[str]] = []
+
+    def walk(node, path: list[str]) -> None:
+        if not isinstance(node, dict):
+            return
+        if isinstance(node.get("digest"), str) and node["digest"]:
+            found.append(path)
+        for key, child in node.items():
+            walk(child, path + [str(key)])
+
+    walk(values, [])
+    return found
+
+
+def check_override_image_tags(root: Path) -> None:
+    """A values file that sets an image tag must also say what happens to the chart's digest.
+
+    The charts render `repository@digest` whenever `digest` is set, and the release pipeline sets
+    it in values.yaml. An override that only sets `tag` (a local build: `tag: latest`) is then
+    ignored without a word, and the pod asks the registry for the released digest: ImagePullBackOff
+    on a local registry that never held it. Setting `digest` in the same block — `""` to follow the
+    tag — makes the choice explicit.
+    """
+    charts = root / "labs64.io-helm-charts"
+    if not (charts / "charts").is_dir():
+        return
+    umbrella_files = sorted((charts / "charts" / "labs64io-ecosystem").glob("values*.yaml"))
+    checked = 0
+    for chart_values in sorted((charts / "charts").glob("*/values.yaml")):
+        chart = chart_values.parent.name
+        pinned = _pinned_image_blocks(load_yaml(chart_values))
+        if not pinned:
+            continue
+        # The chart's own override files, and the umbrella profiles (the chart is a key there).
+        candidates = [(f, []) for f in sorted((charts / "overrides" / chart).glob("values*.yaml"))]
+        candidates += [(f, [chart]) for f in umbrella_files]
+        for file, prefix in candidates:
+            if ".orig." in file.name:
+                continue
+            doc = load_yaml(file)
+            for path in pinned:
+                block = _dig(doc, prefix + path)
+                if not isinstance(block, dict) or not block.get("tag"):
+                    continue
+                checked += 1
+                if "digest" not in block:
+                    where = ".".join(prefix + path)
+                    fail(
+                        f"{file.relative_to(root).as_posix()}: {where}.tag is set, but charts/{chart} pins "
+                        f"{'.'.join(path)}.digest and a digest wins over the tag — add `digest: \"\"` next "
+                        f"to the tag (or the digest you mean)"
+                    )
+    if checked:
+        ok("image tag overrides state their digest", f"{checked} block(s)")
+
+
+def check_traefik_rbac(root: Path) -> None:
+    """The AWS Traefik values replace the chart's RBAC; the copy must follow the chart.
+
+    overrides/traefik/values.aws.yaml switches the chart's RBAC off (its ClusterRole reads every
+    Secret) and carries the chart's rules without that one. A chart bump can add a rule the copy
+    lacks, and Traefik then fails to sync its providers. The file stamps the chart version the
+    copy was compared with (`# chart-pin: traefik <version>` directly above `rbac:`): it must be
+    the helmfile's version, so a bump fails here until the rules have been compared again.
+    """
+    charts = root / "labs64.io-helm-charts"
+    rel = "overrides/traefik/values.aws.yaml"
+    text = read(charts / rel)
+    chart = helmfile_versions(read(charts / "helmfile.yaml.gotmpl")).get("traefik")
+    doc = load_yaml(charts / rel)
+    if text is None or chart is None or _dig(doc, ["rbac", "enabled"]) is not False:
+        return  # absent, or the chart's own RBAC is in use: nothing was copied
+    stamp = first(r"^#\s*chart-pin:\s*traefik\s+(\S+)\s*\nrbac:", text)
+    if stamp is None:
+        fail(f"labs64.io-helm-charts/{rel}: `rbac:` has no `# chart-pin: traefik <version>` line above it")
+    elif stamp != chart:
+        fail(
+            f"labs64.io-helm-charts/{rel}: the replacement RBAC was compared with traefik chart {stamp}, but "
+            f"helmfile.yaml.gotmpl pins {chart} — compare it with that chart's ClusterRole (the file says "
+            f"how), then set chart-pin"
+        )
+    else:
+        ok("Traefik replacement RBAC compared with chart", stamp)
+
+
+def check_baseline_policy_exclusions(root: Path) -> None:
+    """The namespace baseline must not re-open what a chart's NetworkPolicy closes.
+
+    labs64.io-devops/kubernetes/network-policies/labs64io.yaml holds fallback allow rules for pods
+    without a chart policy. NetworkPolicies add up, so a chart that narrows its own ingress
+    (networkPolicy.ingressFrom / ingressPorts) only gets what it asks for if the fallbacks exclude
+    it (`app.kubernetes.io/name NotIn [...]`). A name excluded without need is the dangerous
+    direction: that module is left with the default-deny unless its chart policy is enabled.
+    """
+    charts = root / "labs64.io-helm-charts" / "charts"
+    baseline = read(root / "labs64.io-devops" / "kubernetes" / "network-policies" / "labs64io.yaml")
+    if baseline is None or not charts.is_dir():
+        return
+    aws = load_yaml(charts / "labs64io-ecosystem" / "values.aws.yaml") or {}
+    umbrella = load_yaml(charts / "labs64io-ecosystem" / "values.yaml") or {}
+    narrowed: set[str] = set()
+    enabled: dict[str, bool] = {}
+    for chart_values in sorted(charts.glob("*/values.yaml")):
+        chart = chart_values.parent.name
+        policy: dict = {}
+        for source in (_dig(load_yaml(chart_values), ["networkPolicy"]), _dig(umbrella, [chart, "networkPolicy"]),
+                       _dig(aws, [chart, "networkPolicy"])):
+            if isinstance(source, dict):
+                policy.update(source)
+        if policy.get("ingressFrom") or policy.get("ingressPorts"):
+            narrowed.add(chart)
+        enabled[chart] = policy.get("enabled") is True
+
+    try:
+        policies = [d for d in yaml.safe_load_all(baseline) if isinstance(d, dict)]
+    except yaml.YAMLError as error:
+        fail(f"labs64.io-devops/kubernetes/network-policies/labs64io.yaml is not valid YAML: {error}")
+        return
+    where = "labs64.io-devops/kubernetes/network-policies/labs64io.yaml"
+    before = len(problems)
+    excluded_anywhere: set[str] = set()
+    for policy in policies:
+        spec = policy.get("spec") or {}
+        selector = spec.get("podSelector") or {}
+        if policy.get("kind") != "NetworkPolicy" or not spec.get("ingress") or selector.get("matchLabels"):
+            continue  # the default-deny, or a rule for named pods: not a fallback for "every pod"
+        excluded = {
+            value
+            for expression in selector.get("matchExpressions") or []
+            if expression.get("key") == "app.kubernetes.io/name" and expression.get("operator") == "NotIn"
+            for value in expression.get("values") or []
+        }
+        excluded_anywhere |= excluded
+        name = (policy.get("metadata") or {}).get("name")
+        for chart in sorted(narrowed - excluded):
+            fail(
+                f"{where}: {name} selects the {chart} pods, whose chart narrows its ingress "
+                f"(networkPolicy.ingressFrom / ingressPorts) — policies add up, so this rule re-opens it; "
+                f"add {chart} to the NotIn list of its podSelector"
+            )
+        for chart in sorted(excluded - narrowed):
+            fail(
+                f"{where}: {name} excludes {chart}, but charts/{chart} does not narrow its ingress — "
+                f"remove it from the NotIn list (an excluded module without its own policy is unreachable)"
+            )
+    for chart in sorted(narrowed & excluded_anywhere):
+        if not enabled.get(chart):
+            fail(
+                f"{where} excludes {chart} from the fallback rules, but its NetworkPolicy is not enabled in "
+                f"charts/labs64io-ecosystem/values.aws.yaml — on AWS only the default-deny would apply to it"
+            )
+    if narrowed and len(problems) == before:
+        ok("baseline policies leave narrowed charts alone", ", ".join(sorted(narrowed)))
+
+
 def check_opentelemetry(root: Path) -> None:
     agents = {}
     for dockerfile in sorted(root.glob("labs64.io-*/**/Dockerfile")):
@@ -614,6 +791,9 @@ def main() -> int:
         check_data_stores,
         check_cerbos,
         check_collector_image,
+        check_override_image_tags,
+        check_traefik_rbac,
+        check_baseline_policy_exclusions,
         check_opentelemetry,
         check_java,
     ):
