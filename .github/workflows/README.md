@@ -19,7 +19,7 @@ version `X.Y.Z`**. Nothing is committed back and no file is edited to "set the v
 - **Charts**: the release dispatches the digests to `labs64.io-helm-charts`, which opens
   a PR pinning them, setting `appVersion`, and bumping the module chart **and** the
   `labs64io-ecosystem` umbrella. The published umbrella version is the ecosystem
-  release; Renovate proposes it to `labs64.io-devops` (`CHART_VERSION`).
+  release.
 
 ## Workflows
 
@@ -63,8 +63,6 @@ version `X.Y.Z`**. Nothing is committed back and no file is edited to "set the v
   `${revision}`; `publish-central: true` additionally publishes to Maven Central.
   It never commits, tags or pushes, so callers need only `contents: read`. Used by
   `labs64.io-commons` (the whole reactor) and `labs64.io-auditflow` (`auditflow-api`).
-- **`renovate.yml`** — not reusable: the scheduled Renovate run for the whole
-  ecosystem (see [Dependency updates](#dependency-updates)).
 - **`labs64io-ci.yml`** — not reusable: this repository's own CI. `tooling` runs the gate
   scripts' tests, `actionlint` (with shellcheck) over every workflow here, and validates the
   Renovate preset; `ecosystem` runs `check-release-wiring.py` and `check-version-pins.py` over
@@ -156,10 +154,8 @@ Add that annotation whenever a version has to be written in a `justfile.versions
 env file, a Dockerfile `ARG` or a Chart.yaml `appVersion` (XML:
 `<!-- renovate: datasource=maven depName=group:artifact -->` above a pom property).
 
-`renovate.yml` runs it for every repository with a `renovate.json`. It needs the
-`RENOVATE_TOKEN` secret (a PAT that may open PRs in the ecosystem repositories) and
-reuses `L64_PUB_CI_USERNAME` / `L64_PUB_CI_PASSWORD` so that releases in the private
-Labs64 Nexus (`labs64io-parent`, `auditflow-api`) are proposed too.
+The preset is consumed by whichever Renovate runs against a repository — the hosted app or a
+self-hosted runner. Labs64 runs its own outside this repository.
 
 ## Consuming the digest
 

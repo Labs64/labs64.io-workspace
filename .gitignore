@@ -31,10 +31,6 @@ __pycache__/
 # --- Graphify ---
 graphify-out/
 
-# --- Cockpit ---
-# The registry of known deployments and each one's cached reconcile results are
-# per-checkout local state, not shared config.
-cockpit/registry/
 
 # --- Logs ---
 *.log

@@ -158,7 +158,7 @@
     {
       "description": [
         "Data-store images track the managed engine versions Terraform provisions on AWS",
-        "(labs64.io-devops: rds_engine_version, cache_engine_version, mq_engine_version).",
+        "(the engine versions an operator's managed services run).",
         "Only patch updates are routine; a new minor or major is an infrastructure decision."
       ],
       "matchDatasources": [
@@ -239,7 +239,7 @@
       "groupName": "Cerbos"
     },
     {
-      "description": "Pins that labs64.io-helm-charts and labs64.io-devops must hold in lockstep (`just check-pins`).",
+      "description": "Platform chart and CRD pins every install path must hold in lockstep (`just check-pins`).",
       "matchPackageNames": [
         "kubernetes-sigs/gateway-api",
         "external-secrets",

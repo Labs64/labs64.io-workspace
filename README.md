@@ -84,8 +84,8 @@ Once cloned, run `just doctor` to check all of the above are installed and print
    corresponding issuer.
 
 > **Deploying elsewhere?** The steps above spin up the **Local Development** mode (Helmfile + k3d).
-> The Helm charts also support an **AWS QA / Staging / Prod Environment** mode (Terraform + the
-> umbrella chart, see `labs64.io-devops/`) and a **Users' Own Infrastructure (BYO Infra)** mode for your own cluster
+> The Helm charts also support an **AWS QA / Staging / Prod Environment** mode (the umbrella chart on
+> managed data stores; see the helm-charts README) and a **Users' Own Infrastructure (BYO Infra)** mode for your own cluster
 > (GCP, Azure, on-prem) without cloning this whole workspace — cherry-pick individual charts via
 > `helm repo add labs64io https://labs64.github.io/labs64.io-helm-charts`. See
 > [Deployment Modes](https://github.com/Labs64/labs64.io-helm-charts#deployment-modes) in the
@@ -110,7 +110,7 @@ See `../labs64.io-workspace-ee/README.md` for configuration.
 
 ## 🛠️ Included Repositories
 
-The workspace clones 12 repositories as siblings of itself — the runtime services plus the shared libraries, infrastructure, and docs that support them.
+The workspace clones 10 repositories as siblings of itself — the runtime services plus the shared libraries, infrastructure, and docs that support them.
 
 **Services**
 
@@ -128,10 +128,8 @@ The workspace clones 12 repositories as siblings of itself — the runtime servi
 |------------|-------------|
 | [**labs64.io-commons**](https://github.com/Labs64/labs64.io-commons) | Shared Java libraries (auth SDK, business telemetry, common utilities) consumed by the backend services. |
 | [**labs64.io-helm-charts**](https://github.com/Labs64/labs64.io-helm-charts) | Kubernetes Helm charts (module charts + the `labs64io-ecosystem` umbrella), the local Helmfile stack, and the centralized observability stack. |
-| [**labs64.io-devops**](https://github.com/Labs64/labs64.io-devops) | Infrastructure-as-Code (Terraform) and the AWS install/operations runbooks; pins the umbrella chart version each environment runs. |
 | [**labs64.io-tests**](https://github.com/Labs64/labs64.io-tests) | Black-box, contract-first API regression & integration test suite (Robot Framework). |
 | [**labs64.io-docs**](https://github.com/Labs64/labs64.io-docs) | Public-facing product documentation and developer integration guides. |
-| [**labs64.io-docs-internal**](https://github.com/Labs64/labs64.io-docs-internal) | Internal architecture docs, RFCs, and design decisions. |
 | [**labs64.io**](https://github.com/Labs64/labs64.io) | Public marketing website (labs64.io). |
 
 ## 🎯 Key Features
@@ -198,14 +196,12 @@ Every version has exactly one owner; nothing below is restated anywhere else.
 | Spring Boot line, BOM overrides, shared Java dependency/plugin versions, commons libraries | `io.labs64:labs64io-parent` in `labs64.io-commons` |
 | Third-party Helm chart versions and repositories | `labs64.io-helm-charts/helmfile.yaml.gotmpl` |
 | CRD sets applied outside Helm (Gateway API, Traefik CRDs) | `labs64.io-helm-charts/justfile.versions` |
-| What an AWS environment runs, platform charts, canary/load-test images | `labs64.io-devops/justfile.versions` (`CHART_VERSION` = the umbrella chart version = the ecosystem release) |
-| Kubernetes, PostgreSQL, Valkey, RabbitMQ engine lines on AWS | `labs64.io-devops/terraform/variables.tf` (local stack must match; checked) |
 | Dependency updates in all repositories | Renovate, shared preset [`default.json`](default.json) |
 
 **Releasing** is the same gesture in every repository: publish a GitHub Release whose tag is the
 version (`X.Y.Z`). No pom carries a version — the tag becomes the jar, the image tag and label,
-and the chart `appVersion`; the module chart and the umbrella are bumped by an automated PR, and
-Renovate proposes the new umbrella to `labs64.io-devops`. Release order when commons changed:
+and the chart `appVersion`; the module chart and the umbrella are bumped by an automated PR. The
+published umbrella chart version is the ecosystem release; whoever operates an environment pins it. Release order when commons changed:
 `commons` → modules pin the new `labs64io-parent` → module releases. See
 [`.github/workflows/README.md`](.github/workflows/README.md) for the pipeline in detail.
 

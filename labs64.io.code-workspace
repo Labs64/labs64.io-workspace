@@ -33,20 +33,12 @@
       "path": "../labs64.io-helm-charts"
     },
     {
-      "name": "devops",
-      "path": "../labs64.io-devops"
-    },
-    {
       "name": "tests",
       "path": "../labs64.io-tests"
     },
     {
       "name": "docs",
       "path": "../labs64.io-docs"
-    },
-    {
-      "name": "docs-internal",
-      "path": "../labs64.io-docs-internal"
     },
     {
       "name": "website",

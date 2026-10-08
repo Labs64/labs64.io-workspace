@@ -18,7 +18,6 @@ on:
       - ".github/**"
       - "tool-versions.env"
       - "default.json"
-      - "renovate/**"
       - ".devcontainer/**"
   pull_request:
     paths:
@@ -26,7 +25,6 @@ on:
       - ".github/**"
       - "tool-versions.env"
       - "default.json"
-      - "renovate/**"
       - ".devcontainer/**"
   schedule:
     - cron: "23 5 * * *"

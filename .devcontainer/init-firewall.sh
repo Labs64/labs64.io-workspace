@@ -147,8 +147,23 @@ while read -r cidr; do
     ipset add "$IPSET_STAGING" "$cidr" -exist
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git + .pages)[]' | aggregate -q)
 
+# Print every domain listed in the files matching the given globs: one per line, blank lines
+# and '#' comments (whole-line or trailing) ignored. A glob that matches nothing prints nothing.
+read_domain_lists() {
+    local list line
+    for list in "$@"; do
+        [ -f "$list" ] || continue
+        while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%%#*}"
+            line="$(printf '%s' "$line" | tr -d '[:space:]')"
+            [ -n "$line" ] && printf '%s\n' "$line"
+        done < "$list"
+    done
+    return 0
+}
+
 # -----------------------------------------------------------------------------
-# AWS S3 IP ranges (eu-west-1)
+# AWS S3 IP ranges, for the regions sibling checkouts ask for
 #
 # S3's regional endpoint, its bucket-specific virtual-hosted hostnames, and the
 # internal s3-r-w.<region>.amazonaws.com redirect target it sends new buckets
@@ -158,28 +173,37 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git + .pages)[]' | aggregate
 # unpredictably once traffic lands on an address outside that snapshot. AWS
 # publishes the full CIDR list for exactly this purpose, filterable by
 # service/region - same idea as the GitHub ranges above, applied to S3.
+#
+# A repository cloned next to this one lists the regions whose S3 it needs in
+# .devcontainer/firewall-s3-regions.txt (one per line). Without such a file this block is skipped.
 # -----------------------------------------------------------------------------
-echo "Fetching AWS S3 IP ranges (eu-west-1)..."
-aws_ranges=$(curl -s https://ip-ranges.amazonaws.com/ip-ranges.json)
-if [ -z "$aws_ranges" ]; then
-    echo "ERROR: Failed to fetch AWS IP ranges"
-    exit 1
-fi
-
-if ! echo "$aws_ranges" | jq -e '.prefixes' >/dev/null; then
-    echo "ERROR: AWS ip-ranges response missing required fields"
-    exit 1
-fi
-
-echo "Processing AWS S3 IPs..."
-while read -r cidr; do
-    if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
-        echo "ERROR: Invalid CIDR range from AWS ip-ranges: $cidr"
+S3_REGIONS=()
+while IFS= read -r region; do
+    S3_REGIONS+=("$region")
+done < <(read_domain_lists /workspaces/*/.devcontainer/firewall-s3-regions.txt)
+if [ ${#S3_REGIONS[@]} -gt 0 ]; then
+    echo "Fetching AWS S3 IP ranges (${S3_REGIONS[*]})..."
+    aws_ranges=$(curl -s https://ip-ranges.amazonaws.com/ip-ranges.json)
+    if [ -z "$aws_ranges" ]; then
+        echo "ERROR: Failed to fetch AWS IP ranges"
         exit 1
     fi
-    echo "Adding AWS S3 range $cidr"
-    ipset add "$IPSET_STAGING" "$cidr" -exist
-done < <(echo "$aws_ranges" | jq -r '.prefixes[] | select(.service=="S3" and (.region=="eu-west-1" or .region=="GLOBAL")) | .ip_prefix' | aggregate -q)
+
+    if ! echo "$aws_ranges" | jq -e '.prefixes' >/dev/null; then
+        echo "ERROR: AWS ip-ranges response missing required fields"
+        exit 1
+    fi
+
+    echo "Processing AWS S3 IPs..."
+    while read -r cidr; do
+        if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
+            echo "ERROR: Invalid CIDR range from AWS ip-ranges: $cidr"
+            exit 1
+        fi
+        echo "Adding AWS S3 range $cidr"
+        ipset add "$IPSET_STAGING" "$cidr" -exist
+    done < <(echo "$aws_ranges" | jq -r --argjson regions "$(printf '%s\n' "${S3_REGIONS[@]}" GLOBAL | jq -R . | jq -sc .)" '.prefixes[] | select(.service=="S3" and (.region as $r | $regions | index($r) != null)) | .ip_prefix' | aggregate -q)
+fi
 
 # -----------------------------------------------------------------------------
 # Domain allowlist
@@ -303,7 +327,7 @@ resolve_and_add optional \
     "static.rust-lang.org" \
     "services.gradle.org"
 
-# --- Optional: Terraform CLI (labs64.io-devops/terraform, `just bootstrap-ci`) ---
+# --- Optional: Terraform CLI (provider discovery and downloads) ---
 # registry.terraform.io serves the provider discovery document; the actual
 # provider binaries are then fetched from releases.hashicorp.com. Both are
 # CDN-fronted (Fastly) and rotate IPs, so they're also kept fresh in
@@ -311,84 +335,6 @@ resolve_and_add optional \
 resolve_and_add optional \
     "registry.terraform.io" \
     "releases.hashicorp.com"
-
-# --- Optional: Labs64 development service endpoints ---
-# The local NetLicensing Core uses this Keycloak endpoint to obtain AuditFlow
-# client-credentials tokens over HTTPS.
-resolve_and_add optional \
-    "auth.dev.labs64.io"
-
-# --- Optional: tflint plugin install (`just lint` in labs64.io-devops) ---
-# `tflint --init` verifies the AWS ruleset's signature via sigstore's TUF repo
-# (GCP load-balancer fronted); the plugin binary itself comes from GitHub
-# releases, already covered by the GitHub ranges above.
-resolve_and_add optional \
-    "tuf-repo-cdn.sigstore.dev"
-
-# --- Optional: AWS API endpoints (labs64.io-devops terraform apply, aws-cli,
-# IAM Identity Center / SSO login) ---
-# `sso.<region>`/`oidc.<region>`/`signin.aws.amazon.com` cover `aws sso login` /
-# `aws configure sso` (device-authorization + token exchange +
-# ListAccounts/ListAccountRoles); the rest are the regional service endpoints
-# Terraform's AWS provider and the AWS CLI talk to for this repo's resources
-# (VPC/EC2, EKS, RDS, ElastiCache, Amazon MQ, S3, Secrets Manager, KMS, IAM,
-# STS, CloudWatch Logs/Metrics, autoscaling for EKS managed node groups, SNS
-# for cost-alert notifications). IAM is a global (non-regional) endpoint; STS
-# is resolved both regionally (the CLI v2 default) and globally as a fallback.
-# Budgets and Cost Explorer/Cost Anomaly Detection are also global services —
-# both are always hosted in us-east-1 regardless of the provider's configured
-# region, hence the literal "us-east-1" in those two hostnames below.
-#
-# NOT covered here: the per-cluster EKS API server endpoint itself
-# (`<id>.gr7.eu-west-1.eks.amazonaws.com`) — that hostname is an opaque per-cluster ID assigned by
-# AWS, unknowable until the cluster exists, so it can never be in this static list. labs64.io-devops's
-# `just kubeconfig <env>` handles this automatically now (looks up the cluster's endpoint, appends
-# it to /etc/l64-firewall-extra-domains below if not already present, and re-runs this script) —
-# see its justfile. The manual fallback, if ever needed for a cluster outside that workflow:
-#     echo "<id>.gr7.<region>.eks.amazonaws.com" | sudo tee -a /etc/l64-firewall-extra-domains
-#     sudo bash /usr/local/bin/init-firewall.sh
-resolve_and_add optional \
-    "signin.aws.amazon.com" \
-    "eu-west-1.signin.aws.amazon.com" \
-    "oidc.eu-west-1.amazonaws.com" \
-    "portal.sso.eu-west-1.amazonaws.com" \
-    "sso.eu-west-1.amazonaws.com" \
-    "sts.eu-west-1.amazonaws.com" \
-    "sts.amazonaws.com" \
-    "iam.amazonaws.com" \
-    "ec2.eu-west-1.amazonaws.com" \
-    "eks.eu-west-1.amazonaws.com" \
-    "oidc.eks.eu-west-1.amazonaws.com" \
-    "rds.eu-west-1.amazonaws.com" \
-    "elasticache.eu-west-1.amazonaws.com" \
-    "mq.eu-west-1.amazonaws.com" \
-    "secretsmanager.eu-west-1.amazonaws.com" \
-    "kms.eu-west-1.amazonaws.com" \
-    "logs.eu-west-1.amazonaws.com" \
-    "monitoring.eu-west-1.amazonaws.com" \
-    "autoscaling.eu-west-1.amazonaws.com" \
-    "sns.eu-west-1.amazonaws.com" \
-    "scheduler.eu-west-1.amazonaws.com" \
-    "budgets.amazonaws.com" \
-    "ce.us-east-1.amazonaws.com" \
-    "guardduty.eu-west-1.amazonaws.com" \
-    "config.eu-west-1.amazonaws.com" \
-    "securityhub.eu-west-1.amazonaws.com" \
-    "access-analyzer.eu-west-1.amazonaws.com" \
-    "cloudtrail.eu-west-1.amazonaws.com" \
-    "s3control.eu-west-1.amazonaws.com" \
-    "route53.amazonaws.com" \
-    "acm.eu-west-1.amazonaws.com" \
-    "elasticloadbalancing.eu-west-1.amazonaws.com" \
-    "wafv2.eu-west-1.amazonaws.com"
-
-# --- Optional: AWS Agent Toolkit (AWS skills + AWS MCP server for AI coding agents) ---
-# `aws` CLI's "Configure AWS skills and the AWS MCP server" prompt fetches the skill catalogue from
-# agent-toolkit.us-east-1.api.aws; the MCP server agents then talk to is aws-mcp.us-east-1.api.aws.
-# Both are CloudFront-fronted (rotating IPs), so they're also kept fresh in DYNAMIC_DOMAINS below.
-resolve_and_add optional \
-    "agent-toolkit.us-east-1.api.aws" \
-    "aws-mcp.us-east-1.api.aws"
 
 # --- Optional: payment provider server APIs ---
 # Payment Gateway uses these endpoints for Stripe Checkout, PayPal Orders,
@@ -406,21 +352,31 @@ resolve_and_add optional \
 # the allowlist correct even if that mapping ever differs. ---
 resolve_and_add optional "host.docker.internal"
 
+# --- Optional: hosts contributed by sibling checkouts ---
+# A repository cloned next to this one may ship .devcontainer/firewall-domains.txt (one domain
+# per line, '#' comments) for hosts only its own work needs - a cloud provider's control-plane
+# endpoints, a private registry. They are allowed like the lists above and also re-resolved by
+# the refresh loop below, because such endpoints typically rotate their addresses.
+SIBLING_DOMAINS=()
+while IFS= read -r domain; do
+    SIBLING_DOMAINS+=("$domain")
+done < <(read_domain_lists /workspaces/*/.devcontainer/firewall-domains.txt)
+if [ ${#SIBLING_DOMAINS[@]} -gt 0 ]; then
+    echo "Allowing ${#SIBLING_DOMAINS[@]} host(s) listed by sibling checkouts..."
+    resolve_and_add optional "${SIBLING_DOMAINS[@]}"
+fi
+
 # --- Optional: ad-hoc hosts added at runtime ---
 # One domain per line; blank lines and '#' comments ignored. Add a host and
 # re-run this script - no container rebuild needed:
 #     echo "example.com" | sudo tee -a /etc/l64-firewall-extra-domains
-if [ -f "$EXTRA_DOMAINS_FILE" ]; then
+extra_domains=()
+while IFS= read -r domain; do
+    extra_domains+=("$domain")
+done < <(read_domain_lists "$EXTRA_DOMAINS_FILE")
+if [ ${#extra_domains[@]} -gt 0 ]; then
     echo "Reading extra domains from $EXTRA_DOMAINS_FILE..."
-    extra_domains=()
-    while read -r line; do
-        line="${line%%#*}"
-        line="$(echo "$line" | tr -d '[:space:]')"
-        [ -n "$line" ] && extra_domains+=("$line")
-    done < "$EXTRA_DOMAINS_FILE"
-    if [ ${#extra_domains[@]} -gt 0 ]; then
-        resolve_and_add optional "${extra_domains[@]}"
-    fi
+    resolve_and_add optional "${extra_domains[@]}"
 fi
 
 # -----------------------------------------------------------------------------
@@ -528,66 +484,17 @@ DYNAMIC_DOMAINS=(
     # Terraform's provider registry/release hosts are Fastly-fronted and rotate.
     "registry.terraform.io"
     "releases.hashicorp.com"
-    # Labs64 development endpoints can move between gateway/CDN addresses.
-    "auth.dev.labs64.io"
-    # sigstore TUF metadata for `tflint --init` (see the tflint block above).
-    "tuf-repo-cdn.sigstore.dev"
     # PSP API hosts are backed by distributed infrastructure and can return
     # different addresses as DNS caches and routing change.
     "api.stripe.com"
     "api-m.sandbox.paypal.com"
     "api-m.paypal.com"
-    # IAM/STS and the other regional AWS control-plane endpoints below are backed by a fleet
-    # that rotates over time, same failure mode as the S3/PayPal/Stripe entries above: a single
-    # resolution goes stale and every `aws`/terraform-provider-aws call against it (bootstrap-ci's
-    # IAM role creation, `aws sts get-caller-identity`, `terraform apply` on VPC/EKS/RDS/etc.)
-    # starts silently REJECTing and hanging in the SDK's retry loop for many minutes, looking
-    # exactly like a stuck/hung process rather than a firewall problem - e.g. `aws_vpc.main`
-    # sitting on "Still creating..." long after the VPC is already Available in the console,
-    # because the CreateVpc call landed on an IP this ipset had, but the follow-up DescribeVpcs
-    # poll landed on one it didn't. S3 gets full CIDR-range coverage above (service=S3 in AWS's
-    # ip-ranges.json) instead of this dynamic-refresh treatment; these endpoints don't have their
-    # own ip-ranges.json service tag (only the account-wide "AMAZON" one, far too broad to
-    # allow-list), so periodic single-IP refresh is the practical fix here.
-    "iam.amazonaws.com"
-    "sts.eu-west-1.amazonaws.com"
-    "sts.amazonaws.com"
-    "ec2.eu-west-1.amazonaws.com"
-    "eks.eu-west-1.amazonaws.com"
-    "oidc.eks.eu-west-1.amazonaws.com"
-    "rds.eu-west-1.amazonaws.com"
-    "elasticache.eu-west-1.amazonaws.com"
-    "mq.eu-west-1.amazonaws.com"
-    "secretsmanager.eu-west-1.amazonaws.com"
-    "kms.eu-west-1.amazonaws.com"
-    "logs.eu-west-1.amazonaws.com"
-    "monitoring.eu-west-1.amazonaws.com"
-    "autoscaling.eu-west-1.amazonaws.com"
-    "sns.eu-west-1.amazonaws.com"
-    "budgets.amazonaws.com"
-    "ce.us-east-1.amazonaws.com"
-    "guardduty.eu-west-1.amazonaws.com"
-    "config.eu-west-1.amazonaws.com"
-    "securityhub.eu-west-1.amazonaws.com"
-    "access-analyzer.eu-west-1.amazonaws.com"
-    "cloudtrail.eu-west-1.amazonaws.com"
-    "s3control.eu-west-1.amazonaws.com"
-    # AWS Agent Toolkit (skills catalogue + MCP server) - CloudFront-fronted, rotating IPs.
-    "agent-toolkit.us-east-1.api.aws"
-    "aws-mcp.us-east-1.api.aws"
-    # Edge stack (Route 53 zone, ACM certificate, ALB/NLB target groups, WAFv2) - same rotating-fleet
-    # failure mode: "Still creating..." hangs while the SDK retries against REJECTed IPs.
-    "route53.amazonaws.com"
-    "acm.eu-west-1.amazonaws.com"
-    "elasticloadbalancing.eu-west-1.amazonaws.com"
-    "wafv2.eu-west-1.amazonaws.com"
 )
-# 10s, not 30s: IAM/STS/EC2's global control-plane fleets are large enough that a single DNS
-# answer only ever returns a small slice of them, and each answer is cached for its TTL — querying
-# the same domain twice inside that TTL just returns the identical slice, it doesn't broaden
-# coverage. What actually broadens coverage is elapsed wall-clock time (letting the cache expire
-# and re-querying upstream), so a shorter loop interval accumulates a wider slice of the fleet
-# faster than a longer one would, for the same per-query cost.
+# Hosts listed by sibling checkouts (above) rotate like these do.
+DYNAMIC_DOMAINS+=(${SIBLING_DOMAINS[@]+"${SIBLING_DOMAINS[@]}"})
+# 10s, not 30s: large control-plane fleets return only a small slice of their addresses per DNS
+# answer, and each answer is cached for its TTL. Coverage widens with elapsed time, so a shorter
+# interval accumulates more of a fleet for the same per-query cost.
 DYNAMIC_REFRESH_INTERVAL=10
 
 if [ -f "$REFRESH_PID_FILE" ]; then

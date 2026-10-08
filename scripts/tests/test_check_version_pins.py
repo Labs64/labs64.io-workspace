@@ -458,7 +458,7 @@ def test_postgres_major_across_public_places(tmp_path):
 
 def test_strict_does_not_require_a_private_repository(tmp_path):
     proc = run(ecosystem(tmp_path), "--strict")
-    assert "labs64.io-devops" not in proc.stdout
+    assert "devops" not in proc.stdout
 
 
 def test_the_script_names_no_private_repository():

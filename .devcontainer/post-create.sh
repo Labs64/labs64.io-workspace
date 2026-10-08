@@ -98,8 +98,7 @@ echo "Installing Helm plugins..."
 helm plugin install --version "v${HELM_DIFF_VERSION}" --verify=false https://github.com/databus23/helm-diff 2>/dev/null || true
 helm plugin install --version "${HELM_SCHEMA_VERSION}" --verify=false https://github.com/dadav/helm-schema 2>/dev/null || true
 
-# Install Checkov (Terraform posture/security scanner — labs64.io-devops/terraform's `just
-# checkov` and its CI validate workflow both expect it on PATH). pipx keeps it in its own venv,
+# Install Checkov (Terraform posture/security scanner). pipx keeps it in its own venv,
 # isolated from the container's system/dev Python environments, same reasoning as graphify's uv
 # tool install above. Needs pypi.org/files.pythonhosted.org, both in init-firewall.sh's required
 # allowlist already; --skip-download at call time keeps the scan itself off the network entirely.
