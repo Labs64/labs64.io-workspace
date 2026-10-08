@@ -6,7 +6,7 @@
 # A no-op when no Nexus username is supplied, so a fork without the secrets still builds
 # whatever it can resolve from Maven Central.
 name: Labs64.IO - Maven Settings
-description: Generate the Maven settings.xml used to resolve from and deploy to Labs64 Nexus
+description: Generate the Maven settings.xml used to resolve snapshots from and deploy to Labs64 Nexus
 
 inputs:
   nexus-username:
@@ -46,5 +46,21 @@ runs:
               <password>${env.OSS_PASS}</password>
             </server>
           </servers>
+          <profiles>
+            <profile>
+              <id>labs64-nexus</id>
+              <repositories>
+                <repository>
+                  <id>labs64-nexus-snapshots</id>
+                  <url>https://nexus.labs64.com/repository/labs64.io-snapshots/</url>
+                  <releases><enabled>false</enabled></releases>
+                  <snapshots><enabled>true</enabled></snapshots>
+                </repository>
+              </repositories>
+            </profile>
+          </profiles>
+          <activeProfiles>
+            <activeProfile>labs64-nexus</activeProfile>
+          </activeProfiles>
         </settings>
         XML
