@@ -492,6 +492,10 @@ DYNAMIC_DOMAINS=(
 )
 # Hosts listed by sibling checkouts (above) rotate like these do.
 DYNAMIC_DOMAINS+=(${SIBLING_DOMAINS[@]+"${SIBLING_DOMAINS[@]}"})
+# So are the ad-hoc hosts: `just kubeconfig` records each cluster's API endpoint there, and an EKS
+# endpoint answers with a rotating pair of addresses - one resolve at start leaves kubectl/helm
+# failing with "no route to host" as soon as the other address is handed out.
+DYNAMIC_DOMAINS+=(${extra_domains[@]+"${extra_domains[@]}"})
 # 10s, not 30s: large control-plane fleets return only a small slice of their addresses per DNS
 # answer, and each answer is cached for its TTL. Coverage widens with elapsed time, so a shorter
 # interval accumulates more of a fleet for the same per-query cost.
