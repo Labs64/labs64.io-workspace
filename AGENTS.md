@@ -163,8 +163,8 @@ developer gets them by cloning this repo). The devcontainer's `post-create.sh` (
 user-level skills directories (`$CLAUDE_CONFIG_DIR/skills`, `$CODEX_HOME/skills`) at
 container creation; see `scripts/sync-skills.sh` for why this has to be per-skill and
 user-level rather than a single project-level symlink. Run `just sync-skills` to pick up a
-newly-added skill without a rebuild. A repository cloned next to this one may ship skills of
-its own under `.agents/skills/`; `sync-skills.sh` links those too.
+newly-added skill without a rebuild. Another `labs64.io*` repository cloned next to this one
+may ship skills of its own under `.agents/skills/`; `sync-skills.sh` links those too.
 
 Keep personal skills out of `.agents/skills/`; add them directly under your own
 `$CLAUDE_CONFIG_DIR/skills` / `$CODEX_HOME/skills` instead, or promote one into this repo

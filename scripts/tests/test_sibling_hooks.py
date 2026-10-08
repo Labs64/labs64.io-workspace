@@ -54,7 +54,7 @@ def test_skills_are_linked_from_sibling_checkouts(tmp_path):
     root = tmp_path / "root"
     (root / "labs64.io-workspace" / "scripts").mkdir(parents=True)
     (root / "labs64.io-workspace" / "scripts" / "sync-skills.sh").write_text(SYNC.read_text())
-    for repo, skill in (("labs64.io-workspace", "shared"), ("other", "extra")):
+    for repo, skill in (("labs64.io-workspace", "shared"), ("labs64.io-other", "extra")):
         d = root / repo / ".agents" / "skills" / skill
         d.mkdir(parents=True)
         (d / "SKILL.md").write_text(f"---\nname: {skill}\n---\n")
@@ -73,7 +73,7 @@ def test_a_skill_whose_checkout_went_away_is_unlinked(tmp_path):
     script = root / "labs64.io-workspace" / "scripts" / "sync-skills.sh"
     script.write_text(SYNC.read_text())
     (root / "labs64.io-workspace" / ".agents" / "skills").mkdir(parents=True)
-    gone = root / "other" / ".agents" / "skills" / "extra"
+    gone = root / "labs64.io-other" / ".agents" / "skills" / "extra"
     gone.mkdir(parents=True)
     (gone / "SKILL.md").write_text("---\nname: extra\n---\n")
     home = tmp_path / "home"
@@ -84,3 +84,20 @@ def test_a_skill_whose_checkout_went_away_is_unlinked(tmp_path):
     gone.rmdir()
     subprocess.run(["bash", str(script)], env=env, check=True, capture_output=True)
     assert not (home / "claude" / "skills" / "extra").is_symlink()
+
+
+def test_skills_of_unrelated_sibling_directories_are_not_linked(tmp_path):
+    """On a host the parent directory may hold other projects; only ecosystem checkouts count."""
+    root = tmp_path / "root"
+    (root / "labs64.io-workspace" / "scripts").mkdir(parents=True)
+    script = root / "labs64.io-workspace" / "scripts" / "sync-skills.sh"
+    script.write_text(SYNC.read_text())
+    (root / "labs64.io-workspace" / ".agents" / "skills").mkdir(parents=True)
+    foreign = root / "some-other-project" / ".agents" / "skills" / "foreign"
+    foreign.mkdir(parents=True)
+    (foreign / "SKILL.md").write_text("---\nname: foreign\n---\n")
+    home = tmp_path / "home"
+    env = {**os.environ, "CLAUDE_CONFIG_DIR": str(home / "claude"), "CODEX_HOME": str(home / "codex")}
+    proc = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    assert not (home / "claude" / "skills" / "foreign").exists()

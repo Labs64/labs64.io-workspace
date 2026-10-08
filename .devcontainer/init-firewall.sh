@@ -174,13 +174,13 @@ read_domain_lists() {
 # publishes the full CIDR list for exactly this purpose, filterable by
 # service/region - same idea as the GitHub ranges above, applied to S3.
 #
-# A repository cloned next to this one lists the regions whose S3 it needs in
+# Another labs64.io* repository cloned next to this one lists the regions whose S3 it needs in
 # .devcontainer/firewall-s3-regions.txt (one per line). Without such a file this block is skipped.
 # -----------------------------------------------------------------------------
 S3_REGIONS=()
 while IFS= read -r region; do
     S3_REGIONS+=("$region")
-done < <(read_domain_lists /workspaces/*/.devcontainer/firewall-s3-regions.txt)
+done < <(read_domain_lists /workspaces/labs64.io*/.devcontainer/firewall-s3-regions.txt)
 if [ ${#S3_REGIONS[@]} -gt 0 ]; then
     echo "Fetching AWS S3 IP ranges (${S3_REGIONS[*]})..."
     aws_ranges=$(curl -s https://ip-ranges.amazonaws.com/ip-ranges.json)
@@ -353,14 +353,14 @@ resolve_and_add optional \
 resolve_and_add optional "host.docker.internal"
 
 # --- Optional: hosts contributed by sibling checkouts ---
-# A repository cloned next to this one may ship .devcontainer/firewall-domains.txt (one domain
+# Another labs64.io* repository cloned next to this one may ship .devcontainer/firewall-domains.txt (one domain
 # per line, '#' comments) for hosts only its own work needs - a cloud provider's control-plane
 # endpoints, a private registry. They are allowed like the lists above and also re-resolved by
 # the refresh loop below, because such endpoints typically rotate their addresses.
 SIBLING_DOMAINS=()
 while IFS= read -r domain; do
     SIBLING_DOMAINS+=("$domain")
-done < <(read_domain_lists /workspaces/*/.devcontainer/firewall-domains.txt)
+done < <(read_domain_lists /workspaces/labs64.io*/.devcontainer/firewall-domains.txt)
 if [ ${#SIBLING_DOMAINS[@]} -gt 0 ]; then
     echo "Allowing ${#SIBLING_DOMAINS[@]} host(s) listed by sibling checkouts..."
     resolve_and_add optional "${SIBLING_DOMAINS[@]}"
