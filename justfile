@@ -1,7 +1,7 @@
 # Optional internal commands; the public workspace works without this sibling.
 mod? ee '../labs64.io-workspace-ee/justfile'
 
-REPOS := "labs64.io-docs labs64.io-docs-internal labs64.io-devops labs64.io-tests labs64.io-helm-charts labs64.io-commons labs64.io-authproxy labs64.io-auditflow labs64.io-checkout labs64.io-customer-portal labs64.io-payment-gateway labs64.io"
+REPOS := "labs64.io-docs labs64.io-tests labs64.io-helm-charts labs64.io-commons labs64.io-authproxy labs64.io-auditflow labs64.io-checkout labs64.io-customer-portal labs64.io-payment-gateway labs64.io"
 GITHUB_ORG := "https://github.com/Labs64"
 # Ecosystem root: repositories are cloned as siblings of this workspace, not inside it.
 ROOT := ".."
@@ -381,7 +381,7 @@ check-release-wiring:
 alias check-release := check-release-wiring
 
 # Verify that every version pin shared by more than one file or repository agrees (tool
-# versions, charts held in lockstep with labs64.io-devops, Cerbos, OTel), that no pom
+# versions, platform charts and engine lines, Cerbos, OTel), that no pom
 # hard-codes a version or the Spring Boot parent, and release order: services must pin
 # released commons / auditflow-api versions (no -SNAPSHOT, tag exists upstream)
 check-pins:
@@ -403,15 +403,3 @@ verify-process:
         echo "skip: labs64.io-helm-charts not cloned (run 'just clone')"
     fi
     just check
-
-## 🛰️ Cockpit ##
-
-# Start the local Cockpit web UI (view-only PoC, see cockpit/design/DESIGN.md) on http://localhost:8850
-cockpit:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    test -d cockpit/.venv || python3 -m venv cockpit/.venv
-    cockpit/.venv/bin/pip install -q -r cockpit/requirements.txt
-    echo "Cockpit starting: http://localhost:8850"
-    echo "(if the browser doesn't open by itself, use the PORTS tab or open the URL above)"
-    cockpit/.venv/bin/python -m uvicorn cockpit.app:app --host 127.0.0.1 --port 8850 --reload --reload-dir cockpit

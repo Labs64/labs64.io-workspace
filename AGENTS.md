@@ -4,11 +4,11 @@ Guidance for AI agents working in the Labs64.IO workspace. Read this before maki
 
 ## What this is
 
-Open-source digital commerce platform — polyglot microservices ecosystem. 12 independent git repos, shared Helm charts; AWS environments are installed from `labs64.io-devops` (Terraform + the `labs64io-ecosystem` umbrella chart). **Not a monorepo.**
+Open-source digital commerce platform — polyglot microservices ecosystem. 10 independent git repos, shared Helm charts; environments install the published `labs64io-ecosystem` umbrella chart. **Not a monorepo.**
 
 ## Repository layout
 
-The 12 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not inside it:
+The 10 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not inside it:
 
 ```
 /workspaces/                    # ecosystem root (mounted by the DevContainer)
@@ -25,9 +25,7 @@ The 12 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not 
 | What you need | Where to look |
 | --- | --- |
 | Work on a module | `<module>/AGENTS.md` (always read before changes) |
-| Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS QA/Staging/Prod, BYO Infra) + `labs64.io-devops/` for the AWS (Terraform + umbrella chart) path |
-| Write infrastructure | `labs64.io-devops/terraform/` |
-| Write an RFC | `labs64.io-docs-internal/rfc/RFC_TEMPLATE.md` |
+| Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS QA/Staging/Prod, BYO Infra) |
 | Write public docs (onboarding, config, technical reference) | `labs64.io-docs/` (its `AGENTS.md` first — the ultimate reference for running/using/configuring modules; mirrors module ids from `labs64.io/_data/modules.yml`, never restates status/version) |
 | Set up local k8s | `labs64.io-helm-charts/DEVELOPERS.md` |
 | Understand observability | `labs64.io-helm-charts/OBSERVABILITY.md` |
@@ -46,10 +44,9 @@ Non-negotiable. Violations break builds, deployments, or observability.
    - Chart versions and Helm repositories: `labs64.io-helm-charts/helmfile.yaml.gotmpl`.
      Spring Boot line, BOM overrides, shared Java versions: `io.labs64:labs64io-parent`
      (`labs64.io-commons`). CLI tools: `tool-versions.env` here.
-   - What an AWS environment runs: `CHART_VERSION` in `labs64.io-devops/justfile.versions` — the
-     umbrella chart version is the ecosystem release number and the pin of record (there is no
-     GitOps controller). Versions never go back into a justfile: `labs64.io-devops` and
-     `labs64.io-helm-charts` keep theirs in `justfile.versions`, which the justfile imports
+   - What an environment runs: the umbrella chart version its operator pins — the umbrella
+     chart version is the ecosystem release number. Versions never go back into a justfile:
+     `labs64.io-helm-charts` keeps its own in `justfile.versions`, which the justfile imports
      (`just check-pins` fails on a `*_VERSION :=` in a justfile). A chart change bumps its `version` and every chart vendoring it,
      umbrella included (`just bump <chart>` in helm-charts; chart CI enforces it).
    - Java poms declare `<version>${revision}</version>` (default `0.0.0-SNAPSHOT`). A release is
@@ -101,9 +98,6 @@ Non-negotiable. Violations break builds, deployments, or observability.
   module certification through mTLS, SPIFFE/SPIRE, or an equivalent mechanism are
   unresolved future work.
 
-Decision record:
-`labs64.io-docs-internal/rfc/2026-08-12_RFC_09_service-principal-delegated-tenant-publishing.md`.
-
 ## Releases
 
 One gesture in every repository: **publish a GitHub Release whose tag is the version `X.Y.Z`.**
@@ -116,9 +110,8 @@ One gesture in every repository: **publish a GitHub Release whose tag is the ver
 | `labs64.io-helm-charts` | every push to `master` touching `charts/**` publishes the bumped charts |
 
 The chain after a module release is automatic up to the deploy decision: images by digest →
-PR pinning them into the module chart and bumping the umbrella → published umbrella →
-Renovate PR bumping `CHART_VERSION` in `labs64.io-devops`. Merging that last PR and running
-`just modules-install <env>` is the deliberate rollout.
+PR pinning them into the module chart and bumping the umbrella → published umbrella. The
+published umbrella chart version is the release; rolling it out is the operator's step.
 
 Order matters only when commons changed: release `commons`, move the modules to the new
 `labs64io-parent` (Renovate opens those PRs), then release the modules. `just check` (here)
@@ -126,7 +119,7 @@ runs the cross-repo gates; its `note` lines list modules still on a `-SNAPSHOT` 
 
 ## Pull requests
 
-Every PR opened in any of the 12 ecosystem repos must:
+Every PR opened in any of the ecosystem repos must:
 
 - Be assigned to the GitHub user `gh` is authorized as (`gh pr create --assignee "@me" ...`,
   or `gh pr edit <PR URL> --add-assignee "@me"` for one already open).
@@ -147,15 +140,12 @@ gh project item-add 6 --owner Labs64 --url <PR URL>
 | Traefik auth behavior | `labs64.io-authproxy/traefik-authproxy/` |
 | Authorization policy (Cerbos PDP) | Change `x-labs64.auth` in the module OpenAPI; policies are generated by `labs64.io-helm-charts/policies/build-authz-policies.sh` into `charts/authz-pdp/` |
 | Helm chart templates | `labs64.io-helm-charts/charts/<chart>/templates/` |
-| Terraform infrastructure | `labs64.io-devops/terraform/` |
-| Network policies | `labs64.io-devops/kubernetes/network-policies/` |
+| Network policies | `labs64.io-helm-charts/charts/<chart>/templates/` (`networkPolicy` in each chart's values) |
 | Website / Marketing Content | `labs64.io/` |
 | Bump a 3pp chart / Helm repo | `labs64.io-helm-charts/helmfile.yaml.gotmpl` (only there) |
 | Bump Spring Boot or a shared Java dependency | `labs64.io-commons/labs64io-parent/pom.xml` (only there), then release commons and move the modules' parent version |
 | Bump a CLI tool (dev container + CI) | `tool-versions.env` |
-| Roll a release out to an AWS environment | `CHART_VERSION` in `labs64.io-devops/justfile.versions`, then `just modules-install <env>` |
-| Bump a CRD set, an AWS platform chart, or a canary/load-test image | `justfile.versions` of `labs64.io-helm-charts` / `labs64.io-devops` (only there) |
-| Upgrade Kubernetes / PostgreSQL / Valkey / RabbitMQ on AWS | `labs64.io-devops/terraform/variables.tf`, then the local stack to match (`just check-pins` names what differs) |
+| Bump a CRD set | `labs64.io-helm-charts/justfile.versions` (only there) |
 | Module status / website module list | `labs64.io/_data/modules.yml` (single source; rendered into nav, module pages, roadmap; `labs64.io-docs` must never restate this — link/copy from here) |
 | Module technical/integration docs | `labs64.io-docs/<module>/` (dir name must match the module's `id` in `labs64.io/_data/modules.yml`) |
 | Add/audit/run tests for a module | `labs64.io-<module>/tests/e2e/` (shared keywords in `labs64.io-tests/resources/`; see `test-suite-steward` skill) |
@@ -173,7 +163,8 @@ developer gets them by cloning this repo). The devcontainer's `post-create.sh` (
 user-level skills directories (`$CLAUDE_CONFIG_DIR/skills`, `$CODEX_HOME/skills`) at
 container creation; see `scripts/sync-skills.sh` for why this has to be per-skill and
 user-level rather than a single project-level symlink. Run `just sync-skills` to pick up a
-newly-added skill without a rebuild.
+newly-added skill without a rebuild. Another `labs64.io*` repository cloned next to this one
+may ship skills of its own under `.agents/skills/`; `sync-skills.sh` links those too.
 
 Keep personal skills out of `.agents/skills/`; add them directly under your own
 `$CLAUDE_CONFIG_DIR/skills` / `$CODEX_HOME/skills` instead, or promote one into this repo
@@ -183,7 +174,6 @@ Agents without native skill-tool support (e.g. reading only `AGENTS.md`) should 
 the relevant `SKILL.md` directly and follow it as instructions when its `description`
 matches the task at hand:
 
-- `rfc-writing` — propose an architectural/cross-module change
 - `openapi-first-change` — change an API contract
 - `test-suite-steward` — add/audit/run tests in `labs64.io-tests/`
 - `helm-config-binding-check` — Helm chart config changes

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Symlinks each shared skill (.agents/skills/<name>/SKILL.md) individually, by name, into
+# Symlinks each shared skill (.agents/skills/<name>/SKILL.md, here and in every labs64.io*
+# repository cloned next to this one) individually, by name, into
 # Claude Code's and Codex CLI's user-level skills directories ($CLAUDE_CONFIG_DIR/skills,
 # $CODEX_HOME/skills).
 #
@@ -14,7 +15,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILLS_SRC="$(cd "$SCRIPT_DIR/../.agents/skills" && pwd)"
+# Ecosystem root: this repository and its siblings. Another ecosystem checkout (labs64.io*) may
+# ship skills of its own; unrelated projects that happen to share the parent directory are ignored.
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 echo "Syncing shared skills into Claude Code and Codex CLI (user-level)..."
 for skills_dir in "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" "${CODEX_HOME:-$HOME/.codex}/skills"; do
@@ -23,20 +26,20 @@ for skills_dir in "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" "${CODEX_HOME:-$H
   # Drop symlinks pointing at shared skills that no longer exist (renamed or removed).
   find "$skills_dir" -maxdepth 1 -type l -print0 | while IFS= read -r -d '' link; do
     case "$(readlink "$link")" in
-      "$SKILLS_SRC"/*) [ -e "$link" ] || rm "$link" ;;
+      "$ROOT"/labs64.io*/.agents/skills/*) [ -e "$link" ] || rm "$link" ;;
     esac
   done
 
   # Link every shared skill individually, by name. Skips .system/, .curated/ and any other
   # non-skill entries (they hold subdirectories with SKILL.md, not one directly).
-  for skill_dir in "$SKILLS_SRC"/*/; do
+  for skill_dir in "$ROOT"/labs64.io*/.agents/skills/*/; do
     [ -f "${skill_dir}SKILL.md" ] || continue
     name="$(basename "$skill_dir")"
     dest="$skills_dir/$name"
     if [ -e "$dest" ]; then
       if [ -L "$dest" ]; then
         case "$(readlink "$dest")" in
-          "$SKILLS_SRC"/*) : ;;  # ours from a previous run, safe to relink
+          "$ROOT"/labs64.io*/.agents/skills/*) : ;;  # ours from a previous run, safe to relink
           *)
             echo "  Skipping $dest: an unrelated symlink with this name already exists" >&2
             continue

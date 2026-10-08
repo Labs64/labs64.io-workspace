@@ -48,7 +48,7 @@ Look for: duplicate config, missing config, obsolete config, drift between modul
 
 ## Step 6 — Architecture review
 
-**Mermaid diagrams**: search `**/*.md` across all modules and `labs64.io-docs*`/`labs64.io-docs-internal` for `mermaid` blocks. For every diagram, verify it still matches the module's actual implemented behavior (traced in Step 4) — correct any diagram that has drifted from reality, regardless of which module it belongs to. Also improve diagrams generally: fewer crossing lines, related services grouped, consistent naming, clear visual hierarchy.
+**Mermaid diagrams**: search `**/*.md` across all modules and `labs64.io-docs` for `mermaid` blocks. For every diagram, verify it still matches the module's actual implemented behavior (traced in Step 4) — correct any diagram that has drifted from reality, regardless of which module it belongs to. Also improve diagrams generally: fewer crossing lines, related services grouped, consistent naming, clear visual hierarchy.
 
 ## Step 7 — Code/config quality
 
