@@ -548,3 +548,32 @@ def test_default_mode_still_skips_missing_repositories(tmp_path):
     root = ecosystem(tmp_path)
     shutil.rmtree(root / "labs64.io-devops")
     assert run(root).returncode == 0
+
+
+def test_print_pins_emits_the_platform_pins_as_json(tmp_path):
+    import json
+
+    root = ecosystem(tmp_path)
+    write(root, "labs64.io-helm-charts/charts/preflight/values.yaml",
+          "images:\n  db: postgres:18.2\n  cache: valkey/valkey:9.1-alpine\n  curl: curlimages/curl:8.22.0\n")
+    proc = run(root, "--print-pins")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    pins = json.loads(proc.stdout)
+    assert set(pins) == {
+        "External Secrets Operator chart", "Keycloak (keycloakx) chart", "Traefik chart",
+        "OpenTelemetry Collector chart", "Gateway API CRDs", "Kubernetes minor",
+        "PostgreSQL major", "Valkey line", "RabbitMQ line", "curl image",
+    }
+    assert pins["External Secrets Operator chart"] == {"helm-charts helmfile (external-secrets)": "2.11.0"}
+    assert pins["Kubernetes minor"] == {"k3d/labs64io.yaml": "1.36"}
+    assert pins["PostgreSQL major"]["preflight values"] == "18"
+    assert pins["Valkey line"]["preflight values"] == "9.1"
+    assert pins["curl image"] == {"preflight values": "8.22.0"}
+    assert pins["Traefik chart"] == {"helm-charts helmfile (traefik)": None}
+
+
+def test_print_pins_names_no_private_repository(tmp_path):
+    proc = run(ecosystem(tmp_path), "--print-pins")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "devops" not in proc.stdout
+    assert "terraform" not in proc.stdout

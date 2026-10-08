@@ -263,6 +263,61 @@ def check_toolchain(root: Path) -> None:
                 )
 
 
+def platform_pins(root: Path) -> dict[str, dict[str, str | None]]:
+    """Every platform pin, with each place this checkout states it.
+
+    `--print-pins` prints this mapping as JSON, so tooling that installs the same charts and
+    engines on another path (an operator's own infrastructure repository) can hold its pins
+    against these without parsing the files itself. Engine versions are reduced to the line the
+    places have to share: a major for PostgreSQL, major.minor for Valkey, RabbitMQ and Kubernetes.
+    """
+    charts = root / "labs64.io-helm-charts"
+    helmfile = helmfile_versions(read(charts / "helmfile.yaml.gotmpl"))
+    preflight = read(charts / "charts/preflight/values.yaml")
+    compose = read(root / "labs64.io-auditflow/docker-compose.yml")
+    return {
+        "External Secrets Operator chart": {"helm-charts helmfile (external-secrets)": helmfile.get("external-secrets")},
+        "Keycloak (keycloakx) chart": {"helm-charts helmfile (keycloak)": helmfile.get("keycloak")},
+        "Traefik chart": {"helm-charts helmfile (traefik)": helmfile.get("traefik")},
+        "OpenTelemetry Collector chart": {
+            "helm-charts helmfile (opentelemetry-collector)": helmfile.get("opentelemetry-collector")
+        },
+        "Gateway API CRDs": {
+            "helm-charts justfile.versions": just_constant(read(charts / "justfile.versions"), "GATEWAY_API_VERSION"),
+            "helm-charts install.sh": first(
+                r'^GATEWAY_API_VERSION="\$\{LABS64_GATEWAY_API_VERSION:-([^}]+)\}"', read(charts / "install.sh")
+            ),
+        },
+        "Kubernetes minor": {
+            "k3d/labs64io.yaml": first(r"^image:\s*rancher/k3s:v(\d+\.\d+)", read(charts / "k3d" / "labs64io.yaml")),
+        },
+        "PostgreSQL major": {
+            "bitnami/postgresql chart (helmfile)": major(helmfile.get("postgresql")),
+            "chart-libs _job.tpl": major(
+                first(r"image:\s*postgres:(\d[^\s\"']*)", read(charts / "charts/chart-libs/templates/_job.tpl"))
+            ),
+            "preflight values": major(first(r"postgres:(\d[^\s\"']*)", preflight)),
+            "keycloak override": major(
+                first(r"image:\s*postgres:(\d[^\s\"']*)", read(charts / "overrides/keycloak/values.yaml"))
+            ),
+        },
+        "Valkey line": {
+            "preflight values": minor_line(first(r"valkey/valkey:(\d[^\s\"']*)", preflight)),
+            "auditflow docker-compose": minor_line(first(r"valkey/valkey:(\d[^\s\"']*)", compose)),
+        },
+        "RabbitMQ line": {
+            "overrides/rabbitmq chart": minor_line(
+                first(r"tag:\s*(\d[^\s\"']*)", read(charts / "overrides/rabbitmq/chart/values.yaml"))
+            ),
+            "umbrella values": minor_line(
+                first(r"tag:\s*\"(4\.[^\"]*)\"", read(charts / "charts/labs64io-ecosystem/values.yaml"))
+            ),
+            "auditflow docker-compose": minor_line(first(r"image:\s*rabbitmq:(\d[^\s\"']*)", compose)),
+        },
+        "curl image": {"preflight values": first(r"curlimages/curl:(\S+)", preflight)},
+    }
+
+
 def check_platform_lockstep(root: Path) -> None:
     charts = root / "labs64.io-helm-charts"
     devops_just = read(root / "labs64.io-devops" / "justfile.versions")
@@ -774,10 +829,19 @@ def main() -> int:
         action="store_true",
         help="fail when a repository the checks read is not present (CI); default is to skip it",
     )
+    parser.add_argument(
+        "--print-pins",
+        action="store_true",
+        help="print the platform pins as JSON (pin -> place -> value) and exit, without checking",
+    )
     args = parser.parse_args()
     root = Path(args.root).resolve()
     if not (root / "labs64.io-workspace").is_dir():
         raise SystemExit(f"no labs64.io-workspace under {root}")
+
+    if args.print_pins:
+        print(json.dumps(platform_pins(root), indent=2, sort_keys=True))
+        return 0
 
     if args.strict:
         for repo in REQUIRED_REPOS:
