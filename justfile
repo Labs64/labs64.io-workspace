@@ -1,4 +1,4 @@
-# Optional internal commands; the public workspace works without this sibling.
+# Internal commands from the optional EE workspace
 mod? ee '../labs64.io-workspace-ee/justfile'
 
 REPOS := "labs64.io-docs labs64.io-tests labs64.io-helm-charts labs64.io-commons labs64.io-authproxy labs64.io-auditflow labs64.io-checkout labs64.io-customer-portal labs64.io-payment-gateway labs64.io"
@@ -13,6 +13,8 @@ default:
 # One-time migration: the website repo used to be cloned as labs64.io-website. Rename an existing
 # checkout so it matches a fresh one (plain `mv`: branches, stashes and uncommitted work are kept).
 # Safe to remove once everyone has run any recipe below after pulling this change.
+#
+# Rename an old labs64.io-website checkout to labs64.io
 _migrate-website-folder:
     #!/bin/bash
     set -euo pipefail
@@ -69,7 +71,7 @@ status: _migrate-website-folder
         fi
     done
 
-# Show open pull requests across all repositories (requires an authenticated gh)
+# Show open pull requests across all repositories
 pr: _migrate-website-folder
     #!/bin/bash
     if ! command -v gh >/dev/null 2>&1; then
@@ -94,15 +96,15 @@ pr: _migrate-website-folder
         fi
     done
 
-# Re-sync shared skills into Claude Code's and Codex CLI's user-level skills dirs on demand
+# Sync the shared skills into the user-level skill folders of Claude Code and Codex CLI
 sync-skills:
     ./scripts/sync-skills.sh
 
-# Copy your own non-symlinked personal skills into .agents/skills/ to promote them as shared
+# Copy your personal skills into .agents/skills/ so they become shared skills
 import-skills:
     ./scripts/import-personal-skills.sh
 
-# Build and push all module images to local registry (localhost:5005)
+# Build the module images (all by default) and push them to the local registry at localhost:5005
 build module="all" verbose="1":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -189,7 +191,7 @@ build module="all" verbose="1":
         labs64io-builder \
         "${builder_command[@]}"
 
-# Build first-party images and reconcile the local stack from Helm overrides.
+# Build the first-party images and deploy the local stack from the Helm overrides
 up:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -201,15 +203,15 @@ up:
     cd "{{ROOT}}/labs64.io-helm-charts"
     just deploy
 
-# Start the entire local cluster with OpenTelemetry
+# Start the local cluster with the monitoring stack and OpenTelemetry, then open Grafana
 otel:
     @cd {{ROOT}}/labs64.io-helm-charts && just up-otel && just grafana
 
-# Tear down the local cluster (cluster and registry will be destroyed)
+# Delete the local cluster and its registry
 down:
     @cd {{ROOT}}/labs64.io-helm-charts && just cluster-down
 
-# Tail error logs for all modules, or `just logs <app>` for one (e.g. `just logs auditflow`)
+# Show errors from all module logs, or follow the logs of a single app
 logs app="":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -220,7 +222,7 @@ logs app="":
         just logs-errors
     fi
 
-# Check that required local tooling is installed, at the versions pinned in tool-versions.env
+# Check that the required local tools are installed at the versions pinned in tool-versions.env
 doctor:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -284,7 +286,7 @@ doctor:
     echo "$ok OK, $missing missing, $drift differ from tool-versions.env"
     [ "$missing" -eq 0 ]
 
-# Verify all Java modules can resolve their dependencies offline (catches broken/missing artifacts early)
+# Check that all Java modules resolve their dependencies offline
 verify-deps verbose="1":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -318,7 +320,7 @@ verify-deps verbose="1":
         fi
     done
 
-# Run a test-suite recipe against the explicitly selected or deployed identity provider.
+# Run a test recipe against the selected or deployed identity provider
 _test-with-identity recipe:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -362,7 +364,7 @@ _test-with-identity recipe:
     cd "{{ROOT}}/labs64.io-tests"
     IDENTITY_PROVIDER="${provider}" just "{{recipe}}"
 
-# Run the complete local gate: normal regression, then isolated PSP-stub scenarios
+# Run the normal regression, then the isolated PSP-stub scenarios
 test:
     @just _test-with-identity test-all
 
@@ -370,7 +372,7 @@ test:
 smoke:
     @just _test-with-identity smoke
 
-# Run the ordinary nightly-shape regression without changing provider endpoints
+# Run the nightly regression suite without changing provider endpoints
 regression:
     @just _test-with-identity regression
 
@@ -384,6 +386,8 @@ alias check-release := check-release-wiring
 # versions, platform charts and engine lines, Cerbos, OTel), that no pom
 # hard-codes a version or the Spring Boot parent, and release order: services must pin
 # released commons / auditflow-api versions (no -SNAPSHOT, tag exists upstream)
+#
+# Check that version pins agree across files and repositories and no pom hard-codes a version
 check-pins:
     @python3 scripts/check-version-pins.py --root {{ROOT}}
 
@@ -393,6 +397,8 @@ check: check-release-wiring check-pins
 # Verify the release and maintenance tooling itself, offline (no cluster, no registry writes):
 # the gate scripts' own tests (here and in labs64.io-helm-charts), then every cross-repo gate.
 # Needs `pytest` and `pyyaml`; CI runs the same steps (.github/workflows/labs64io-ci.yml).
+#
+# Run the gate scripts' own tests offline, then every cross-repo gate
 verify-process:
     #!/usr/bin/env bash
     set -euo pipefail
