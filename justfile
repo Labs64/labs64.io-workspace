@@ -381,7 +381,7 @@ check-release-wiring:
 alias check-release := check-release-wiring
 
 # Verify that every version pin shared by more than one file or repository agrees (tool
-# versions, charts held in lockstep with labs64.io-devops, Cerbos, OTel), that no pom
+# versions, platform charts and engine lines, Cerbos, OTel), that no pom
 # hard-codes a version or the Spring Boot parent, and release order: services must pin
 # released commons / auditflow-api versions (no -SNAPSHOT, tag exists upstream)
 check-pins:

@@ -3,12 +3,11 @@
 
 Most pins in the ecosystem have exactly one owner (helmfile.yaml.gotmpl for chart
 versions, labs64io-parent for the Java stack, tool-versions.env for the CLI toolchain,
-justfile.versions in labs64.io-helm-charts and labs64.io-devops for everything else those two
-pin). A few cannot: a file that is unable to read its owner (devcontainer.json), or two
-repositories that must hold the same value because they install the same thing on
-different paths (helm-charts locally, devops on AWS). Those used to be kept together by
-"keep in lockstep" comments. This is the gate that replaces the comments — no single
-repository's CI can see the other side, so it runs here, across the whole checkout:
+justfile.versions in labs64.io-helm-charts for everything else it pins). A few cannot: a
+file that is unable to read its owner (devcontainer.json), or two files that install the
+same thing on different paths (the helmfile and install.sh). Those used to be kept together
+by "keep in lockstep" comments. This is the gate that replaces the comments — several
+repositories are read at once, so it runs here, across the whole checkout:
 
     scripts/check-version-pins.py
     just check-pins
@@ -17,6 +16,9 @@ It also enforces release order. A service pins released versions of commons
 (labs64io-parent) and of auditflow-api; a tagged build refuses -SNAPSHOT inputs, and a pin on
 a version nobody released cannot resolve. Both fail here, naming the repository to release
 first, so the mistake is caught on master instead of at the first release tag.
+
+Tooling that installs these charts and engines somewhere else (an operator's own infrastructure
+repository) reads the pins with --print-pins and compares its own.
 
 Repositories that are not cloned are skipped, not failed: a partial checkout is normal on a
 developer machine. CI passes --strict instead, which fails when a repository the checks read is
@@ -42,7 +44,6 @@ notes: list[str] = []
 REQUIRED_REPOS = (
     "labs64.io-workspace",
     "labs64.io-helm-charts",
-    "labs64.io-devops",
     "labs64.io-commons",
     "labs64.io-auditflow",
     "labs64.io-payment-gateway",
@@ -109,14 +110,6 @@ def helmfile_versions(text: str | None) -> dict[str, str]:
 
 def just_constant(text: str | None, name: str) -> str | None:
     return first(rf'^{name}\s*:=\s*"([^"]+)"', text)
-
-
-def tf_default(text: str | None, name: str) -> str | None:
-    """Default of `variable "<name>"` in a Terraform variables file."""
-    if text is None:
-        return None
-    m = re.search(rf'variable "{name}" \{{(.*?)(?=\nvariable "|\Z)', text, re.S)
-    return first(r'^\s*default\s*=\s*"([^"]+)"', m.group(1) if m else None)
 
 
 def _numeric(version: str | None) -> list[str]:
@@ -318,56 +311,14 @@ def platform_pins(root: Path) -> dict[str, dict[str, str | None]]:
     }
 
 
-def check_platform_lockstep(root: Path) -> None:
-    charts = root / "labs64.io-helm-charts"
-    devops_just = read(root / "labs64.io-devops" / "justfile.versions")
-    charts_just = read(charts / "justfile.versions")
-    helmfile = helmfile_versions(read(charts / "helmfile.yaml.gotmpl"))
-
-    expect_equal(
-        "External Secrets Operator chart",
-        {
-            "helm-charts helmfile (external-secrets)": helmfile.get("external-secrets"),
-            "devops justfile.versions ESO_CHART_VERSION": just_constant(devops_just, "ESO_CHART_VERSION"),
-        },
-    )
-    expect_equal(
-        "Keycloak (keycloakx) chart",
-        {
-            "helm-charts helmfile (keycloak)": helmfile.get("keycloak"),
-            "devops justfile.versions KEYCLOAK_CHART_VERSION": just_constant(devops_just, "KEYCLOAK_CHART_VERSION"),
-        },
-    )
-    # Installed by helmfile locally and by `just traefik-install` / `just metrics-install` on AWS,
-    # with the same overrides/ values files: one chart version on both paths.
-    expect_equal(
-        "Traefik chart",
-        {
-            "helm-charts helmfile (traefik)": helmfile.get("traefik"),
-            "devops justfile.versions TRAEFIK_CHART_VERSION": just_constant(devops_just, "TRAEFIK_CHART_VERSION"),
-        },
-    )
-    expect_equal(
-        "OpenTelemetry Collector chart",
-        {
-            "helm-charts helmfile (opentelemetry-collector)": helmfile.get("opentelemetry-collector"),
-            "devops justfile.versions OTEL_COLLECTOR_CHART_VERSION": just_constant(
-                devops_just, "OTEL_COLLECTOR_CHART_VERSION"
-            ),
-        },
-    )
-    expect_equal(
-        "Gateway API CRDs",
-        {
-            "helm-charts justfile.versions": just_constant(charts_just, "GATEWAY_API_VERSION"),
-            "helm-charts install.sh": first(
-                r'^GATEWAY_API_VERSION="\$\{LABS64_GATEWAY_API_VERSION:-([^}]+)\}"', read(charts / "install.sh")
-            ),
-            "devops justfile.versions": just_constant(devops_just, "GATEWAY_API_VERSION"),
-        },
-    )
+def check_platform_pins(root: Path) -> None:
+    """Each platform pin agrees wherever this checkout states it more than once."""
+    for what, places in platform_pins(root).items():
+        expect_equal(what, places)
 
     # The umbrella bundles the same infrastructure charts the local helmfile installs.
+    charts = root / "labs64.io-helm-charts"
+    helmfile = helmfile_versions(read(charts / "helmfile.yaml.gotmpl"))
     umbrella = read(charts / "charts" / "labs64io-ecosystem" / "Chart.yaml")
     if umbrella is not None:
         deps = {d["name"]: str(d["version"]) for d in yaml.safe_load(umbrella).get("dependencies", [])}
@@ -381,7 +332,7 @@ def check_platform_lockstep(root: Path) -> None:
 def check_version_files(root: Path) -> None:
     """Versions live in justfile.versions / tool-versions.env, never back in a justfile."""
     constant = re.compile(r"^[A-Z0-9_]*VERSION\s*:=", re.M)
-    for repo in ("labs64.io-helm-charts", "labs64.io-devops"):
+    for repo in ("labs64.io-helm-charts",):
         versions = read(root / repo / "justfile.versions")
         justfile = read(root / repo / "justfile")
         if versions is None:
@@ -398,61 +349,16 @@ def check_version_files(root: Path) -> None:
         for number, line in enumerate(lines, 1):
             if constant.match(line) and not (number > 1 and lines[number - 2].lstrip().startswith("# renovate:")):
                 fail(f"{repo}/justfile.versions:{number}: {line.split(':=')[0].strip()} has no `# renovate:` annotation")
-    ok("justfile.versions: imported, annotated, no constants in justfiles", "helm-charts, devops")
+    ok("justfile.versions: imported, annotated, no constants in justfiles", "helm-charts")
 
 
-def check_data_stores(root: Path) -> None:
-    """Engine lines that local/charts and the AWS Terraform path must agree on."""
+def check_utility_images(root: Path) -> None:
+    """Utility images used by chart tests and jobs.
+
+    Templates cannot be updated by Renovate, so this is what notices when a bump reaches the
+    values but not the templates.
+    """
     charts = root / "labs64.io-helm-charts"
-    tfvars = read(root / "labs64.io-devops" / "terraform" / "variables.tf")
-    devops_just = read(root / "labs64.io-devops" / "justfile.versions")
-    helmfile = helmfile_versions(read(charts / "helmfile.yaml.gotmpl"))
-
-    # Local Kubernetes tracks the EKS control plane.
-    k3s = first(r"^image:\s*rancher/k3s:v(\d+\.\d+)", read(charts / "k3d" / "labs64io.yaml"))
-    expect_equal(
-        "Kubernetes minor: local k3s vs EKS",
-        {"k3d/labs64io.yaml": k3s, "terraform eks_cluster_version": tf_default(tfvars, "eks_cluster_version")},
-    )
-
-    # PostgreSQL major.
-    pg_chart = helmfile.get("postgresql")
-    expect_equal(
-        "PostgreSQL major",
-        {
-            "terraform rds_engine_version": tf_default(tfvars, "rds_engine_version"),
-            "bitnami/postgresql chart (helmfile)": major(pg_chart),
-            "chart-libs _job.tpl": major(first(r"image:\s*postgres:(\d[^\s\"']*)", read(charts / "charts/chart-libs/templates/_job.tpl"))),
-            "preflight values": major(first(r"postgres:(\d[^\s\"']*)", read(charts / "charts/preflight/values.yaml"))),
-            "keycloak override": major(first(r"image:\s*postgres:(\d[^\s\"']*)", read(charts / "overrides/keycloak/values.yaml"))),
-        },
-    )
-
-    # Valkey / RabbitMQ minor line.
-    expect_equal(
-        "Valkey line: AWS ElastiCache vs local",
-        {
-            "terraform cache_engine_version": tf_default(tfvars, "cache_engine_version"),
-            "preflight values": minor_line(first(r"valkey/valkey:(\d[^\s\"']*)", read(charts / "charts/preflight/values.yaml"))),
-            "auditflow docker-compose": minor_line(
-                first(r"valkey/valkey:(\d[^\s\"']*)", read(root / "labs64.io-auditflow/docker-compose.yml"))
-            ),
-        },
-    )
-    expect_equal(
-        "RabbitMQ line: Amazon MQ vs local",
-        {
-            "terraform mq_engine_version": tf_default(tfvars, "mq_engine_version"),
-            "overrides/rabbitmq chart": minor_line(first(r"tag:\s*(\d[^\s\"']*)", read(charts / "overrides/rabbitmq/chart/values.yaml"))),
-            "umbrella values": minor_line(first(r"tag:\s*\"(4\.[^\"]*)\"", read(charts / "charts/labs64io-ecosystem/values.yaml"))),
-            "auditflow docker-compose": minor_line(
-                first(r"image:\s*rabbitmq:(\d[^\s\"']*)", read(root / "labs64.io-auditflow/docker-compose.yml"))
-            ),
-        },
-    )
-
-    # Utility images used by chart tests and jobs. Templates cannot be updated by Renovate, so
-    # this is what notices when a bump reaches the values but not the templates.
     busybox: dict[str, str | None] = {}
     for rel in (
         "charts/chart-libs/templates/_tests.tpl",
@@ -469,13 +375,6 @@ def check_data_stores(root: Path) -> None:
         read(charts / "overrides/opentelemetry/values-operator.local.yaml"),
     )
     expect_equal("busybox image", busybox)
-    expect_equal(
-        "curl image: preflight vs devops canary/load test",
-        {
-            "preflight values": first(r"curlimages/curl:(\S+)", read(charts / "charts/preflight/values.yaml")),
-            "devops justfile.versions CANARY_CURL_VERSION": just_constant(devops_just, "CANARY_CURL_VERSION"),
-        },
-    )
 
 
 def check_cerbos(root: Path) -> None:
@@ -643,76 +542,6 @@ def check_traefik_rbac(root: Path) -> None:
         ok("Traefik replacement RBAC compared with chart", stamp)
 
 
-def check_baseline_policy_exclusions(root: Path) -> None:
-    """The namespace baseline must not re-open what a chart's NetworkPolicy closes.
-
-    labs64.io-devops/kubernetes/network-policies/labs64io.yaml holds fallback allow rules for pods
-    without a chart policy. NetworkPolicies add up, so a chart that narrows its own ingress
-    (networkPolicy.ingressFrom / ingressPorts) only gets what it asks for if the fallbacks exclude
-    it (`app.kubernetes.io/name NotIn [...]`). A name excluded without need is the dangerous
-    direction: that module is left with the default-deny unless its chart policy is enabled.
-    """
-    charts = root / "labs64.io-helm-charts" / "charts"
-    baseline = read(root / "labs64.io-devops" / "kubernetes" / "network-policies" / "labs64io.yaml")
-    if baseline is None or not charts.is_dir():
-        return
-    aws = load_yaml(charts / "labs64io-ecosystem" / "values.aws.yaml") or {}
-    umbrella = load_yaml(charts / "labs64io-ecosystem" / "values.yaml") or {}
-    narrowed: set[str] = set()
-    enabled: dict[str, bool] = {}
-    for chart_values in sorted(charts.glob("*/values.yaml")):
-        chart = chart_values.parent.name
-        policy: dict = {}
-        for source in (_dig(load_yaml(chart_values), ["networkPolicy"]), _dig(umbrella, [chart, "networkPolicy"]),
-                       _dig(aws, [chart, "networkPolicy"])):
-            if isinstance(source, dict):
-                policy.update(source)
-        if policy.get("ingressFrom") or policy.get("ingressPorts"):
-            narrowed.add(chart)
-        enabled[chart] = policy.get("enabled") is True
-
-    try:
-        policies = [d for d in yaml.safe_load_all(baseline) if isinstance(d, dict)]
-    except yaml.YAMLError as error:
-        fail(f"labs64.io-devops/kubernetes/network-policies/labs64io.yaml is not valid YAML: {error}")
-        return
-    where = "labs64.io-devops/kubernetes/network-policies/labs64io.yaml"
-    before = len(problems)
-    excluded_anywhere: set[str] = set()
-    for policy in policies:
-        spec = policy.get("spec") or {}
-        selector = spec.get("podSelector") or {}
-        if policy.get("kind") != "NetworkPolicy" or not spec.get("ingress") or selector.get("matchLabels"):
-            continue  # the default-deny, or a rule for named pods: not a fallback for "every pod"
-        excluded = {
-            value
-            for expression in selector.get("matchExpressions") or []
-            if expression.get("key") == "app.kubernetes.io/name" and expression.get("operator") == "NotIn"
-            for value in expression.get("values") or []
-        }
-        excluded_anywhere |= excluded
-        name = (policy.get("metadata") or {}).get("name")
-        for chart in sorted(narrowed - excluded):
-            fail(
-                f"{where}: {name} selects the {chart} pods, whose chart narrows its ingress "
-                f"(networkPolicy.ingressFrom / ingressPorts) — policies add up, so this rule re-opens it; "
-                f"add {chart} to the NotIn list of its podSelector"
-            )
-        for chart in sorted(excluded - narrowed):
-            fail(
-                f"{where}: {name} excludes {chart}, but charts/{chart} does not narrow its ingress — "
-                f"remove it from the NotIn list (an excluded module without its own policy is unreachable)"
-            )
-    for chart in sorted(narrowed & excluded_anywhere):
-        if not enabled.get(chart):
-            fail(
-                f"{where} excludes {chart} from the fallback rules, but its NetworkPolicy is not enabled in "
-                f"charts/labs64io-ecosystem/values.aws.yaml — on AWS only the default-deny would apply to it"
-            )
-    if narrowed and len(problems) == before:
-        ok("baseline policies leave narrowed charts alone", ", ".join(sorted(narrowed)))
-
-
 def check_opentelemetry(root: Path) -> None:
     agents = {}
     for dockerfile in sorted(root.glob("labs64.io-*/**/Dockerfile")):
@@ -851,13 +680,12 @@ def main() -> int:
     for check in (
         check_toolchain,
         check_version_files,
-        check_platform_lockstep,
-        check_data_stores,
+        check_platform_pins,
+        check_utility_images,
         check_cerbos,
         check_collector_image,
         check_override_image_tags,
         check_traefik_rbac,
-        check_baseline_policy_exclusions,
         check_opentelemetry,
         check_java,
     ):

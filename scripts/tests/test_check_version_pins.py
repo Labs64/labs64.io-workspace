@@ -33,23 +33,6 @@ CHARTS_VERSIONS = """# renovate: datasource=github-releases depName=kubernetes-s
 GATEWAY_API_VERSION := "v1.6.2"
 """
 
-DEVOPS_VERSIONS = """# renovate: datasource=docker depName=ghcr.io/external-secrets/charts/external-secrets
-ESO_CHART_VERSION := "2.11.0"
-# renovate: datasource=docker depName=ghcr.io/codecentric/helm-charts/keycloakx
-KEYCLOAK_CHART_VERSION := "7.3.2"
-# renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
-GATEWAY_API_VERSION := "v1.6.2"
-# renovate: datasource=docker depName=curlimages/curl
-CANARY_CURL_VERSION := "8.22.0"
-"""
-
-VARIABLES_TF = """variable "eks_cluster_version" {
-  default = "1.36"
-}
-variable "rds_engine_version" {
-  default = "18"
-}
-"""
 
 K3D = "kind: Simple\nimage: rancher/k3s:v1.36.5-k3s1\n"
 IMPORTING_JUSTFILE = "import 'justfile.versions'\n\ndefault:\n    @just --list\n"
@@ -67,9 +50,6 @@ def ecosystem(root: Path) -> Path:
     write(root, "labs64.io-helm-charts/justfile", IMPORTING_JUSTFILE)
     write(root, "labs64.io-helm-charts/justfile.versions", CHARTS_VERSIONS)
     write(root, "labs64.io-helm-charts/k3d/labs64io.yaml", K3D)
-    write(root, "labs64.io-devops/justfile", IMPORTING_JUSTFILE)
-    write(root, "labs64.io-devops/justfile.versions", DEVOPS_VERSIONS)
-    write(root, "labs64.io-devops/terraform/variables.tf", VARIABLES_TF)
     return root
 
 
@@ -102,25 +82,9 @@ def test_missing_workspace_is_an_error(tmp_path):
     assert proc.returncode != 0
 
 
-def test_eso_version_drift_between_helmfile_and_devops(tmp_path):
-    root = ecosystem(tmp_path)
-    replace(root, "labs64.io-devops/justfile.versions", 'ESO_CHART_VERSION := "2.11.0"', 'ESO_CHART_VERSION := "2.10.0"')
-    proc = run(root)
-    assert proc.returncode == 1
-    assert "External Secrets Operator chart differs" in proc.stdout
-
-
-def test_gateway_api_drift_between_charts_and_devops(tmp_path):
-    root = ecosystem(tmp_path)
-    replace(root, "labs64.io-devops/justfile.versions", 'GATEWAY_API_VERSION := "v1.6.2"', 'GATEWAY_API_VERSION := "v1.6.1"')
-    proc = run(root)
-    assert proc.returncode == 1
-    assert "Gateway API CRDs differs" in proc.stdout
-
-
 def test_version_constant_in_justfile_is_rejected(tmp_path):
     root = ecosystem(tmp_path)
-    (root / "labs64.io-devops/justfile").write_text(IMPORTING_JUSTFILE + 'K6_VERSION := "2.3.0"\n')
+    (root / "labs64.io-helm-charts/justfile").write_text(IMPORTING_JUSTFILE + 'K6_VERSION := "2.3.0"\n')
     proc = run(root)
     assert proc.returncode == 1
     assert "version constant outside justfile.versions" in proc.stdout
@@ -128,15 +92,15 @@ def test_version_constant_in_justfile_is_rejected(tmp_path):
 
 def test_pin_without_renovate_annotation_is_rejected(tmp_path):
     root = ecosystem(tmp_path)
-    replace(root, "labs64.io-devops/justfile.versions", "# renovate: datasource=docker depName=curlimages/curl\n", "")
+    replace(root, "labs64.io-helm-charts/justfile.versions", "# renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api\n", "")
     proc = run(root)
     assert proc.returncode == 1
-    assert "CANARY_CURL_VERSION has no `# renovate:` annotation" in proc.stdout
+    assert "GATEWAY_API_VERSION has no `# renovate:` annotation" in proc.stdout
 
 
 def test_justfile_that_does_not_import_the_versions_file_is_rejected(tmp_path):
     root = ecosystem(tmp_path)
-    (root / "labs64.io-devops/justfile").write_text("default:\n    @just --list\n")
+    (root / "labs64.io-helm-charts/justfile").write_text("default:\n    @just --list\n")
     proc = run(root)
     assert proc.returncode == 1
     assert "does not import justfile.versions" in proc.stdout
@@ -148,22 +112,6 @@ def test_versions_file_missing_while_justfile_exists_is_rejected(tmp_path):
     proc = run(root)
     assert proc.returncode == 1
     assert "justfile.versions is missing" in proc.stdout
-
-
-def test_local_kubernetes_minor_must_equal_eks(tmp_path):
-    root = ecosystem(tmp_path)
-    replace(root, "labs64.io-helm-charts/k3d/labs64io.yaml", "v1.36.5-k3s1", "v1.35.5-k3s1")
-    proc = run(root)
-    assert proc.returncode == 1
-    assert "Kubernetes minor: local k3s vs EKS differs" in proc.stdout
-
-
-def test_postgres_major_across_helmfile_and_terraform(tmp_path):
-    root = ecosystem(tmp_path)
-    replace(root, "labs64.io-devops/terraform/variables.tf", 'default = "18"', 'default = "17"')
-    proc = run(root)
-    assert proc.returncode == 1
-    assert "PostgreSQL major differs" in proc.stdout
 
 
 def test_hardcoded_tool_version_in_a_workflow_is_rejected(tmp_path):
@@ -326,15 +274,6 @@ def test_cerbos_drift_between_chart_and_compose(tmp_path):
     assert "Cerbos PDP differs" in proc.stdout
 
 
-def test_traefik_chart_drift_between_helmfile_and_devops(tmp_path):
-    root = ecosystem(tmp_path)
-    replace(root, "labs64.io-helm-charts/helmfile.yaml.gotmpl", "releases:\n", "releases:\n  - name: traefik\n    version: 41.6.1\n")
-    replace(root, "labs64.io-devops/justfile.versions", "ESO_CHART_VERSION", 'TRAEFIK_CHART_VERSION := "41.6.0"\nESO_CHART_VERSION')
-    proc = run(root)
-    assert proc.returncode == 1
-    assert "Traefik chart differs" in proc.stdout
-
-
 def test_cerbos_digest_annotation_must_name_the_appversion(tmp_path):
     root = ecosystem(tmp_path)
     write(root, "labs64.io-helm-charts/charts/authz-pdp/Chart.yaml", 'appVersion: "0.57.0"\n')
@@ -466,88 +405,10 @@ def test_traefik_values_that_keep_the_chart_rbac_need_no_stamp(tmp_path):
     assert proc.returncode == 0, proc.stdout
 
 
-NARROW_CHART = "networkPolicy:\n  enabled: false\n  ingressPorts:\n    - 8080\n  ingressFrom:\n    - payment-gateway\n"
-OPEN_CHART = "networkPolicy:\n  enabled: false\n"
-AWS_PROFILE = "auditflow:\n  networkPolicy:\n    enabled: true\n"
-
-
-def baseline(*excluded: str) -> str:
-    selector = (
-        "  podSelector:\n    matchExpressions:\n      - key: app.kubernetes.io/name\n        operator: NotIn\n"
-        f"        values: [{', '.join(excluded)}]\n"
-        if excluded
-        else "  podSelector: {}\n"
-    )
-    return (
-        "apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: default-deny-ingress\nspec:\n"
-        "  podSelector: {}\n  policyTypes: [Ingress]\n---\n"
-        "apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: allow-same-namespace\nspec:\n"
-        + selector
-        + "  policyTypes: [Ingress]\n  ingress:\n    - from:\n        - podSelector: {}\n"
-    )
-
-
-def baseline_ecosystem(root: Path, chart: str, policies: str, profile: str = AWS_PROFILE) -> Path:
-    ecosystem(root)
-    write(root, "labs64.io-helm-charts/charts/auditflow/values.yaml", chart)
-    write(root, "labs64.io-helm-charts/charts/labs64io-ecosystem/values.aws.yaml", profile)
-    write(root, "labs64.io-devops/kubernetes/network-policies/labs64io.yaml", policies)
-    return root
-
-
-def test_baseline_that_excludes_the_narrowed_chart_is_clean(tmp_path):
-    proc = run(baseline_ecosystem(tmp_path, NARROW_CHART, baseline("auditflow")))
-    assert proc.returncode == 0, proc.stdout
-    assert "baseline policies leave narrowed charts alone" in proc.stdout
-
-
-def test_baseline_fallback_that_reopens_a_narrowed_chart_is_rejected(tmp_path):
-    proc = run(baseline_ecosystem(tmp_path, NARROW_CHART, baseline()))
-    assert proc.returncode == 1
-    assert "allow-same-namespace selects the auditflow pods" in proc.stdout
-
-
-def test_baseline_that_excludes_a_chart_which_does_not_narrow_is_rejected(tmp_path):
-    proc = run(baseline_ecosystem(tmp_path, OPEN_CHART, baseline("auditflow")))
-    assert proc.returncode == 1
-    assert "allow-same-namespace excludes auditflow, but charts/auditflow does not narrow" in proc.stdout
-
-
-def test_excluded_chart_without_an_enabled_policy_on_aws_is_rejected(tmp_path):
-    proc = run(baseline_ecosystem(tmp_path, NARROW_CHART, baseline("auditflow"), profile="auditflow: {}\n"))
-    assert proc.returncode == 1
-    assert "its NetworkPolicy is not enabled" in proc.stdout
-
-
-def test_narrowing_set_only_in_the_aws_profile_counts(tmp_path):
-    profile = "auditflow:\n  networkPolicy:\n    enabled: true\n    ingressPorts: [8080]\n"
-    proc = run(baseline_ecosystem(tmp_path, OPEN_CHART, baseline(), profile=profile))
-    assert proc.returncode == 1
-    assert "allow-same-namespace selects the auditflow pods" in proc.stdout
-
-
 def test_strict_fails_when_a_required_repository_is_missing(tmp_path):
-    # the fixture has workspace, helm-charts and devops only
     proc = run(ecosystem(tmp_path), "--strict")
     assert proc.returncode == 1
     assert "--strict: labs64.io-commons is not present" in proc.stdout
-    assert "--strict: labs64.io-devops" not in proc.stdout  # present, so not reported
-
-
-def test_strict_failure_names_the_private_repo_when_it_is_the_one_missing(tmp_path):
-    root = ecosystem(tmp_path)
-    import shutil
-    shutil.rmtree(root / "labs64.io-devops")
-    proc = run(root, "--strict")
-    assert proc.returncode == 1
-    assert "--strict: labs64.io-devops is not present" in proc.stdout
-
-
-def test_default_mode_still_skips_missing_repositories(tmp_path):
-    import shutil
-    root = ecosystem(tmp_path)
-    shutil.rmtree(root / "labs64.io-devops")
-    assert run(root).returncode == 0
 
 
 def test_print_pins_emits_the_platform_pins_as_json(tmp_path):
@@ -577,3 +438,30 @@ def test_print_pins_names_no_private_repository(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "devops" not in proc.stdout
     assert "terraform" not in proc.stdout
+
+
+def test_gateway_api_drift_between_versions_file_and_installer(tmp_path):
+    root = ecosystem(tmp_path)
+    write(root, "labs64.io-helm-charts/install.sh", 'GATEWAY_API_VERSION="${LABS64_GATEWAY_API_VERSION:-v1.6.1}"\n')
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "Gateway API CRDs differs" in proc.stdout
+
+
+def test_postgres_major_across_public_places(tmp_path):
+    root = ecosystem(tmp_path)
+    write(root, "labs64.io-helm-charts/charts/preflight/values.yaml", "images:\n  db: postgres:17.6\n")
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "PostgreSQL major differs" in proc.stdout
+
+
+def test_strict_does_not_require_a_private_repository(tmp_path):
+    proc = run(ecosystem(tmp_path), "--strict")
+    assert "labs64.io-devops" not in proc.stdout
+
+
+def test_the_script_names_no_private_repository():
+    text = SCRIPT.read_text()
+    for word in ("devops", "docs-internal", "EKS", "ElastiCache", "Amazon MQ", "variables.tf"):
+        assert word not in text, word

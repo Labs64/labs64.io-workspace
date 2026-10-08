@@ -68,10 +68,9 @@ version `X.Y.Z`**. Nothing is committed back and no file is edited to "set the v
 - **`labs64io-ci.yml`** — not reusable: this repository's own CI. `tooling` runs the gate
   scripts' tests, `actionlint` (with shellcheck) over every workflow here, and validates the
   Renovate preset; `ecosystem` runs `check-release-wiring.py` and `check-version-pins.py` over
-  `master` of the ecosystem repositories, on every change here **and daily** — so drift that lands in
-  another repository is reported here, not found at release time. `labs64.io-devops` is private, so this job
-  needs the secret `ECOSYSTEM_READ_TOKEN` (or, as a fallback, `RENOVATE_TOKEN`); it is skipped for fork PRs. `just verify-process` runs the
-  same checks locally.
+  `master` of the public ecosystem repositories, on every change here **and daily** — so drift that lands in
+  another repository is reported here, not found at release time. It needs no secret and runs for fork
+  pull requests. `just verify-process` runs the same checks locally.
 
 ### Release order
 
