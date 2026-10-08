@@ -47,31 +47,34 @@ clone: _migrate-website-folder
         fi
     done
 
-# Pull latest master/main on all repositories
+# Pull the current branch (rebase, autostash) in every GitHub clone next to this workspace
 pull: _migrate-website-folder
     #!/bin/bash
-    echo "Pulling workspace root..."
-    git pull --rebase --autostash
-    for repo in {{REPOS}}; do
-        if [ -d "{{ROOT}}/$repo" ]; then
-            echo "Pulling $repo..."
-            git -C "{{ROOT}}/$repo" pull --rebase --autostash
+    failed=()
+    while read -r dir; do
+        name=$(basename "$dir")
+        if ! git -C "$dir" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1; then
+            echo "Skipping $name (current branch has no upstream)."
+            continue
         fi
-    done
+        echo "Pulling $name..."
+        git -C "$dir" pull --rebase --autostash || failed+=("$name")
+    done < <(bash scripts/github-clones.sh "{{ROOT}}")
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo >&2
+        echo "Pull failed in: ${failed[*]}" >&2
+        exit 1
+    fi
 
-# Show git status across all repositories
+# Show git status across every GitHub clone next to this workspace
 status: _migrate-website-folder
     #!/bin/bash
-    echo "=== workspace root ==="
-    git status -s
-    for repo in {{REPOS}}; do
-        if [ -d "{{ROOT}}/$repo" ]; then
-            echo "=== $repo ==="
-            git -C "{{ROOT}}/$repo" status -s
-        fi
-    done
+    while read -r dir; do
+        echo "=== $(basename "$dir") ==="
+        git -C "$dir" status -s
+    done < <(bash scripts/github-clones.sh "{{ROOT}}")
 
-# Show open pull requests across all repositories
+# Show open pull requests across all GitHub clones next to this workspace (incl. private EE repos)
 pr: _migrate-website-folder
     #!/bin/bash
     if ! command -v gh >/dev/null 2>&1; then
@@ -86,15 +89,13 @@ pr: _migrate-website-folder
             printf 'ID\tTITLE\tBRANCH\tCREATED AT\tLINK\n%s\n' "$rows" | column -t -s $'\t'
         fi
     }
-    echo "=== workspace root ==="
-    list_prs
-    for repo in {{REPOS}}; do
-        if [ -d "{{ROOT}}/$repo" ]; then
-            echo
-            echo "=== $repo ==="
-            (cd "{{ROOT}}/$repo" && list_prs)
-        fi
-    done
+    first=1
+    while read -r dir; do
+        [ "$first" = 1 ] || echo
+        first=0
+        echo "=== $(basename "$dir") ==="
+        (cd "$dir" && list_prs)
+    done < <(bash scripts/github-clones.sh "{{ROOT}}")
 
 # Sync the shared skills into the user-level skill folders of Claude Code and Codex CLI
 sync-skills:
