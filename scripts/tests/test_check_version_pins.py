@@ -465,3 +465,51 @@ def test_the_script_names_no_private_repository():
     text = SCRIPT.read_text()
     for word in ("devops", "docs-internal", "EKS", "ElastiCache", "Amazon MQ", "variables.tf"):
         assert word not in text, word
+
+
+DEVCONTAINER = (
+    '{"features": {"ghcr.io/devcontainers/features/java:1": {"version": "25", "installMaven": "true", "mavenVersion": "%s"}}}'
+)
+
+
+def test_devcontainer_maven_must_equal_the_pin(tmp_path):
+    root = ecosystem(tmp_path)
+    write(root, "labs64.io-workspace/tool-versions.env", TOOLS + "MAVEN_VERSION=3.9.16\n")
+    write(root, "labs64.io-workspace/.devcontainer/devcontainer.json", DEVCONTAINER % "3.9.15")
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "maven: tool-versions.env vs devcontainer.json differs" in proc.stdout
+
+
+def test_devcontainer_maven_equal_to_the_pin_is_clean(tmp_path):
+    root = ecosystem(tmp_path)
+    write(root, "labs64.io-workspace/tool-versions.env", TOOLS + "MAVEN_VERSION=3.9.16\n")
+    write(root, "labs64.io-workspace/.devcontainer/devcontainer.json", DEVCONTAINER % "3.9.16")
+    proc = run(root)
+    assert proc.returncode == 0, proc.stdout
+    assert "maven: tool-versions.env vs devcontainer.json" in proc.stdout
+
+
+MVN_WORKFLOW = "jobs:\n  a:\n    steps:\n%s      - run: mvn -B verify\n"
+SETUP_MAVEN = "      - uses: Labs64/labs64.io-workspace/.github/actions/setup-maven@v1\n"
+
+
+def test_workflow_that_runs_mvn_with_the_runners_maven_is_rejected(tmp_path):
+    root = ecosystem(tmp_path)
+    write(root, "labs64.io-workspace/.github/workflows/ci.yml", MVN_WORKFLOW % "")
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "runs mvn without .github/actions/setup-maven" in proc.stdout
+
+
+def test_workflow_that_runs_mvn_after_setup_maven_is_clean(tmp_path):
+    root = ecosystem(tmp_path)
+    write(root, "labs64.io-workspace/.github/workflows/ci.yml", MVN_WORKFLOW % SETUP_MAVEN)
+    assert run(root).returncode == 0
+
+
+def test_mvn_in_a_comment_or_in_a_module_workflow_is_not_checked(tmp_path):
+    root = ecosystem(tmp_path)
+    write(root, "labs64.io-workspace/.github/workflows/ci.yml", "jobs:\n  a:\n    steps:\n      # mvn -B verify\n      - run: echo hi\n")
+    write(root, "labs64.io-checkout/.github/workflows/ci.yml", MVN_WORKFLOW % "")
+    assert run(root).returncode == 0

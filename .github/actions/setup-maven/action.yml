@@ -1,0 +1,15 @@
+# Installs the Maven pinned in the workspace's tool-versions.env (MAVEN_VERSION), verifies its
+# published SHA-512 and puts it first on PATH — so a build does not depend on which Maven the
+# runner image ships. Run it after actions/setup-java (Maven needs a JDK) and before any `mvn`.
+#
+#   - uses: actions/setup-java@v6
+#   - uses: Labs64/labs64.io-workspace/.github/actions/setup-maven@v1
+name: Labs64.IO - Setup Maven
+description: Install Maven at the ecosystem's pinned version, checksum-verified, ahead of the runner's own
+
+runs:
+  using: composite
+  steps:
+    - name: Install the pinned Maven
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/install.sh" "$GITHUB_ACTION_PATH/../../../tool-versions.env"
