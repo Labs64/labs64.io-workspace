@@ -3,7 +3,9 @@
   "description": [
     "Shared Renovate preset for every Labs64.IO repository.",
     "Each repository's renovate.json only contains: { \"extends\": [\"github>Labs64/labs64.io-workspace\"] }.",
-    "Rules live here so that a pin shared by several repositories is grouped and scheduled identically everywhere."
+    "Rules live here so that a pin shared by several repositories is grouped and scheduled identically everywhere.",
+    "Who gets assigned / asked to review is not here: it is runner configuration, so it can change without touching every repository.",
+    "minimumReleaseAge: a third-party release is only proposed once it is 5 days old (a bad release is usually pulled or fixed by then); internalChecksFilter 'strict' keeps the PR from being opened before that, instead of opening it with a pending check. Our own artifacts and charts, and security fixes, are exempt. A datasource that publishes no release timestamp is not blocked (timestamp-optional)."
   ],
   "extends": [
     "config:recommended",
@@ -18,6 +20,12 @@
     "dependencies"
   ],
   "rebaseWhen": "conflicted",
+  "minimumReleaseAge": "5 days",
+  "minimumReleaseAgeBehaviour": "timestamp-optional",
+  "internalChecksFilter": "strict",
+  "vulnerabilityAlerts": {
+    "minimumReleaseAge": "0 days"
+  },
   "customManagers": [
     {
       "customType": "regex",
@@ -96,6 +104,7 @@
         "https://nexus.labs64.com/repository/labs64.io-releases/"
       ],
       "groupName": "Labs64.IO internal artifacts",
+      "minimumReleaseAge": "0 days",
       "schedule": [
         "at any time"
       ]
@@ -140,6 +149,7 @@
         "preflight"
       ],
       "groupName": "Labs64.IO Helm charts",
+      "minimumReleaseAge": "0 days",
       "schedule": [
         "at any time"
       ]
