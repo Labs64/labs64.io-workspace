@@ -255,6 +255,17 @@
       ]
     },
     {
+      "description": [
+        "Maven stays on the 3.9 line. Maven 3.10 changed the default plugin versions, and the Central",
+        "publishing plugin then produced a bundle Central rejected (auditflow-api 0.1.1). Moving to 3.10",
+        "or 4 is a deliberate step: release a library to Central with it first, then change the pin."
+      ],
+      "matchPackageNames": [
+        "org.apache.maven:apache-maven"
+      ],
+      "allowedVersions": "/^3\\.9\\./"
+    },
+    {
       "description": "Kubernetes CLI toolchain (tool-versions.env and the devcontainer pins that mirror it).",
       "matchFileNames": [
         "tool-versions.env",

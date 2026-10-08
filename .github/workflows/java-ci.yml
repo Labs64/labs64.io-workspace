@@ -88,6 +88,8 @@ jobs:
           java-version: ${{ inputs.java-version }}
           cache: maven
 
+      - uses: Labs64/labs64.io-workspace/.github/actions/setup-maven@v1
+
       - name: Set extra environment variables
         if: inputs.extra-env != ''
         run: echo "${{ inputs.extra-env }}" >> "$GITHUB_ENV"

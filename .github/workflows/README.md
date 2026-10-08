@@ -93,6 +93,12 @@ In `.github/actions/`, referenced like the workflows
   or names a version; `just check-pins` fails if one does.
 - **`maven-settings`** — writes the `settings.xml` with the Labs64 Nexus / Maven Central
   server entries; used by the three Maven-running workflows above.
+- **`setup-maven`** — installs the Maven pinned as `MAVEN_VERSION` in
+  [`tool-versions.env`](../../tool-versions.env) (checksum-verified, first on `PATH`), so builds do
+  not depend on the Maven the runner image happens to ship. Those three workflows run it right after
+  `setup-java`. The runner image moved from Maven 3.9.16 to 3.10.0 on 2026-10-04 and the Central
+  bundle of `auditflow-api` 0.1.1 was rejected; the pin stays on 3.9 until a release with the newer
+  Maven has been shown to publish.
 
 
   `java-ci.yml`'s reusable-workflow `permissions:` block was deliberately left

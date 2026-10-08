@@ -108,6 +108,9 @@ jobs:
           java-version: ${{ inputs.java-version }}
           cache: maven
 
+      - uses: Labs64/labs64.io-workspace/.github/actions/setup-maven@v1
+        if: inputs.build-command != ''
+
       - uses: Labs64/labs64.io-workspace/.github/actions/maven-settings@v1
         if: inputs.build-command != ''
         with:

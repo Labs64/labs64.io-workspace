@@ -198,6 +198,7 @@ def check_toolchain(root: Path) -> None:
             ("helm", "HELM_VERSION", feature("kubectl-helm-minikube", "helm")),
             ("terraform", "TERRAFORM_VERSION", feature("terraform")),
             ("java", "JAVA_VERSION", feature("java")),
+            ("maven", "MAVEN_VERSION", feature("java", "mavenVersion")),
             ("node", "NODE_VERSION", feature("node")),
             ("python", "PYTHON_VERSION", feature("python")),
         ):
@@ -254,6 +255,23 @@ def check_toolchain(root: Path) -> None:
                     f"{workflow.relative_to(root).as_posix()}:{number}: hard-coded or floating tool "
                     f"version — use .github/actions/setup-k8s-tools or tool-versions"
                 )
+
+    # A reusable workflow here that runs Maven must install the pinned one: the runner image's own
+    # Maven changes with the image (3.9.16 -> 3.10.0 broke the Central bundle of auditflow-api).
+    # Module repositories reach Maven through these workflows (`build-command:` runs inside
+    # docker-publish.yml); a module workflow that runs `mvn` itself is not checked here.
+    runs_mvn = re.compile(r"(?:^|[\s$(|&;])mvn\s")
+    for workflow in sorted((ws / ".github" / "workflows").glob("*.yml")):
+        text = workflow.read_text()
+        if "actions/setup-maven" in text:
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            if not line.lstrip().startswith("#") and runs_mvn.search(line):
+                fail(
+                    f"{workflow.relative_to(root).as_posix()}:{number}: runs mvn without "
+                    f".github/actions/setup-maven — the runner image's Maven is not pinned"
+                )
+                break
 
 
 def platform_pins(root: Path) -> dict[str, dict[str, str | None]]:
