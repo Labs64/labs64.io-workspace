@@ -223,19 +223,27 @@ logs app="":
         just logs-errors
     fi
 
+# Required tools fail the check when missing; optional ones are only reported, so a machine
+# without a JDK or Terraform still passes (images are built in a container, see `build`).
+#
 # Check that the required local tools are installed at the versions pinned in tool-versions.env
 doctor:
     #!/usr/bin/env bash
     set -euo pipefail
     # shellcheck source=tool-versions.env
     source tool-versions.env
-    ok=0; missing=0; drift=0
+    ok=0; missing=0; drift=0; skipped=0; optional=0
     # check <name> <cmd> <install hint> <expected version | ""> <version command...>
     check() {
         local name=$1 cmd=$2 hint=$3 want=$4
         if ! command -v "$cmd" >/dev/null 2>&1; then
-            echo "❌ $name not found. Install: $hint"
-            missing=$((missing + 1))
+            if [ "$optional" = 1 ]; then
+                echo "➖ $name not installed (optional). Install: $hint"
+                skipped=$((skipped + 1))
+            else
+                echo "❌ $name not found. Install: $hint"
+                missing=$((missing + 1))
+            fi
             return
         fi
         # Capture everything, then keep the first line: `| head -1` closes the pipe early, and a
@@ -257,15 +265,18 @@ doctor:
     check "Helmfile"  helmfile  "https://helmfile.io/"                            "${HELMFILE_VERSION}"   helmfile --version
     check "kubectl"   kubectl   "https://kubernetes.io/docs/tasks/tools/"         ""                      kubectl version --client
     check "just"      just      "https://github.com/casey/just"                   "${JUST_VERSION}"       just --version
-    check "Terraform" terraform "https://developer.hashicorp.com/terraform"       "v${TERRAFORM_VERSION}" terraform --version
-    check "AWS CLI"   aws       "https://aws.amazon.com/cli/"                     ""                      aws --version
     check "curl"      curl      "https://curl.se/"                                ""                      curl --version
-    echo "--- optional (only needed to build images locally) ---"
+    optional=1
+    echo "--- optional (build a module on the host, browse the cluster, regenerate chart docs) ---"
     check "Java"  java "Temurin ${JAVA_VERSION}, https://adoptium.net/" " ${JAVA_VERSION}."  java --version
     check "Maven" mvn  "3.6.3+, https://maven.apache.org/"              ""                    mvn --version
     check "Node"  node "${NODE_VERSION}+, https://nodejs.org/"          "v${NODE_VERSION}."   node --version
     check "k9s"   k9s  "https://k9scli.io/"                             "v${K9S_VERSION}"     k9s version -s
     check "helm-docs" helm-docs "https://github.com/norwoodj/helm-docs/releases (or rebuild the dev container)" "${HELM_DOCS_VERSION}" helm-docs --version
+    echo "--- optional (operate the AWS environments) ---"
+    check "Terraform" terraform "https://developer.hashicorp.com/terraform" "v${TERRAFORM_VERSION}" terraform --version
+    check "AWS CLI"   aws       "https://aws.amazon.com/cli/"               ""                      aws --version
+    optional=0
     echo "---"
     if command -v helm >/dev/null 2>&1; then
         for plugin in "diff:${HELM_DIFF_VERSION}:https://github.com/databus23/helm-diff --version v${HELM_DIFF_VERSION}" \
@@ -284,7 +295,7 @@ doctor:
         done
     fi
     echo "---"
-    echo "$ok OK, $missing missing, $drift differ from tool-versions.env"
+    echo "$ok OK, $missing missing, $skipped optional not installed, $drift differ from tool-versions.env"
     [ "$missing" -eq 0 ]
 
 # Check that all Java modules resolve their dependencies offline

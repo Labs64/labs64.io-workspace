@@ -2,9 +2,62 @@
 
 # Labs64.IO :: Workspace
 
-> **START HERE:** This repository is the **primary entry point for all developers** working on the Labs64.IO Ecosystem. It is the **master workspace** that orchestrates 12 independent Git repositories with a unified `justfile` and DevContainer, instead of you having to manage each one by hand.
+The starting point for working on the Labs64.IO Ecosystem from source. Labs64.IO is 10 independent Git repositories, not a monorepo; this workspace clones them side by side and gives you one `justfile` and one dev container to build, run and test them together.
 
-The 12 ecosystem repositories are cloned **as siblings of this one**, so the workspace stays a clean checkout and every repo sits at the same level:
+## Is this the right place to start?
+
+| You want to… | Start here |
+|---|---|
+| **See Labs64.IO running** and call an API | You do not need this workspace. The [Quickstart](https://labs64.io/docs/getting-started/quickstart/) installs published images on any Kubernetes cluster in about five minutes |
+| **Try one service** without Kubernetes | [Run one module locally](https://labs64.io/docs/getting-started/run-one-module-locally/) |
+| **Deploy it for your team** on AWS, Azure, Google Cloud or your own cluster | [Deploy to your Kubernetes cluster](https://labs64.io/docs/getting-started/deploy-to-kubernetes/) |
+| **Change the code**, build from source, contribute | Stay here and read on |
+
+## 🚀 Quick Start
+
+Four commands take you from nothing to the whole platform running locally, built from your own checkouts.
+
+```bash
+mkdir labs64.io && cd labs64.io                 # an empty folder to hold all repositories
+git clone https://github.com/Labs64/labs64.io-workspace.git
+cd labs64.io-workspace
+just doctor && just clone && just up
+```
+
+1. **Clone the workspace** into an empty folder, as above. The other repositories are cloned next to it, not inside it. Keep the folder name `labs64.io-workspace`: the dev container expects it at `/workspaces/labs64.io-workspace`. Prefer SSH? Use `git@github.com:Labs64/labs64.io-workspace.git`.
+
+2. **Get the tools.** Either open the `labs64.io-workspace` folder in VS Code and choose **"Reopen in Container"**, which gives you every tool at the pinned version, or install the [prerequisites](#-prerequisites) yourself. `just doctor` reports what is missing.
+
+3. **Fetch the ecosystem.** `just clone` clones the 10 ecosystem repositories into `../`.
+
+4. **Start it.** `just up` creates a local k3d cluster with an image registry, builds every first-party image in a builder container, and deploys the platform. The first run downloads and builds everything, so it takes a while; later runs reuse the caches. It ends with:
+
+   ```
+   Local environment ready: http://gateway.localhost/swagger-ui/
+   ```
+
+5. **Check it.** Open <http://gateway.localhost/swagger-ui/>, then make an authenticated call:
+
+   ```bash
+   TOKEN=$(curl -s -X POST http://mock-oidc.localhost/labs64io/token \
+     -H 'Content-Type: application/x-www-form-urlencoded' \
+     --data-urlencode 'grant_type=client_credentials' \
+     --data-urlencode 'client_id=local-test' \
+     --data-urlencode 'client_secret=local-test' \
+     --data-urlencode 'scope=admin' \
+     | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+
+   curl -i -X POST http://gateway.localhost/auditflow/api/v1/audit/publish \
+     -H "Authorization: Bearer $TOKEN" \
+     -H 'Content-Type: application/json' \
+     -d '{"eventType":"demo.hello","sourceSystem":"local"}'
+   ```
+
+   `just smoke` runs the fast smoke tests against the cluster, and `just down` deletes it again.
+
+6. **(Optional) Open all repos at once.** `File ▸ Open Workspace from File…` → `labs64.io-workspace/labs64.io.code-workspace`. This multi-root workspace lists the workspace plus the 10 ecosystem repos as separate roots, each with its own Source Control view, and carries shared editor settings and extension recommendations. Repos you haven't cloned yet simply show up empty until `just clone` fetches them.
+
+After `just clone`, the folder you started in looks like this:
 
 ```
 <ecosystem-root>/
@@ -17,79 +70,61 @@ The 12 ecosystem repositories are cloned **as siblings of this one**, so the wor
 
 All `just` recipes are run from `labs64.io-workspace/` and resolve the other repos via `../`. The DevContainer mounts `<ecosystem-root>` at `/workspaces`, so the whole ecosystem is visible inside the container.
 
+`just up` deploys what `labs64.io-helm-charts/overrides/helmfile/values.local.yaml` describes. That override decides whether mock OIDC, bundled Keycloak, or neither is installed; the API Gateway override selects the corresponding issuer.
+
+Something not working? See [Troubleshooting your first run](https://labs64.io/docs/getting-started/troubleshooting/).
+
 ## 📋 Prerequisites
 
-Install these tools before cloning (or skip straight to the DevContainer, which bundles all of them):
+The DevContainer bundles all of these. Install them yourself only if you work outside it.
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | latest | Container runtime (`brew install --cask docker`) |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine | latest | Container runtime (`brew install --cask docker`). Give it at least 4 CPUs and 8 GB of memory |
 | [k3d](https://k3d.io/) | v5.x+ | Local k3s (lightweight Kubernetes) cluster used by `just up` (`brew install k3d`) |
-| [Helm](https://helm.sh/) | v3.x+ | Kubernetes package manager (`brew install helm`) |
-| [helm-diff plugin](https://github.com/databus23/helm-diff) | 3.15.11 | Previews chart changes (`helm diff upgrade`) before applying them |
+| [Helm](https://helm.sh/) | v4.x | Kubernetes package manager (`brew install helm`) |
+| [helm-diff plugin](https://github.com/databus23/helm-diff) | pinned | Previews chart changes (`helm diff upgrade`) before applying them |
 | [Helmfile](https://helmfile.io/) | v1.x+ | Declarative multi-release orchestration (`brew install helmfile`) |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | v1.28+ | Kubernetes CLI (`brew install kubectl`) |
 | [just](https://github.com/casey/just) | latest | Task runner (every repo has a `justfile`) (`brew install just`) |
 | [curl](https://curl.se/) | latest | API testing |
 
-**Important Setup Steps**:
-1. Install `k3d` to run local Kubernetes clusters. Follow the [official docs](https://k3d.io/) or use Homebrew: `brew install k3d`.
-2. Install the `Helm Diff` plugin to preview chart changes before applying them:
-   ```bash
-   helm plugin install https://github.com/databus23/helm-diff --version v3.15.11 --verify=false
-   ```
+The exact versions the project pins are in [`tool-versions.env`](tool-versions.env). `just doctor` compares your machine against that file and, for a missing Helm plugin, prints the install command with the pinned version. To install helm-diff directly:
 
-Optional tools:
-- Java 25 (Temurin) + Maven 3.6.3+ — needed to build Java backend images locally
-- Node.js 26+ — needed to build Vue frontend images locally
+```bash
+source tool-versions.env
+helm plugin install https://github.com/databus23/helm-diff --version "v${HELM_DIFF_VERSION}" --verify=false
+```
+
+Ports 80, 443 and 5005 must be free: the local gateway and the image registry use them.
+
+Optional tools, reported by `just doctor` but never required by `just up`:
+- Java 25 (Temurin) + Maven 3.6.3+ — to build or test a Java backend on your machine instead of in the builder container
+- Node.js 26+ — the same, for the Vue frontends
 - [k9s](https://k9scli.io/) — Terminal UI to interact with your Kubernetes clusters (`brew install k9s`)
-
-Once cloned, run `just doctor` to check all of the above are installed and print their versions.
 
 > **Setting up local Kubernetes (k3d)?** The workspace `justfile` drives the cluster lifecycle
 > (`just up` / `just down`), but the full architecture, namespace layout, and step-by-step manual
 > setup live in [`../labs64.io-helm-charts/DEVELOPERS.md`](../labs64.io-helm-charts/DEVELOPERS.md) —
 > read that if you want to understand or customize what's happening under the hood.
 
-## 🚀 Quick Start
-
-1. **Clone the Workspace Repo** into the directory you want to hold the whole ecosystem:
-   ```bash
-   mkdir -p labs64.io && cd labs64.io
-   git clone git@github.com:Labs64/labs64.io-workspace.git
-   cd labs64.io-workspace
-   ```
-   Keep the directory name `labs64.io-workspace` — the DevContainer expects it at `/workspaces/labs64.io-workspace`.
-
-2. **Fetch the Ecosystem:**
-   This clones all 12 ecosystem repositories next to the workspace (into `../`).
-   ```bash
-   just clone
-   ```
-
-3. **Open in DevContainer:**
-   Open the `labs64.io-workspace` folder in VS Code and click **"Reopen in Container"**. The parent directory is mounted too, so all sibling repos are available.
-
-4. **(Optional) Open all repos at once:**
-   `File ▸ Open Workspace from File…` → `labs64.io-workspace/labs64.io.code-workspace`. This multi-root workspace lists the workspace plus all 12 ecosystem repos as separate roots, each with its own Source Control view, and carries shared editor settings and extension recommendations. Repos you haven't cloned yet simply show up empty until `just clone` fetches them.
-
-5. **Start the Cluster:**
-   ```bash
-   just up
-   ```
-
-   `just up` creates the cluster, rebuilds first-party images, and reconciles the stack from
-   `labs64.io-helm-charts/overrides/helmfile/values.local.yaml`. That override decides whether
-   mock OIDC, bundled Keycloak, or neither is installed; the API Gateway override selects the
-   corresponding issuer.
-
 > **Deploying elsewhere?** The steps above spin up the **Local Development** mode (Helmfile + k3d).
-> The Helm charts also support an **AWS QA / Staging / Prod Environment** mode (the umbrella chart on
-> managed data stores; see the helm-charts README) and a **Users' Own Infrastructure (BYO Infra)** mode for your own cluster
-> (GCP, Azure, on-prem) without cloning this whole workspace — cherry-pick individual charts via
+> The published charts install on any cluster without this workspace: `install.sh` in
+> [labs64.io-helm-charts](https://github.com/Labs64/labs64.io-helm-charts#quick-start) for a guided
+> install, the umbrella chart with the **AWS QA / Staging / Prod** reference profile on managed data
+> stores, or individual charts on **your own infrastructure** (GCP, Azure, on-prem) via
 > `helm repo add labs64io https://labs64.github.io/labs64.io-helm-charts`. See
 > [Deployment Modes](https://github.com/Labs64/labs64.io-helm-charts#deployment-modes) in the
 > helm-charts README for the full picture.
+
+## 🤝 Contributing
+
+Contributions are welcome, from a typo fix to a new module feature. The
+[Contributing Guide](https://labs64.io/docs/development/contributing/) explains where a change
+belongs, the few rules the build enforces, and how to open a pull request. In short: fork the
+repository that owns what you are changing, run its tests (`just --list` shows them), and open a
+pull request against `master`. Each repository's `AGENTS.md` describes its layout and commands, for
+people as much as for AI agents.
 
 ## Optional EE commands
 
