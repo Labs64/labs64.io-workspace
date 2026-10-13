@@ -62,7 +62,7 @@ All `just` recipes are run from `labs64.io-workspace/` and resolve the other rep
 
 `just up` deploys what `labs64.io-helm-charts/overrides/helmfile/values.local.yaml` describes. That override decides whether mock OIDC, bundled Keycloak, or neither is installed; the API Gateway override selects the corresponding issuer.
 
-Something not working? See [Troubleshooting your first run](https://labs64.io/docs/getting-started/troubleshooting/).
+Something not working? See [Troubleshooting your first run](https://labs64.io/docs/getting-started/troubleshooting.html).
 
 ## 📋 Prerequisites
 
@@ -74,7 +74,7 @@ The DevContainer bundles all of these. Install them yourself only if you work ou
 | [k3d](https://k3d.io/) | v5.x+ | Local k3s (lightweight Kubernetes) cluster used by `just up` (`brew install k3d`) |
 | [Helm](https://helm.sh/) | v4.x | Kubernetes package manager (`brew install helm`) |
 | [helm-diff plugin](https://github.com/databus23/helm-diff) | pinned | Previews chart changes (`helm diff upgrade`) before applying them |
-| [Helmfile](https://helmfile.io/) | v1.x+ | Declarative multi-release orchestration (`brew install helmfile`) |
+| [Helmfile](https://github.com/helmfile/helmfile) | v1.x+ | Declarative multi-release orchestration (`brew install helmfile`) |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | v1.28+ | Kubernetes CLI (`brew install kubectl`) |
 | [just](https://github.com/casey/just) | latest | Task runner (every repo has a `justfile`) (`brew install just`) |
 | [curl](https://curl.se/) | latest | API testing |
@@ -95,7 +95,7 @@ Optional tools, reported by `just doctor` but never required by `just up`:
 
 > **Setting up local Kubernetes (k3d)?** The workspace `justfile` drives the cluster lifecycle
 > (`just up` / `just down`), but the full architecture, namespace layout, and step-by-step manual
-> setup live in [`../labs64.io-helm-charts/DEVELOPERS.md`](../labs64.io-helm-charts/DEVELOPERS.md) —
+> setup live in [`../labs64.io-helm-charts/DEVELOPERS.md`](https://github.com/Labs64/labs64.io-helm-charts/blob/master/DEVELOPERS.md) —
 > read that if you want to understand or customize what's happening under the hood.
 
 > **Deploying elsewhere?** The steps above spin up the **Local Development** mode (Helmfile + k3d).
@@ -110,7 +110,7 @@ Optional tools, reported by `just doctor` but never required by `just up`:
 ## 🤝 Contributing
 
 Contributions are welcome, from a typo fix to a new module feature. The
-[Contributing Guide](https://labs64.io/docs/development/contributing/) explains where a change
+[Contributing Guide](https://labs64.io/docs/development/contributing.html) explains where a change
 belongs, the few rules the build enforces, and how to open a pull request. In short: fork the
 repository that owns what you are changing, run its tests (`just --list` shows them), and open a
 pull request against `master`. Each repository's `AGENTS.md` describes its layout and commands, for
