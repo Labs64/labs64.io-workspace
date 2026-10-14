@@ -1,13 +1,13 @@
 # Labs64.IO :: Workspace
 
 **Work on the whole Labs64.IO Ecosystem from source, in one command.**
-*Part of the [Labs64.IO Ecosystem](https://labs64.io): the contributor entry point: ten repositories, one toolchain, one local platform.*
+*Part of the [Labs64.IO Ecosystem](https://labs64.io): the contributor entry point: every repository, one toolchain, one local platform.*
 
 [![CI](https://github.com/Labs64/labs64.io-workspace/actions/workflows/labs64io-ci.yml/badge.svg)](https://github.com/Labs64/labs64.io-workspace/actions/workflows/labs64io-ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![📖 Documentation](https://img.shields.io/badge/📖-Documentation-AB6543.svg)](https://labs64.io/docs/development/)
 
-<p align="center"><img src="docs/assets/workspace-hero.svg" alt="Workspace: contributors, reviewers, AI agents and CI clone the ecosystem repositories side by side, build every image, deploy to a local k3d cluster and run smoke tests with one justfile." width="880"></p>
+<p align="center"><img src="docs/assets/workspace-hero.svg" alt="Workspace: One command, just up, builds and deploys every ecosystem repository to a local k3d cluster; repository tiles light up as they build until the gateway is ready." width="880"></p>
 
 [**Get started**](#get-started) · [Features](#features) · [Architecture](#architecture) · [AI agents](#using-workspace-with-ai-agents) · [Ecosystem](#the-labs64io-ecosystem) · [Documentation](https://labs64.io/docs/development/) · [labs64.io](https://labs64.io)
 
@@ -16,7 +16,7 @@
 
 ## Why Workspace?
 
-Changing a platform that spans ten repositories means the same toolchain, the same pinned versions and a local cluster that behaves like the real thing. Setting that up by hand is a day you do not get back; Workspace makes it a command.
+Changing a platform that spans many repositories means the same toolchain, the same pinned versions and a local cluster that behaves like the real thing. Setting that up by hand is a day you do not get back; Workspace makes it a command.
 
 1. **One checkout command.** `just clone` fetches every ecosystem repository next to the workspace.
 2. **One pinned toolchain.** A dev container carries every tool at the version the repositories expect.
