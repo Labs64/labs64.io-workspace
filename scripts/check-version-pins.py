@@ -274,6 +274,15 @@ def check_toolchain(root: Path) -> None:
                 break
 
 
+# Platform charts the helm-charts helmfile installs: (pin, helmfile release name).
+HELMFILE_CHARTS = (
+    ("External Secrets Operator chart", "external-secrets"),
+    ("Keycloak (keycloakx) chart", "keycloak"),
+    ("Traefik chart", "traefik"),
+    ("OpenTelemetry Collector chart", "opentelemetry-collector"),
+)
+
+
 def platform_pins(root: Path) -> dict[str, dict[str, str | None]]:
     """Every platform pin, with each place this checkout states it.
 
@@ -286,13 +295,9 @@ def platform_pins(root: Path) -> dict[str, dict[str, str | None]]:
     helmfile = helmfile_versions(read(charts / "helmfile.yaml.gotmpl"))
     preflight = read(charts / "charts/preflight/values.yaml")
     compose = read(root / "labs64.io-auditflow/docker-compose.yml")
-    return {
-        "External Secrets Operator chart": {"helm-charts helmfile (external-secrets)": helmfile.get("external-secrets")},
-        "Keycloak (keycloakx) chart": {"helm-charts helmfile (keycloak)": helmfile.get("keycloak")},
-        "Traefik chart": {"helm-charts helmfile (traefik)": helmfile.get("traefik")},
-        "OpenTelemetry Collector chart": {
-            "helm-charts helmfile (opentelemetry-collector)": helmfile.get("opentelemetry-collector")
-        },
+    # Chart versions, looked up by release name.
+    pins = {pin: {f"helm-charts helmfile ({release})": helmfile.get(release)} for pin, release in HELMFILE_CHARTS}
+    return pins | {
         "Gateway API CRDs": {
             "helm-charts justfile.versions": just_constant(read(charts / "justfile.versions"), "GATEWAY_API_VERSION"),
             "helm-charts install.sh": first(
