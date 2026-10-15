@@ -47,6 +47,7 @@ EXTRA_DOMAINS_FILE="/etc/l64-firewall-extra-domains"
 INSTALL_PATH="/usr/local/bin/init-firewall.sh"
 
 FIREWALL_OK=0        # set to 1 once the final ruleset is in place and verified
+ACTIONS_RESULTS_HOSTS=()   # GitHub Actions log/artifact storage hosts, filled below
 
 # Host IP / network is needed both by lockdown() and by the final ruleset, so
 # resolve it up front.
@@ -297,6 +298,26 @@ resolve_and_add optional \
     "collector.github.com" \
     "default.exp-tas.com"
 
+# --- Optional: GitHub hosts outside the published web/api/git/pages ranges ---
+# github.com and api.github.com are also served from Azure addresses (20.250.119.x) that
+# api.github.com/meta does not list, and DNS hands those out intermittently: `gh` and a pasted
+# https://github.com/... link then fail with "no route to host". Resolving the names themselves keeps
+# whichever address they currently answer with allowed (re-resolved by the refresh loop below).
+#
+# Workflow run logs and artifacts are not served by GitHub's own hosts: both redirect to the Actions
+# results storage on Azure Blob (productionresultssa<N>.blob.core.windows.net). GitHub spreads accounts
+# over 0-19 (20 and 21 resolve too) and a run can land on any of them, so all are listed. This allows
+# only the addresses those names resolve to, not blob.core.windows.net as a whole.
+resolve_and_add optional \
+    "github.com" \
+    "api.github.com" \
+    "results-receiver.actions.githubusercontent.com" \
+    "pipelines.actions.githubusercontent.com"
+for n in $(seq 0 21); do
+    ACTIONS_RESULTS_HOSTS+=("productionresultssa${n}.blob.core.windows.net")
+done
+resolve_and_add optional "${ACTIONS_RESULTS_HOSTS[@]}"
+
 # --- Optional: container registries (image pulls for k3d / helm workloads) ---
 # NOTE: with docker-outside-of-docker most `docker pull`/`docker build` traffic
 # egresses via the host daemon, not this namespace; these entries cover
@@ -489,7 +510,13 @@ DYNAMIC_DOMAINS=(
     "api.stripe.com"
     "api-m.sandbox.paypal.com"
     "api-m.paypal.com"
+    # github.com / api.github.com alternate between the published ranges and Azure addresses.
+    "github.com"
+    "api.github.com"
 )
+# The Actions log/artifact storage accounts (see the GitHub block above) keep their addresses for
+# long stretches, but they are cheap to re-resolve and a missed rotation costs a failed log fetch.
+DYNAMIC_DOMAINS+=("${ACTIONS_RESULTS_HOSTS[@]}")
 # Hosts listed by sibling checkouts (above) rotate like these do.
 DYNAMIC_DOMAINS+=(${SIBLING_DOMAINS[@]+"${SIBLING_DOMAINS[@]}"})
 # So are the ad-hoc hosts: `just kubeconfig` records each cluster's API endpoint there, and an EKS
