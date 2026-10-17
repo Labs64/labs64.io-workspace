@@ -47,6 +47,10 @@ inputs:
     description: "File name of the runner workflow"
     required: false
     default: renovate.yml
+  runner-ref:
+    description: "Branch of the runner repository the workflow runs from (named explicitly: finding the default branch needs Contents: read, which the token does not have)"
+    required: false
+    default: master
 
 runs:
   using: composite
@@ -59,6 +63,7 @@ runs:
         TARGET: ${{ inputs.repository }}
         RUNNER_REPO: ${{ inputs.runner-repository }}
         RUNNER_WORKFLOW: ${{ inputs.runner-workflow }}
+        RUNNER_REF: ${{ inputs.runner-ref }}
       run: |
         set -uo pipefail
 
@@ -71,23 +76,25 @@ runs:
             echo "repository (set them once for the organisation). Start the runner by hand:"
             echo
             echo '```bash'
-            echo "gh workflow run ${RUNNER_WORKFLOW} -R <runner repository>"
+            echo "gh workflow run ${RUNNER_WORKFLOW} -R <runner repository> --ref ${RUNNER_REF}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit 0
         fi
 
-        args=(workflow run "$RUNNER_WORKFLOW" -R "$RUNNER_REPO")
-        [[ -n "$REASON" ]] && args+=(-f "reason=${REASON:0:100}")
-        [[ -n "$TARGET" ]] && args+=(-f "repository=$TARGET")
+        # The REST endpoint directly, not `gh workflow run`: that first asks GraphQL for the default branch,
+        # which needs Contents: read. This call needs only Actions: read and write.
+        body="$(jq -n --arg ref "$RUNNER_REF" --arg reason "${REASON:0:100}" --arg target "$TARGET" \
+          '{ref: $ref, inputs: ({} + (if $reason != "" then {reason: $reason} else {} end)
+                                   + (if $target != "" then {repository: $target} else {} end))}')"
 
-        if gh "${args[@]}"; then
+        if printf '%s' "$body" | gh api --method POST "repos/${RUNNER_REPO}/actions/workflows/${RUNNER_WORKFLOW}/dispatches" --input -; then
           {
             echo "### Renovate started"
             echo
             echo "Asked \`${RUNNER_REPO}\` to run \`${RUNNER_WORKFLOW}\`${REASON:+ (${REASON:0:100})}. The pull request follows within minutes."
           } >> "$GITHUB_STEP_SUMMARY"
         else
-          echo "::warning::Renovate was not started (token expired, or ${RUNNER_WORKFLOW} lacks the inputs). The next scheduled run proposes the update."
+          echo "::warning::Renovate was not started (see the error above: a token without Actions read and write on ${RUNNER_REPO}, a token that expired, branch ${RUNNER_REF} missing, or ${RUNNER_WORKFLOW} lacking the inputs). The next scheduled run proposes the update."
         fi
         exit 0
