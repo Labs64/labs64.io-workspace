@@ -1,0 +1,93 @@
+# Starts the ecosystem's Renovate runner now, instead of at its next scheduled run.
+#
+# The runner is `renovate.yml` in the operator's private repository (a clock, plus workflow_dispatch;
+# the variable RENOVATE_RUNNER_REPOSITORY names the repository, so this public repository does not).
+# A self-hosted Renovate does not notice a release or a ticked Dependency Dashboard checkbox by itself;
+# whatever knows that something changed asks it to run:
+#
+#   - maven-publish.yml, after a release reached Nexus      (a new io.labs64 artifact to propose)
+#   - labs64.io-helm-charts, after a chart release           (a new umbrella chart to propose)
+#   - renovate-dashboard.yml, when a dashboard box is ticked (an update, rebase or retry asked for)
+#
+#   - uses: Labs64/labs64.io-workspace/.github/actions/renovate-trigger@v1
+#     with:
+#       token: ${{ secrets.RENOVATE_TRIGGER_TOKEN }}
+#       runner-repository: ${{ vars.RENOVATE_RUNNER_REPOSITORY }}
+#       reason: auditflow-api 0.1.8 released
+#
+# The token is a fine-grained PAT with "Actions: read and write" on the runner repository only (the
+# per-repository GITHUB_TOKEN cannot start a workflow in another repository). Both the secret
+# RENOVATE_TRIGGER_TOKEN and the variable RENOVATE_RUNNER_REPOSITORY (`Labs64/<runner repository>`) are
+# set once for the organisation.
+#
+# This step never fails its job: a release that is already published must not turn red because
+# Renovate could not be told. Without a token or a runner repository, or when the dispatch is refused, it
+# warns and says what to do; the next scheduled run then proposes the update anyway, only later.
+name: Labs64.IO - Renovate Trigger
+description: Start the self-hosted Renovate runner now (workflow_dispatch of its renovate.yml)
+
+inputs:
+  token:
+    description: "PAT with Actions: read and write on the runner repository (secret RENOVATE_TRIGGER_TOKEN)"
+    required: false
+    default: ""
+  reason:
+    description: "Why Renovate is asked to run; shown in the run's title (up to 100 characters)"
+    required: false
+    default: ""
+  repository:
+    description: "Visit only this repository (labs64.io-<name> or Labs64/labs64.io-<name>). Leave empty for every ecosystem repository, which is what the automatic triggers want: the runner keeps one queued run, so a narrow request could replace another narrow request"
+    required: false
+    default: ""
+  runner-repository:
+    description: "Repository that holds the runner workflow, as Labs64/<name> (variable RENOVATE_RUNNER_REPOSITORY)"
+    required: false
+    default: ""
+  runner-workflow:
+    description: "File name of the runner workflow"
+    required: false
+    default: renovate.yml
+
+runs:
+  using: composite
+  steps:
+    - name: Ask the Renovate runner to run
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REASON: ${{ inputs.reason }}
+        TARGET: ${{ inputs.repository }}
+        RUNNER_REPO: ${{ inputs.runner-repository }}
+        RUNNER_WORKFLOW: ${{ inputs.runner-workflow }}
+      run: |
+        set -uo pipefail
+
+        if [[ -z "${GH_TOKEN:-}" || -z "${RUNNER_REPO:-}" ]]; then
+          echo "::warning::RENOVATE_TRIGGER_TOKEN or RENOVATE_RUNNER_REPOSITORY is not configured: Renovate was not started. The next scheduled run proposes the update."
+          {
+            echo "### Renovate not started"
+            echo
+            echo "The secret \`RENOVATE_TRIGGER_TOKEN\` and the variable \`RENOVATE_RUNNER_REPOSITORY\` must both be available to this"
+            echo "repository (set them once for the organisation). Start the runner by hand:"
+            echo
+            echo '```bash'
+            echo "gh workflow run ${RUNNER_WORKFLOW} -R <runner repository>"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+
+        args=(workflow run "$RUNNER_WORKFLOW" -R "$RUNNER_REPO")
+        [[ -n "$REASON" ]] && args+=(-f "reason=${REASON:0:100}")
+        [[ -n "$TARGET" ]] && args+=(-f "repository=$TARGET")
+
+        if gh "${args[@]}"; then
+          {
+            echo "### Renovate started"
+            echo
+            echo "Asked \`${RUNNER_REPO}\` to run \`${RUNNER_WORKFLOW}\`${REASON:+ (${REASON:0:100})}. The pull request follows within minutes."
+          } >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "::warning::Renovate was not started (token expired, or ${RUNNER_WORKFLOW} lacks the inputs). The next scheduled run proposes the update."
+        fi
+        exit 0

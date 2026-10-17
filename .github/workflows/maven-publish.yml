@@ -50,6 +50,9 @@ on:
         required: false
       OSS_PASS:
         required: false
+      RENOVATE_TRIGGER_TOKEN:
+        description: "Starts the Renovate runner once the release is on Nexus (optional; without it the next scheduled run proposes the update)"
+        required: false
 
 permissions:
   contents: read
@@ -145,6 +148,16 @@ jobs:
             echo
             echo "Built from \`${GITHUB_SHA}\` (\`${GITHUB_REF_NAME}\`) with \`-Drevision=${RELEASE_VERSION}\`."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Renovate reads the release from Nexus, so ask it to run as soon as the Nexus deploy is done,
+      # before Central (which takes minutes more, and may fail). The step never fails the release.
+      - name: Ask Renovate to propose the new release
+        if: inputs.mode == 'release'
+        uses: Labs64/labs64.io-workspace/.github/actions/renovate-trigger@v1
+        with:
+          token: ${{ secrets.RENOVATE_TRIGGER_TOKEN }}
+          runner-repository: ${{ vars.RENOVATE_RUNNER_REPOSITORY }}
+          reason: ${{ github.event.repository.name }} ${{ inputs.version }} released
 
       # Central runs AFTER the Nexus deploy so a Central failure never loses the Nexus
       # release. central-publishing-maven-plugin (extensions=true) takes over the deploy

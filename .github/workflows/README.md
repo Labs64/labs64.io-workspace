@@ -61,8 +61,14 @@ version `X.Y.Z`**. Nothing is committed back and no file is edited to "set the v
   checked-out commit with `-Drevision=<version>` and deploys it GPG-signed
   (`-P release`), after verifying that the pom really takes its version from
   `${revision}`; `publish-central: true` additionally publishes to Maven Central.
-  It never commits, tags or pushes, so callers need only `contents: read`. Used by
+  It never commits, tags or pushes, so callers need only `contents: read`. A release also asks the
+  Renovate runner to run as soon as the Nexus deploy is done (`renovate-trigger`, below), so the pin
+  PRs in the consuming repositories follow within minutes. Used by
   `labs64.io-commons` (the whole reactor) and `labs64.io-auditflow` (`auditflow-api`).
+- **`renovate-dashboard.yml`** — Called from every repository's `issues: edited` workflow
+  (`labs64io-renovate-dashboard.yml`, identical everywhere): when the edit of a **Dependency
+  Dashboard** issue ticked a box, it asks the Renovate runner to run now. See
+  [Dependency updates](#dependency-updates).
 - **`labs64io-ci.yml`** — not reusable: this repository's own CI. `tooling` runs the gate
   scripts' tests, `actionlint` (with shellcheck) over every workflow here, and validates the
   Renovate preset; `ecosystem` runs `check-release-wiring.py` and `check-version-pins.py` over
@@ -93,6 +99,11 @@ In `.github/actions/`, referenced like the workflows
   or names a version; `just check-pins` fails if one does.
 - **`maven-settings`** — writes the `settings.xml` with the Labs64 Nexus / Maven Central
   server entries; used by the three Maven-running workflows above.
+- **`renovate-trigger`** — starts the self-hosted Renovate runner now (`gh workflow run` on the
+  runner's `renovate.yml`) instead of at its next scheduled run. Used by `maven-publish.yml` (a release
+  reached Nexus), by the chart release in `labs64.io-helm-charts` (a chart was published) and by
+  `renovate-dashboard.yml` (a dashboard box was ticked). It never fails its job: without the secret or the
+  variable below, or when the dispatch is refused, it warns and the scheduled run does the work.
 - **`setup-maven`** — installs the Maven pinned as `MAVEN_VERSION` in
   [`tool-versions.env`](../../tool-versions.env) (checksum-verified, first on `PATH`), so builds do
   not depend on the Maven the runner image happens to ship. Those three workflows run it right after
@@ -161,7 +172,32 @@ env file, a Dockerfile `ARG` or a Chart.yaml `appVersion` (XML:
 `<!-- renovate: datasource=maven depName=group:artifact -->` above a pom property).
 
 The preset is consumed by whichever Renovate runs against a repository — the hosted app or a
-self-hosted runner. Labs64 runs its own outside this repository.
+self-hosted runner. Labs64 runs its own, outside this repository.
+
+### When Renovate runs
+
+A self-hosted Renovate notices nothing by itself (the hosted app would react to a release or to an
+edited dashboard; a runner only does what starts it). The runner therefore runs on a clock, as the
+safety net, **and** whenever one of these happens:
+
+| Event | Started by |
+|---|---|
+| a Maven release reached Nexus (`labs64io-parent`, the libraries, `auditflow-api`) | `maven-publish.yml` |
+| a chart was published (the umbrella pin of an environment) | the chart release in `labs64.io-helm-charts` |
+| a box was ticked on a repository's **Dependency Dashboard** (an update that awaits its schedule, a rebase, a retry) | `renovate-dashboard.yml`, called by each repository |
+
+Each starts it through the composite action `renovate-trigger`, which needs two things, set **once for
+the organisation** (Settings → Secrets and variables → Actions; visible to the public repositories too):
+
+- the secret `RENOVATE_TRIGGER_TOKEN`: a fine-grained PAT with *Actions: read and write* on the
+  runner's repository only;
+- the variable `RENOVATE_RUNNER_REPOSITORY`: that repository as `Labs64/<name>`.
+
+Without them nothing breaks: the step warns and the next scheduled run proposes the update, only later.
+A repository with a `renovate.json` must carry the dashboard caller
+(copy `.github/workflows/labs64io-renovate-dashboard.yml` from any repository); `just check-renovate-wiring`
+fails when one lacks it, or when a release no longer asks. Merging a change to these workflows or to the
+action only takes effect once the `v1` tag is moved (see *Versioning these workflows*).
 
 ## Consuming the digest
 

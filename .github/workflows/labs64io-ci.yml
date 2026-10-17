@@ -116,6 +116,9 @@ jobs:
       - name: Every released image reaches its chart
         run: python3 labs64.io-workspace/scripts/check-release-wiring.py --root .
 
+      - name: Every Renovate trigger starts the runner
+        run: python3 labs64.io-workspace/scripts/check-renovate-wiring.py --root .
+
       - name: Shared version pins agree
         # --strict: a repository that failed to clone must fail the job, not silently weaken it.
         run: python3 labs64.io-workspace/scripts/check-version-pins.py --root . --strict

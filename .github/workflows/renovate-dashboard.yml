@@ -1,0 +1,52 @@
+# Reusable: act on a ticked Dependency Dashboard checkbox.
+#
+# Ticking a box on a repository's "Dependency Dashboard" issue only edits the issue. The hosted Mend
+# app would react to that edit; the self-hosted runner (the operator's private repository) does not, so
+# the tick waited for the next scheduled run. This workflow, called from every repository on
+# `issues: edited`, starts the runner when the edit ticked something (an update that awaits its
+# schedule, a PR to rebase or retry, ...). Renovate unticks the boxes it has handled, so its own edit
+# of the dashboard starts nothing and there is no loop.
+#
+# Each repository carries the same few lines (`just check-renovate-wiring` enforces it):
+#
+#   name: Labs64.IO - Renovate - Dashboard
+#   on:
+#     issues:
+#       types: [edited]
+#   permissions:
+#     contents: read
+#   jobs:
+#     run-renovate:
+#       uses: Labs64/labs64.io-workspace/.github/workflows/renovate-dashboard.yml@v1
+#       secrets: inherit
+#
+# Needs the secret RENOVATE_TRIGGER_TOKEN (see .github/actions/renovate-trigger). Without it the job
+# warns and the tick is applied by the next scheduled run.
+#
+# The issue body is only compared here, never interpolated into a command.
+name: Reusable - Renovate Dashboard
+
+on:
+  workflow_call:
+    secrets:
+      RENOVATE_TRIGGER_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  tick:
+    # Renovate writes unticked boxes as "- [ ]"; GitHub writes a ticked one as "- [x]".
+    if: >-
+      github.event_name == 'issues'
+      && startsWith(github.event.issue.title, 'Dependency Dashboard')
+      && contains(github.event.issue.body, '- [x] ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: Labs64/labs64.io-workspace/.github/actions/renovate-trigger@v1
+        with:
+          token: ${{ secrets.RENOVATE_TRIGGER_TOKEN }}
+          runner-repository: ${{ vars.RENOVATE_RUNNER_REPOSITORY }}
+          reason: Dependency Dashboard ticked in ${{ github.repository }}

@@ -71,7 +71,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Docker | All images run as `l64user` (uid/gid 1064) |
 | Tests | JUnit 5 (Java), pytest (Python), Vitest (Vue); black-box API-edge regression in `labs64.io-tests/` (Robot Framework) |
 | Versions | One owner per pin (guardrail 6); runtime/tool versions in `tool-versions.env`; `just doctor` reports local drift |
-| Dependency updates | Renovate; every repo's `renovate.json` only extends the shared preset `default.json` in this repo. Pins outside a package manifest carry a `# renovate: datasource=… depName=…` line directly above them |
+| Dependency updates | Renovate; every repo's `renovate.json` only extends the shared preset `default.json` in this repo. Pins outside a package manifest carry a `# renovate: datasource=… depName=…` line directly above them. The runner is self-hosted and only runs when asked: a release, a chart release and a ticked Dependency Dashboard box start it (`just check-renovate-wiring`; `.github/workflows/README.md` "When Renovate runs") |
 | CI building blocks | Reusable workflows and composite actions in `.github/` here, referenced as `…@v1` (see `.github/workflows/README.md`) |
 | Process self-checks | `just verify-process` (tests of the gate scripts + `just check`); this repo's `labs64io-ci.yml` runs them on every change and daily across all repositories |
 | Task runner | `just` — check each repo's justfile |

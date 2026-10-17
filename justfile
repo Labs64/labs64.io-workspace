@@ -403,8 +403,14 @@ alias check-release := check-release-wiring
 check-pins:
     @python3 scripts/check-version-pins.py --root {{ROOT}}
 
+# Verify that every event which makes a Renovate pull request due starts the (self-hosted) runner:
+# a dashboard-tick caller in every repository with a renovate.json, the trigger in the Maven publish and
+# the chart release, and the inputs the runner must accept
+check-renovate-wiring:
+    @python3 scripts/check-renovate-wiring.py --root {{ROOT}}
+
 # Run every cross-repo consistency gate
-check: check-release-wiring check-pins
+check: check-release-wiring check-pins check-renovate-wiring
 
 # Verify the release and maintenance tooling itself, offline (no cluster, no registry writes):
 # the gate scripts' own tests (here and in labs64.io-helm-charts), then every cross-repo gate.
