@@ -194,6 +194,9 @@ the organisation** (Settings → Secrets and variables → Actions; visible to t
 - the variable `RENOVATE_RUNNER_REPOSITORY`: that repository as `Labs64/<name>`.
 
 Without them nothing breaks: the step warns and the next scheduled run proposes the update, only later.
+Only a dashboard issue written by an organisation member or collaborator counts (anyone may open an issue
+titled "Dependency Dashboard" on a public repository); if the runner's token ever belongs to an account
+outside the organisation, its dashboards stop starting runs until that is allowed in `renovate-dashboard.yml`.
 A repository with a `renovate.json` must carry the dashboard caller
 (copy `.github/workflows/labs64io-renovate-dashboard.yml` from any repository); `just check-renovate-wiring`
 fails when one lacks it, or when a release no longer asks. Merging a change to these workflows or to the

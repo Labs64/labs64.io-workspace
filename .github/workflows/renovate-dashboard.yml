@@ -23,7 +23,9 @@
 # Needs the secret RENOVATE_TRIGGER_TOKEN (see .github/actions/renovate-trigger). Without it the job
 # warns and the tick is applied by the next scheduled run.
 #
-# The issue body is only compared here, never interpolated into a command.
+# The issue body is only compared here, never interpolated into a command. Only an issue written by the
+# organisation's own people counts (the dashboard is created by the runner's token): on a public repository
+# anyone can open an issue titled "Dependency Dashboard" and edit it, and must not be able to start the runner.
 name: Reusable - Renovate Dashboard
 
 on:
@@ -41,6 +43,7 @@ jobs:
     if: >-
       github.event_name == 'issues'
       && startsWith(github.event.issue.title, 'Dependency Dashboard')
+      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
       && contains(github.event.issue.body, '- [x] ')
     runs-on: ubuntu-latest
     timeout-minutes: 5
