@@ -1,0 +1,146 @@
+# Reusable Maven promotion: stage a release that is ALREADY on Labs64 Nexus in Maven Central.
+#
+# Labs64 Nexus receives every release (maven-publish.yml). Maven Central has a deployment
+# quota, so it only receives the releases a person decides to promote, by running the caller
+# (Actions -> "... Promote to Maven Central" -> Run workflow, version X.Y.Z).
+#
+# What it does: checks out the release TAG, rebuilds it with -Drevision=<version> -P release,central
+# (the same signed artifacts, sources and javadoc as the Nexus release; the Spring Boot parent pins
+# the build timestamp) and uploads the bundle to the Central Portal. The poms' `central` profile
+# uploads WITHOUT publishing (autoPublish=false), so the deployment waits in the Portal as
+# "validated" until someone presses Publish at https://central.sonatype.com/publishing/deployments
+# (or drops it there). Nothing is deployed to Nexus and nothing is committed or tagged.
+#
+# Refused before anything is uploaded:
+#   - a version that is not X.Y.Z, has no git tag, or is not on Nexus (promote what was released);
+#   - a tag whose poms still say autoPublish=true (they would publish immediately, which cannot be
+#     undone on Central); promote a release cut after the poms were changed.
+name: Reusable - Maven Promote to Central
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: true
+        type: string
+      version:
+        description: "Released version X.Y.Z; the tag of the same name is built"
+        required: true
+        type: string
+      nexus-artifact:
+        description: "artifactId whose pom must exist on Nexus for the version (default: the artifactId of working-directory; set it where that directory is an unpublished aggregator)"
+        required: false
+        type: string
+        default: ""
+      java-version:
+        required: false
+        type: string
+        default: "25"
+    secrets:
+      L64_PUB_CI_USERNAME:
+        required: true
+      L64_PUB_CI_PASSWORD:
+        required: true
+      GPG_KEY:
+        required: true
+      GPG_KEY_PASS:
+        required: true
+      OSS_USER:
+        required: true
+      OSS_PASS:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      NEXUS_ARTIFACT: ${{ inputs.nexus-artifact }}
+      L64_PUB_CI_USERNAME: ${{ secrets.L64_PUB_CI_USERNAME }}
+      L64_PUB_CI_PASSWORD: ${{ secrets.L64_PUB_CI_PASSWORD }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Validate inputs
+        working-directory: .
+        run: |
+          if ! [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::invalid release version '$RELEASE_VERSION' (expected X.Y.Z)"; exit 1
+          fi
+
+      # The tag, whatever branch the workflow itself runs from: what is promoted is what was released.
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.version }}
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - uses: Labs64/labs64.io-workspace/.github/actions/setup-maven@v1
+
+      - uses: Labs64/labs64.io-workspace/.github/actions/maven-settings@v1
+        with:
+          nexus-username: ${{ secrets.L64_PUB_CI_USERNAME }}
+
+      - name: Refuse a tag that would publish immediately
+        working-directory: .
+        run: |
+          if grep -rn --include=pom.xml '<autoPublish>true</autoPublish>' . ; then
+            echo "::error::the poms of tag $RELEASE_VERSION upload to Central with autoPublish=true, and a Central release cannot be taken back. Promote a release cut after the poms stage instead (autoPublish=false)."
+            exit 1
+          fi
+
+      # The pom is the only home of the Nexus URL: read the release repository from it.
+      - name: Require the release on Labs64 Nexus
+        run: |
+          set -euo pipefail
+          # A multi-module root may print one line per module; the groupId and the repository are the same in all.
+          eval_pom() {
+            mvn -q -ntp -DforceStdout -Drevision="$RELEASE_VERSION" help:evaluate -Dexpression="$1" | tail -n 1
+          }
+          GROUP="$(eval_pom project.groupId)"
+          ARTIFACT="${NEXUS_ARTIFACT:-$(eval_pom project.artifactId)}"
+          REPO_URL="$(eval_pom project.distributionManagement.repository.url)"
+          POM_URL="${REPO_URL%/}/${GROUP//.//}/${ARTIFACT}/${RELEASE_VERSION}/${ARTIFACT}-${RELEASE_VERSION}.pom"
+          echo "Checking ${POM_URL}"
+          if ! curl -fsS -o /dev/null -u "${L64_PUB_CI_USERNAME}:${L64_PUB_CI_PASSWORD}" "$POM_URL"; then
+            echo "::error::${GROUP}:${ARTIFACT}:${RELEASE_VERSION} is not on Labs64 Nexus. Release it first (publish the GitHub Release); only released versions are promoted."
+            exit 1
+          fi
+
+      - name: Import GPG key
+        uses: Labs64/labs64.io-workspace/.github/actions/gpg-import@v1
+        with:
+          gpg-key: ${{ secrets.GPG_KEY }}
+          gpg-key-pass: ${{ secrets.GPG_KEY_PASS }}
+
+      - name: Verify the build takes its version from the tag
+        run: |
+          EFFECTIVE="$(mvn -q -ntp -DforceStdout -Drevision="$RELEASE_VERSION" help:evaluate -Dexpression=project.version)"
+          if [[ "$EFFECTIVE" != "$RELEASE_VERSION" ]]; then
+            echo "::error::project.version resolves to '$EFFECTIVE', not '$RELEASE_VERSION' — the pom must declare <version>\${revision}</version>"
+            exit 1
+          fi
+
+      # Tests ran in the release workflow; this run only packages and uploads.
+      - name: Stage in the Central Portal
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS }}
+          OSS_USER: ${{ secrets.OSS_USER }}
+          OSS_PASS: ${{ secrets.OSS_PASS }}
+        run: |
+          mvn -U -B -ntp -Drevision="$RELEASE_VERSION" -P release,central \
+            -Dgpg.pinentryMode=loopback -DskipTests clean deploy
+          {
+            echo "### Staged ${RELEASE_VERSION} in the Maven Central Portal"
+            echo
+            echo "Built from tag \`${RELEASE_VERSION}\` with \`-Drevision=${RELEASE_VERSION}\`. It is **validated but not published**:"
+            echo "review it at <https://central.sonatype.com/publishing/deployments> and press *Publish* (or *Drop*)."
+          } >> "$GITHUB_STEP_SUMMARY"

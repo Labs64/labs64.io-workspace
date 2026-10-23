@@ -1,0 +1,35 @@
+# Imports the release signing key into the runner's GPG keyring, in loopback-pinentry mode so
+# maven-gpg-plugin can sign without a terminal (run mvn with -Dgpg.pinentryMode=loopback and
+# MAVEN_GPG_PASSPHRASE set). Shared by maven-publish.yml (Nexus release) and
+# maven-promote-central.yml (Central staging): both sign with the same key.
+name: Labs64.IO - GPG Import
+description: Import the base64-encoded release signing key for non-interactive Maven signing
+
+inputs:
+  gpg-key:
+    description: Base64-encoded private key (secret GPG_KEY)
+    required: true
+  gpg-key-pass:
+    description: Passphrase of the key (secret GPG_KEY_PASS)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Import GPG key
+      shell: bash
+      env:
+        GPG_KEY: ${{ inputs.gpg-key }}
+        GPG_KEY_PASS: ${{ inputs.gpg-key-pass }}
+      run: |
+        set -euo pipefail
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq pinentry-curses
+        mkdir -p ~/.gnupg
+        chmod 700 ~/.gnupg
+        echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+        echo "pinentry-program $(command -v pinentry-curses)" >> ~/.gnupg/gpg-agent.conf
+        echo "pinentry-mode loopback" > ~/.gnupg/gpg.conf
+        gpgconf --kill gpg-agent
+        printf '%s' "$GPG_KEY" | base64 -d | \
+          gpg --batch --pinentry-mode loopback --passphrase "$GPG_KEY_PASS" --import

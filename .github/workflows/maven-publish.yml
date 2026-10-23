@@ -1,4 +1,6 @@
-# Reusable Maven publish to Labs64 Nexus.
+# Reusable Maven publish to Labs64 Nexus. Nexus is the ONLY target of this workflow: every
+# snapshot and every release lands there, as often as needed. Maven Central is a separate,
+# manual step for releases worth promoting — see maven-promote-central.yml.
 #   mode: snapshot -> deploy the current -SNAPSHOT (skips silently if the pom version
 #                     is not a SNAPSHOT — never pushes a release to snapshots)
 #   mode: release  -> GPG-signed deploy of <version> (-Drevision=<version> -P release)
@@ -32,11 +34,6 @@ on:
         required: false
         type: string
         default: "25"
-      publish-central:
-        description: "mode: release only — also publish to Maven Central (-P release,central)"
-        required: false
-        type: boolean
-        default: false
     secrets:
       L64_PUB_CI_USERNAME:
         required: true
@@ -45,10 +42,6 @@ on:
       GPG_KEY:
         required: false
       GPG_KEY_PASS:
-        required: false
-      OSS_USER:
-        required: false
-      OSS_PASS:
         required: false
       RENOVATE_TRIGGER_TOKEN:
         description: "Starts the Renovate runner once the release is on Nexus (optional; without it the next scheduled run proposes the update)"
@@ -108,22 +101,10 @@ jobs:
 
       - name: Import GPG key
         if: inputs.mode == 'release'
-        working-directory: .
-        env:
-          GPG_KEY: ${{ secrets.GPG_KEY }}
-          GPG_KEY_PASS: ${{ secrets.GPG_KEY_PASS }}
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq pinentry-curses
-          mkdir -p ~/.gnupg
-          chmod 700 ~/.gnupg
-          echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
-          echo "pinentry-program $(command -v pinentry-curses)" >> ~/.gnupg/gpg-agent.conf
-          echo "pinentry-mode loopback" > ~/.gnupg/gpg.conf
-          gpgconf --kill gpg-agent
-          printf '%s' "$GPG_KEY" | base64 -d | \
-            gpg --batch --pinentry-mode loopback --passphrase "$GPG_KEY_PASS" --import
+        uses: Labs64/labs64.io-workspace/.github/actions/gpg-import@v1
+        with:
+          gpg-key: ${{ secrets.GPG_KEY }}
+          gpg-key-pass: ${{ secrets.GPG_KEY_PASS }}
 
       # A pom that still hardcodes its version would silently ignore -Drevision and
       # deploy something other than the tag; refuse before anything is published.
@@ -149,8 +130,8 @@ jobs:
             echo "Built from \`${GITHUB_SHA}\` (\`${GITHUB_REF_NAME}\`) with \`-Drevision=${RELEASE_VERSION}\`."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Renovate reads the release from Nexus, so ask it to run as soon as the Nexus deploy is done,
-      # before Central (which takes minutes more, and may fail). The step never fails the release.
+      # Renovate reads the release from Nexus, so ask it to run as soon as the deploy is done.
+      # The step never fails the release.
       - name: Ask Renovate to propose the new release
         if: inputs.mode == 'release'
         uses: Labs64/labs64.io-workspace/.github/actions/renovate-trigger@v1
@@ -158,16 +139,3 @@ jobs:
           token: ${{ secrets.RENOVATE_TRIGGER_TOKEN }}
           runner-repository: ${{ vars.RENOVATE_RUNNER_REPOSITORY }}
           reason: ${{ github.event.repository.name }} ${{ inputs.version }} released
-
-      # Central runs AFTER the Nexus deploy so a Central failure never loses the Nexus
-      # release. central-publishing-maven-plugin (extensions=true) takes over the deploy
-      # phase, so this does not push to Nexus a second time.
-      - name: Publish to Maven Central
-        if: inputs.mode == 'release' && inputs.publish-central
-        env:
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS }}
-          OSS_USER: ${{ secrets.OSS_USER }}
-          OSS_PASS: ${{ secrets.OSS_PASS }}
-        run: |
-          mvn -U -B -ntp -Drevision="$RELEASE_VERSION" -P release,central \
-            -Dgpg.pinentryMode=loopback clean deploy
