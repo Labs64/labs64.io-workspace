@@ -109,6 +109,12 @@ One gesture in every repository: **publish a GitHub Release whose tag is the ver
 | `labs64.io-checkout`, `-payment-gateway`, `-customer-portal`, `-authproxy` | image(s) `X.Y.Z`; chart PR |
 | `labs64.io-helm-charts` | every push to `master` touching `charts/**` publishes the bumped charts |
 
+Releases go to **Labs64 Nexus only**, as often as needed. Maven Central has a deployment quota, so a
+Java library reaches it only when a person promotes a release that is already on Nexus: run
+*Promote to Maven Central* (`labs64io-promote-central.yml`) in `labs64.io-commons` or
+`labs64.io-auditflow` with the version, then press *Publish* in the Central Portal. Our own repositories
+and Renovate always resolve `io.labs64` from Nexus.
+
 The chain after a module release is automatic up to the deploy decision: images by digest →
 PR pinning them into the module chart and bumping the umbrella → published umbrella. The
 published umbrella chart version is the release; rolling it out is the operator's step.

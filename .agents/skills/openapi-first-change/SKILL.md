@@ -17,7 +17,7 @@ The standard layout is a dedicated `<module>-api` submodule (e.g. `auditflow-api
 <module>-api/src/main/resources/openapi/openapi-<name>-v<N>.yaml   # e.g. openapi-audit-v1.yaml
 ```
 
-`<module>-api` generates the Java models/client from that spec and is published as a versioned library to the **Labs64 Nexus** and **Maven Central** repositories — other services (in this ecosystem or external) consume the API contract as a dependency instead of copying types by hand. The module's own backend (`<module>-be`) also generates its server-side interfaces from the same spec file, so a spec change regenerates both consistently.
+`<module>-api` generates the Java models/client from that spec and is published as a versioned library to the **Labs64 Nexus** on every release, and to **Maven Central** when a release is promoted by hand — other services (in this ecosystem or external) consume the API contract as a dependency instead of copying types by hand. The module's own backend (`<module>-be`) also generates its server-side interfaces from the same spec file, so a spec change regenerates both consistently.
 
 If a module doesn't yet have a dedicated `-api` submodule, the spec may still live under `<module>-be/src/main/resources/openapi/`. Treat that as the module not having split out its client library yet, not as a different convention — the target layout is always the `-api` submodule pattern.
 
@@ -31,7 +31,7 @@ If a module doesn't yet have a dedicated `-api` submodule, the spec may still li
    ```
    Check the module's `justfile` first — most modules have a build recipe that wraps this.
 3. **Implement against the regenerated interface.** For Spring-generated server interfaces (`interfaceOnly: true`), your `@RestController` implements the generated `*Api` interface — the compiler fails loudly if your controller drifts from the spec, which is the point.
-4. **If the API client library needs a new release** (external consumers depend on it), bump its version and publish to Nexus/Maven Central per the module's release process — don't let consumers pick up contract changes only via a snapshot.
+4. **If the API client library needs a new release** (external consumers depend on it), bump its version and release it to Nexus per the module's release process (and promote it to Maven Central if external consumers need it) — don't let consumers pick up contract changes only via a snapshot.
 5. **Update the Helm chart / config binding** if the change affects request/response validation, defaults, or new required config — see the `helm-config-binding-check` skill if it touches `values.yaml`.
 6. **Never commit anything under `target/`** — it's a build artifact, not source. If you see edits staged there, that's a sign the spec wasn't the actual source of the change.
 

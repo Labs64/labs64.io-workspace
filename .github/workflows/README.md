@@ -60,11 +60,21 @@ version `X.Y.Z`**. Nothing is committed back and no file is edited to "set the v
   `-SNAPSHOT` (no-op if the pom isn't a SNAPSHOT). `mode: release` builds the
   checked-out commit with `-Drevision=<version>` and deploys it GPG-signed
   (`-P release`), after verifying that the pom really takes its version from
-  `${revision}`; `publish-central: true` additionally publishes to Maven Central.
-  It never commits, tags or pushes, so callers need only `contents: read`. A release also asks the
+  `${revision}`. Nexus is its only target: releases are cut as often as needed and never touch Maven
+  Central (see `maven-promote-central.yml`). It never commits, tags or pushes, so callers need only
+  `contents: read`. A release also asks the
   Renovate runner to run as soon as the Nexus deploy is done (`renovate-trigger`, below), so the pin
   PRs in the consuming repositories follow within minutes. Used by
   `labs64.io-commons` (the whole reactor) and `labs64.io-auditflow` (`auditflow-api`).
+- **`maven-promote-central.yml`** — Stages a release that is **already on Labs64 Nexus** in Maven
+  Central, on demand. Called from a `workflow_dispatch` workflow in the repository (`version: X.Y.Z`), so
+  promoting is a deliberate click, not a side effect of releasing. It checks out the tag, refuses a
+  version that is not tagged or not on Nexus, rebuilds it (`-P release,central`, tests skipped: the
+  release run had them) and uploads the signed bundle to the Central Portal **without publishing**
+  (`autoPublish=false` in the poms; a tag whose poms say `true` is refused). Someone then presses
+  *Publish* at <https://central.sonatype.com/publishing/deployments>. Needs `OSS_USER` / `OSS_PASS`
+  (a Portal user token) besides the Nexus and GPG secrets. Used by `labs64.io-commons` and
+  `labs64.io-auditflow` (`labs64io-promote-central.yml`).
 - **`renovate-dashboard.yml`** — Called from every repository's `issues: edited` workflow
   (`labs64io-renovate-dashboard.yml`, identical everywhere): when the edit of a **Dependency
   Dashboard** issue ticked a box, it asks the Renovate runner to run now. See
@@ -98,7 +108,9 @@ In `.github/actions/`, referenced like the workflows
   versions (and exports them). No workflow anywhere installs one of these tools by hand
   or names a version; `just check-pins` fails if one does.
 - **`maven-settings`** — writes the `settings.xml` with the Labs64 Nexus / Maven Central
-  server entries; used by the three Maven-running workflows above.
+  server entries; used by the Maven-running workflows above.
+- **`gpg-import`** — imports the release signing key (`GPG_KEY` / `GPG_KEY_PASS`) for
+  non-interactive Maven signing; used by `maven-publish.yml` and `maven-promote-central.yml`.
 - **`renovate-trigger`** — starts the self-hosted Renovate runner now (`gh workflow run` on the
   runner's `renovate.yml`) instead of at its next scheduled run. Used by `maven-publish.yml` (a release
   reached Nexus), by the chart release in `labs64.io-helm-charts` (a chart was published) and by
