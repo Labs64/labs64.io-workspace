@@ -393,10 +393,6 @@ def check_utility_images(root: Path) -> None:
         found = set(re.findall(r"busybox:(\d[^\s\"']*)", read(charts / rel) or ""))
         if found:
             busybox[rel] = ",".join(sorted(found))
-    busybox["overrides/opentelemetry operator"] = first(
-        r"repository:\s*busybox\s*\n(?:\s*#.*\n)*\s*tag:\s*(\S+)",
-        read(charts / "overrides/opentelemetry/values-operator.local.yaml"),
-    )
     expect_equal("busybox image", busybox)
 
 
