@@ -479,7 +479,6 @@
       "description": "Low-blast-radius repositories (documentation and the test suite): minor and patch merge once checks pass.",
       "matchRepositories": [
         "Labs64/labs64.io-docs",
-        "Labs64/labs64.io-docs-internal",
         "Labs64/labs64.io-tests"
       ],
       "matchUpdateTypes": [

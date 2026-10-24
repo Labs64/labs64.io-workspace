@@ -95,9 +95,9 @@ sub-folder says so with `[working-directory('terraform')]` instead of a `cd` in 
 - The **first sentence above the recipe** is its description in `just --list`: imperative, one line, says what
   it does and, if it is not obvious, what it needs ("…; needs a running local cluster"). Longer explanations go
   in the comment lines above that sentence.
-- **Arguments are positional.** Write `just plan dev`, never `just plan env=dev`.
+- **Arguments are positional.** Write `just helm-charts install-app auditflow`, never `just helm-charts install-app app=auditflow` (that names an app literally called `app=auditflow`).
 - **A recipe that touches a cloud account takes the environment as its first argument, without a default.**
-  `just apply` with no environment is an error, not a change to whichever environment happens to be the default.
+  The AWS recipes of the internal repository (`just ee devops plan dev`) refuse to run without one: no environment is an error, not a change to whichever one happens to be the default.
 
 ## Adding or changing a recipe
 
