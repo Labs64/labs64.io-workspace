@@ -84,6 +84,61 @@
   ],
   "packageRules": [
     {
+      "description": "Routine minor/patch bumps of one ecosystem arrive as a single pull request per repository; specific groups below take precedence. Majors stay individual.",
+      "matchCategories": [
+        "java"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Java non-major"
+    },
+    {
+      "description": "Routine minor/patch bumps of one ecosystem arrive as a single pull request per repository; specific groups below take precedence. Majors stay individual.",
+      "matchCategories": [
+        "python"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Python non-major"
+    },
+    {
+      "description": "Routine minor/patch bumps of one ecosystem arrive as a single pull request per repository; specific groups below take precedence. Majors stay individual.",
+      "matchCategories": [
+        "ruby"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Ruby non-major"
+    },
+    {
+      "description": "Routine minor/patch bumps of one ecosystem arrive as a single pull request per repository; specific groups below take precedence. Majors stay individual.",
+      "matchCategories": [
+        "js"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "JavaScript non-major"
+    },
+    {
+      "description": "Routine minor/patch bumps of one ecosystem arrive as a single pull request per repository; specific groups below take precedence. Majors stay individual.",
+      "matchCategories": [
+        "docker"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Container images non-major"
+    },
+    {
       "description": "Majors are a deliberate decision: label them so they are never merged as routine.",
       "matchUpdateTypes": [
         "major"
@@ -140,7 +195,10 @@
       "allowedVersions": "!/^0\\.1\\.0$/"
     },
     {
-      "description": "Labs64.IO Helm charts (umbrella + preflight): the deployed pin follows a chart release immediately.",
+      "description": [
+        "Labs64.IO Helm charts (umbrella + preflight): the deployed pin follows a chart release immediately.",
+        "Merging needs no further decision: cutting the module/chart release was the manual step. Deploying stays a manual workflow_dispatch."
+      ],
       "matchDatasources": [
         "helm"
       ],
@@ -152,7 +210,8 @@
       "minimumReleaseAge": "0 days",
       "schedule": [
         "at any time"
-      ]
+      ],
+      "automerge": true
     },
     {
       "description": "First-party images are pinned by digest by the release pipeline (module-released event), never by Renovate.",
@@ -284,11 +343,18 @@
       "groupName": "CLI toolchain"
     },
     {
-      "description": "GitHub Actions bumps are routine; one PR per repository.",
+      "description": "GitHub Actions bumps are routine; one PR per repository (majors stay individual and manual).",
       "matchManagers": [
         "github-actions"
       ],
-      "groupName": "GitHub Actions"
+      "groupName": "GitHub Actions",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true
     },
     {
       "description": "A chart dependency bump must also bump the chart's own version, or chart-releaser skips publishing it.",
@@ -296,6 +362,172 @@
         "helmv3"
       ],
       "bumpVersion": "patch"
+    },
+    {
+      "description": "Test tooling that should move together (Java).",
+      "matchDatasources": [
+        "maven"
+      ],
+      "matchPackageNames": [
+        "org.junit:**",
+        "org.junit.jupiter:**",
+        "org.mockito:**",
+        "org.assertj:**",
+        "org.testcontainers:**",
+        "io.rest-assured:**",
+        "org.awaitility:**"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Java test tooling"
+    },
+    {
+      "description": "Robot Framework and its libraries release in step.",
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "/^robotframework/"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Robot Framework"
+    },
+    {
+      "description": "Automerge: patch updates of test tooling once required checks pass.",
+      "matchPackageNames": [
+        "org.junit:**",
+        "org.junit.jupiter:**",
+        "org.mockito:**",
+        "org.assertj:**",
+        "org.testcontainers:**",
+        "io.rest-assured:**",
+        "org.awaitility:**",
+        "/^robotframework/",
+        "PyYAML"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Dev toolchain pins (CLI toolchain, devcontainer, justfile pins): patch updates are grouped on their own so a minor never holds them back, and merge once checks pass.",
+      "matchFileNames": [
+        "tool-versions.env",
+        ".devcontainer/devcontainer.json",
+        "justfile",
+        "justfile.versions",
+        "**/justfile",
+        "**/justfile.versions"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "groupName": "CLI toolchain (patch)",
+      "automerge": true
+    },
+    {
+      "description": "CI tooling pinned in workflow files (annotated pins, not actions): minor and patch merge once checks pass.",
+      "matchFileNames": [
+        ".github/workflows/**"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "CI tooling",
+      "automerge": true
+    },
+    {
+      "description": "Docs/site dependencies (Jekyll gems, npm): patch updates merge once checks pass.",
+      "matchManagers": [
+        "bundler",
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "groupName": "Docs and site (patch)",
+      "automerge": true
+    },
+    {
+      "description": "Data-store images: only patch updates are allowed (see the rule above) and they merge once checks pass.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "postgres",
+        "rabbitmq",
+        "library/rabbitmq",
+        "docker.io/library/rabbitmq",
+        "valkey/valkey"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "groupName": "Data-store images (patch)",
+      "automerge": true
+    },
+    {
+      "description": "Low-blast-radius repositories (documentation and the test suite): minor and patch merge once checks pass.",
+      "matchRepositories": [
+        "Labs64/labs64.io-docs",
+        "Labs64/labs64.io-docs-internal",
+        "Labs64/labs64.io-tests"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Never automerge: majors (except Labs64 chart pins above), and anything that is a deployment or security decision.",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Never automerge: Spring Boot and BOM overrides, OTel agent, Cerbos, platform lockstep pins, internal artifacts.",
+      "matchPackageNames": [
+        "org.springframework.boot:**",
+        "tools.jackson:jackson-bom",
+        "com.fasterxml.jackson:jackson-bom",
+        "org.apache.tomcat.embed:tomcat-embed-core",
+        "io.netty:netty-bom",
+        "com.rabbitmq:amqp-client",
+        "open-telemetry/opentelemetry-java-instrumentation",
+        "ghcr.io/cerbos/cerbos",
+        "cerbos/cerbos",
+        "kubernetes-sigs/gateway-api",
+        "external-secrets",
+        "ghcr.io/external-secrets/charts/external-secrets",
+        "keycloakx",
+        "ghcr.io/codecentric/helm-charts/keycloakx",
+        "traefik",
+        "opentelemetry-collector",
+        "io.labs64:**"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Labs64.IO chart pins (umbrella, preflight) automerge for every update type; the release itself was the manual decision.",
+      "matchDatasources": [
+        "helm"
+      ],
+      "matchPackageNames": [
+        "labs64io-ecosystem",
+        "preflight"
+      ],
+      "automerge": true
     }
   ]
 }

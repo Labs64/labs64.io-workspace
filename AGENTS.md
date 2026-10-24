@@ -30,6 +30,7 @@ The 10 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not 
 | Set up local k8s | `labs64.io-helm-charts/DEVELOPERS.md` |
 | Understand observability | `labs64.io-helm-charts/OBSERVABILITY.md` |
 | Run/add regression & integration tests | `labs64.io-tests/` (`AGENTS.md` first — contract-first, gateway-edge only) |
+| Run a task, add or rename a `just` recipe | `docs/justfiles.md`: one convention for every justfile (groups, reserved names, `just ci`), checked by `just check-just` |
 
 ## Critical guardrails
 
@@ -73,8 +74,8 @@ Non-negotiable. Violations break builds, deployments, or observability.
 | Versions | One owner per pin (guardrail 6); runtime/tool versions in `tool-versions.env`; `just doctor` reports local drift |
 | Dependency updates | Renovate; every repo's `renovate.json` only extends the shared preset `default.json` in this repo. Pins outside a package manifest carry a `# renovate: datasource=… depName=…` line directly above them. The runner is self-hosted and only runs when asked: a release, a chart release and a ticked Dependency Dashboard box start it (`just check-renovate-wiring`; `.github/workflows/README.md` "When Renovate runs") |
 | CI building blocks | Reusable workflows and composite actions in `.github/` here, referenced as `…@v1` (see `.github/workflows/README.md`) |
-| Process self-checks | `just verify-process` (tests of the gate scripts + `just check`); this repo's `labs64io-ci.yml` runs them on every change and daily across all repositories |
-| Task runner | `just` — check each repo's justfile |
+| Process self-checks | `just ci` (tests of the gate scripts + `just check`); this repo's `labs64io-ci.yml` runs them on every change and daily across all repositories |
+| Task runner | `just`, one convention in every repository (`docs/justfiles.md`). Run from this workspace: other repositories are modules (`just helm-charts <recipe>`, `just tests <recipe>`, `just ee <recipe>`), so no `cd`. `just ci` in a repository runs what its pull-request check runs. A recipe lives in `just/<group>.just`; a renamed one leaves a failing stub in `just/renamed.just`, and `just check-just --fix` rewrites the references |
 | Observability | Infrastructure-owned; runtime auto-instrumentation (OTel Java Agent / opentelemetry-instrument) → OTel Collector → Tempo (traces) / Loki compose (logs) / Prometheus (metrics) → Grafana; Java metrics via Micrometer `/actuator/prometheus`. Canonical model: `labs64.io-helm-charts/OBSERVABILITY.md` |
 
 ## Service-to-service communication

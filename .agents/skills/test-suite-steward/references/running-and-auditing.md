@@ -10,7 +10,7 @@ just test-module auditflow                       # one module, everything (../la
 just test-file ../labs64.io-auditflow/tests/e2e/authz.robot
 just test-case "Publish With Correct Scope Is Allowed" ../labs64.io-auditflow/tests/e2e/authz.robot
 just regression                                  # full nightly shape
-just auth                                        # auth/authz matrix only, cross-module
+just test-auth                                        # auth/authz matrix only, cross-module
 ```
 
 Run these from `labs64.io-tests/`. The recipes pass the suite paths (`ALL_TESTS` in the justfile:
