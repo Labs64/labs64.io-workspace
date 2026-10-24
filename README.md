@@ -121,7 +121,7 @@ After `just clone` every repository sits next to the workspace. Open them all at
 └── ...                      # the remaining ecosystem repositories
 ```
 
-All `just` recipes run from `labs64.io-workspace/` and resolve the other repositories through `../`. See [`docs/reference.md`](docs/reference.md) for every command (versions, releases, dependency updates).
+All `just` recipes run from `labs64.io-workspace/`. The other repositories are mounted as modules, so `just helm-charts <recipe>` and `just tests <recipe>` run in those repositories without a `cd`. See [`docs/reference.md`](docs/reference.md) for every command (versions, releases, dependency updates) and [`docs/justfiles.md`](docs/justfiles.md) for how every justfile is organised.
 
 ### Where next?
 
@@ -133,6 +133,7 @@ Everything below is in the [Workspace documentation](https://labs64.io/docs/deve
 | Follow the contribution workflow | [Contributing guide](https://labs64.io/docs/development/contributing.html) |
 | Fix a first-run problem | [Troubleshooting](https://labs64.io/docs/getting-started/troubleshooting.html) |
 | Read every `just` command | [`docs/reference.md`](docs/reference.md) |
+| Add or change a `just` recipe | [`docs/justfiles.md`](docs/justfiles.md) |
 | Compare all the ways to run Labs64.IO | [Choose a deployment path](https://labs64.io/docs/getting-started/choose-a-deployment-path.html) |
 
 Something not working? [Troubleshooting your first run](https://labs64.io/docs/getting-started/troubleshooting.html) covers the usual suspects, and you are always welcome to [open an issue](https://github.com/Labs64/labs64.io-workspace/issues).
@@ -178,9 +179,9 @@ Something not working? [Troubleshooting your first run](https://labs64.io/docs/g
 
 Workspace is where an agent gets the same environment a human contributor has.
 
-- **One entry point.** Every build, deploy and test is a `just` recipe run from `labs64.io-workspace/`; `just --list` shows them all.
+- **One entry point.** Every build, deploy and test is a `just` recipe run from `labs64.io-workspace/`; `just` lists them by group, and `just helm-charts` / `just tests` list those repositories' recipes. The same name means the same thing in every repository ([`docs/justfiles.md`](docs/justfiles.md)).
 - **Cross-repo knowledge.** The workspace carries a knowledge graph and skills so an agent can follow a change across repositories.
-- **Verify before proposing.** `just smoke` and the per-repository test commands are the checks to run.
+- **Verify before proposing.** `just ci` in the repository you changed runs what its pull-request check runs; `just smoke` checks the running platform.
 - **Working on the code with an agent?** [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) describe the layout and conventions.
 
 ## The Labs64.IO Ecosystem

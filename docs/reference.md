@@ -126,7 +126,7 @@ With the EE workspace in place, run `just ee clone` to clone missing
 repositories listed in its `repos.txt` (Labs64 names or HTTPS GitHub URLs).
 Run `just ee pull` to update its Git checkout and existing
 listed checkouts. Missing checkouts are reported and skipped by `pull`.
-Use `just ee status` for branches and local changes, and `just ee doctor` to check
+Use `just ee show-repos` for branches and local changes, and `just ee doctor` to check
 EE checkouts, remote identities, upstreams and authenticated remote access.
 Run `just ee test [target]` to execute module-owned test suites for one private
 runtime module or all installed modules.
@@ -186,29 +186,41 @@ The workspace is equipped with custom AI agent skills located in `.agents/skills
 
 ## 🔧 Development Commands
 
-Use `just` for ecosystem-wide orchestration. Run `just --list` any time for the full, up-to-date recipe list with descriptions.
+Everything runs from `labs64.io-workspace/`. `just` lists the recipes by group; the other repositories are mounted
+as modules named after the repository without `labs64.io-` (`just helm-charts`, `just tests`, `just ee`), so you never
+have to `cd` to the right folder. Every repository's justfile follows one convention: the same name means the same
+thing everywhere, `just ci` runs what its pull-request check runs, and a new recipe goes in `just/<group>.just` —
+see [Justfiles: where to run what](justfiles.md).
 
 ### 🚀 Bootstrapping & Deploying
 ```bash
 just doctor       # check required tooling is installed (run this first)
 just clone        # clone all repositories
-just up           # build and deploy the stack described by Helm overrides
+just up           # build every image and deploy the local stack from the Helm overrides
 just test         # complete local gate; auto-detects the deployed identity provider
 IDENTITY_PROVIDER=keycloak just test  # optional explicit override
-just down         # tear down the local cluster (images/registry untouched)
+just down         # delete the local cluster and its registry
+```
+
+### 🧭 The local stack and its repositories
+```bash
+just status             # pods, services and routes of the local stack
+just logs [app]         # warnings and errors of every module, or follow one (e.g. `just logs checkout`)
+just up-otel            # the monitoring stack and OpenTelemetry on top, then open Grafana
+just smoke              # the fast, PR-gating smoke tests
+just regression         # ordinary regression without changing provider endpoints
+just helm-charts install-app auditflow   # one module again, after a change (any helm-charts recipe)
+just tests test-module auditflow         # one module's suite (any recipe of labs64.io-tests)
 ```
 
 ### 📂 Working with Repositories
 ```bash
 just pull               # pull latest changes in all repos
-just status             # check git status across all repos
-just verify-deps        # confirm every Java module resolves its dependencies offline
-just check              # cross-repo gates: release wiring + shared version pins
-just verify-process     # the gates' own tests (here + helm-charts), then every gate (CI runs the same daily)
-just logs [app]         # tail error logs for all modules, or one (e.g. `just logs checkout`)
-just smoke              # run the fast, PR-gating smoke tests
-just test               # run normal regression + PSP-stub tests, then restore normal PG
-just regression         # run ordinary regression without changing provider endpoints
+just show-repos         # git status across all repos
+just list-prs           # open pull requests across all repos
+just check-deps         # confirm every Java module resolves its dependencies offline
+just check              # cross-repo gates: release wiring, Renovate wiring, shared version pins, justfiles
+just ci                 # what this repository's CI runs: the gates' own tests, actionlint, the Renovate preset, every gate
 ```
 
 ### 🔖 Versions, releases & dependency updates

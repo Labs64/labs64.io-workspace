@@ -84,7 +84,7 @@ version `X.Y.Z`**. Nothing is committed back and no file is edited to "set the v
   Renovate preset; `ecosystem` runs `check-release-wiring.py` and `check-version-pins.py` over
   `master` of the public ecosystem repositories, on every change here **and daily** — so drift that lands in
   another repository is reported here, not found at release time. It needs no secret and runs for fork
-  pull requests. `just verify-process` runs the same checks locally.
+  pull requests. `just ci` runs the same checks locally.
 
 ### Release order
 
