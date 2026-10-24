@@ -191,3 +191,26 @@ def test_a_repository_that_has_not_adopted_the_layout_is_only_checked_for_refere
     result = run(tmp_path)
     assert "no `ci` recipe" not in result.stderr
     assert "README.md:1: `just gone`: no repository has this recipe" in result.stderr
+
+
+def test_a_module_whose_repository_is_not_cloned_is_not_a_wrong_reference(tmp_path):
+    # CI checks out the public repositories only: `just ee …` points at a private repository that is not there.
+    adopted(tmp_path, "labs64.io-front", extra={
+        "justfile": ROOT_JUSTFILE + "\n# The private workspace\nmod? ee '../labs64.io-private/justfile'\n",
+        "README.md": "From the workspace: `just ee devops plan dev`, then `just status`, but not `just nope`.\n",
+    })
+    result = run(tmp_path)
+    assert "`just ee devops plan dev`" not in result.stderr
+    assert "`just nope`: no repository has this recipe" in result.stderr
+
+
+def test_the_same_reference_is_checked_in_full_when_the_repository_is_cloned(tmp_path):
+    adopted(tmp_path, "labs64.io-private")
+    adopted(tmp_path, "labs64.io-front", extra={
+        "justfile": ROOT_JUSTFILE + "\n# The private workspace\nmod? ee '../labs64.io-private/justfile'\n",
+        "README.md": "`just ee status` exists, `just ee gone` does not.\n",
+    })
+    result = run(tmp_path)
+    assert "`just ee status`" not in result.stderr
+    assert "`just ee gone`: the module mounting labs64.io-private has no recipe `gone`" in result.stderr
+

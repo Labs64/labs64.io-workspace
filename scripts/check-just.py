@@ -52,7 +52,9 @@ SHELL_LIKE = (".sh", ".bash", ".just", ".yml", ".yaml")
 SCANNED = MARKUP + SHELL_LIKE + (".py", ".tf", ".tfvars", ".tftpl", ".hcl", ".toml", ".json", ".robot", ".resource", ".gotmpl")
 # History is not rewritten: decisions and plans keep the commands of their time.
 HISTORY = re.compile(r"(^|/)(rfc|specs|plans|superpowers|_posts)/|changelog", re.IGNORECASE)
-SKIP_PARTS = ("_site/", "node_modules/", ".venv", "vendor/", "package-lock.json", "just/renamed.just")
+# The gate's own tests hold wrong references on purpose (fixtures); nothing else is exempt.
+SKIP_PARTS = ("_site/", "node_modules/", ".venv", "vendor/", "package-lock.json", "just/renamed.just",
+              "scripts/tests/test_check_just.py")
 
 
 @dataclass
@@ -223,11 +225,20 @@ def calls(file: Path) -> list[tuple[int, list[str]]]:
     return found
 
 
+def unavailable_mounts(repos: dict[str, Repo]) -> set[str]:
+    """Module names a justfile declares (`mod? ee …`) whose repository is not cloned here.
+
+    CI checks out the public repositories only, so the private EE workspace behind `just ee …` is absent: what lies
+    behind such a name cannot be verified, which is not the same as being wrong. The repository that is cloned is
+    checked in full wherever it is."""
+    return {name for r in repos.values() for name, path in r.mounts.items() if path.name not in repos}
+
+
 def resolve(words: list[str], line: str, here: Repo | None, repos: dict[str, Repo],
             modules: dict[str, Repo]) -> tuple[str, tuple[str, str] | None] | None:
     """None when the call names a recipe that exists, else (why not, (old, new) when it was renamed)."""
     first = words[0]
-    if first.startswith("_"):
+    if first.startswith("_") or first in unavailable_mounts(repos):
         return None
     if first in modules:
         repo, rest = modules[first], words[1:]
