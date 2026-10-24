@@ -101,7 +101,7 @@ Optional tools, reported by `just doctor` but never required by `just up`:
 > **Deploying elsewhere?** The steps above spin up the **Local Development** mode (Helmfile + k3d).
 > The published charts install on any cluster without this workspace: `install.sh` in
 > [labs64.io-helm-charts](https://github.com/Labs64/labs64.io-helm-charts#quick-start) for a guided
-> install, the umbrella chart with the **AWS QA / Staging / Prod** reference profile on managed data
+> install, the umbrella chart with the **AWS Staging / Prod** reference profile on managed data
 > stores, or individual charts on **your own infrastructure** (GCP, Azure, on-prem) via
 > `helm repo add labs64io https://labs64.github.io/labs64.io-helm-charts`. See
 > [Deployment Modes](https://github.com/Labs64/labs64.io-helm-charts#deployment-modes) in the
