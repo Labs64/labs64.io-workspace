@@ -9,7 +9,7 @@
 
 <p align="center"><img src="docs/assets/workspace-hero.svg" alt="Workspace: One command, just up, builds and deploys every ecosystem repository to a local k3d cluster; repository tiles light up as they build until the gateway is ready." width="880"></p>
 
-[**Get started**](https://labs64.io/docs/getting-started/run-the-full-ecosystem-locally.html) · [Features](#features) · [AI agents](#using-workspace-with-ai-agents) · [Ecosystem](#the-labs64io-ecosystem) · [Documentation](https://labs64.io/docs/development/) · [labs64.io](https://labs64.io)
+[**Get started**](https://labs64.io/docs/getting-started/run-the-full-ecosystem-locally.html) · [Features](#features) · [AI agents](#using-it-with-ai-agents) · [Ecosystem](#the-labs64io-ecosystem) · [Documentation](https://labs64.io/docs/development/) · [labs64.io](https://labs64.io)
 
 > [!NOTE]
 > Labs64.IO is ten independent Git repositories, not a monorepo. If you only want to **see** it running you do not need the workspace: use `install.sh`.
@@ -51,14 +51,9 @@ Changing a platform that spans many repositories means the same toolchain, the s
 | **Deploy for your team** on AWS, Azure, Google Cloud or your own cluster | [Deploy to your Kubernetes cluster](https://labs64.io/docs/getting-started/deploy-to-kubernetes.html) |
 | **Change the code**, build from source, contribute | You are in the right place |
 
-## Using Workspace with AI agents
+## Using it with AI agents
 
-Workspace is where an agent gets the same environment a human contributor has.
-
-- **One entry point.** Every build, deploy and test is a `just` recipe run from `labs64.io-workspace/`; `just` lists them by group, and `just helm-charts` / `just tests` list those repositories' recipes. The same name means the same thing in every repository ([`docs/justfiles.md`](docs/justfiles.md)).
-- **Cross-repo knowledge.** The workspace carries a knowledge graph and skills so an agent can follow a change across repositories.
-- **Verify before proposing.** `just ci` in the repository you changed runs what its pull-request check runs; `just smoke` checks the running platform.
-- **Working on the code with an agent?** [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) describe the layout and conventions.
+Agents get the same environment a human contributor does, with one `just` entry point and a knowledge graph for following changes across repositories. The [guide for AI agents](https://labs64.io/docs/introduction/ai-agents.html) covers authentication, retries and errors across all modules. Working on this repository with an agent? [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) describe the layout and conventions.
 
 ## The Labs64.IO Ecosystem
 
