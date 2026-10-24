@@ -36,11 +36,11 @@ the enforcement layer reads, not a parallel guess at it.
 5. **Scaffold or update `labs64.io-<module>/tests/e2e/authz.robot`** following the extraction rules below,
    matching the conventions in `labs64.io-tests/AGENTS.md` (gateway-edge base URLs,
    `Create Session With Scope` from `resources/common.resource`, the tag taxonomy in
-   `labs64.io-tests/docs/reference.md`). Reuse the existing file's `Test Teardown` / one-test-case-per-scenario shape — don't invent a new layout per module.
+   `labs64.io-tests/README.md`). Reuse the existing file's `Test Teardown` / one-test-case-per-scenario shape — don't invent a new layout per module.
 
 6. **If this is a brand-new module, register it** — add its `tests/e2e/` path to the robot data
    sources in `.github/workflows/labs64io-regression-suite.yml` and to `ALL_TESTS` in the
-   `labs64.io-tests` justfile, and to `labs64.io-tests/docs/reference.md`'s repository-structure and P0 coverage tables. Skipping this step means the tests exist but CI never runs them; nothing
+   `labs64.io-tests` justfile, and to `README.md`'s repository-structure and P0 coverage tables. Skipping this step means the tests exist but CI never runs them; nothing
    else in this workflow catches that omission.
 
 ## Extraction rules for OpenAPI auth

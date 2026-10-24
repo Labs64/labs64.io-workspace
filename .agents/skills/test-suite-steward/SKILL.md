@@ -26,7 +26,7 @@ result — or the suite itself — is healthy.
 
 | You want to... | Goes in | Tag at least |
 |---|---|---|
-| Cover a new module end to end | New `labs64.io-<module>/tests/e2e/{smoke,authz}.robot` + `labs64.io-tests/resources/<module>.resource` — **then also register it**: add the suite path to the robot data sources in `.github/workflows/labs64io-regression-suite.yml` and to `ALL_TESTS` in the `labs64.io-tests` justfile, and to `labs64.io-tests/docs/reference.md`'s structure/P0 tables, or CI silently never runs it | — |
+| Cover a new module end to end | New `labs64.io-<module>/tests/e2e/{smoke,authz}.robot` + `labs64.io-tests/resources/<module>.resource` — **then also register it**: add the suite path to the robot data sources in `.github/workflows/labs64io-regression-suite.yml` and to `ALL_TESTS` in the `labs64.io-tests` justfile, and to `README.md`'s structure/P0 tables, or CI silently never runs it | — |
 | Add an auth/authz scenario | `labs64.io-<module>/tests/e2e/authz.robot` | `regression`, `auth` |
 | Add a fast PR-gating check | `labs64.io-<module>/tests/e2e/smoke.robot` | `smoke` |
 | Add a multi-step functional flow | `labs64.io-<module>/tests/e2e/<feature>.robot`, only if genuinely load-bearing | `regression` |

@@ -64,7 +64,7 @@ Run this periodically, after a spec change, or when asked to "audit the test sui
 7. **Maintainability smells** — repeated per-test `[Teardown]` boilerplate (hoist to a single
    `Test Teardown` suite setting); a keyword duplicated across two modules' `.resource` files
    that could live once in `common.resource`; every test missing both `smoke` and `regression`
-   tags (required — see `labs64.io-tests/docs/reference.md`'s tag taxonomy); README/AGENTS.md claims that no longer
+   tags (required — see `README.md`'s tag taxonomy); README/AGENTS.md claims that no longer
    match the code (e.g. a tag documented as unused that a new test just adopted).
 
 Report findings before rewriting — the same "report before writing" discipline as the
