@@ -25,7 +25,7 @@ The 10 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not 
 | What you need | Where to look |
 | --- | --- |
 | Work on a module | `<module>/AGENTS.md` (always read before changes) |
-| Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS Staging/Prod, BYO Infra) |
+| Deploy to Kubernetes | `labs64.io-helm-charts/` (see the Deployment Modes in its `docs/reference.md`: Local Development, AWS Staging/Prod, BYO Infra) |
 | Write public docs (onboarding, config, technical reference) | `labs64.io-docs/` (its `AGENTS.md` first — the ultimate reference for running/using/configuring modules; mirrors module ids from `labs64.io/_data/modules.yml`, never restates status/version) |
 | Set up local k8s | `labs64.io-helm-charts/DEVELOPERS.md` |
 | Understand observability | `labs64.io-helm-charts/OBSERVABILITY.md` |
