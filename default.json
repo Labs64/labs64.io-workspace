@@ -434,7 +434,10 @@
       "automerge": true
     },
     {
-      "description": "CI tooling pinned in workflow files (annotated pins, not actions): minor and patch merge once checks pass.",
+      "description": "CI tooling pinned in workflow files (annotated pins, not actions): minor and patch merge once checks pass. Only the annotated pins (custom.regex): without that, the actions of a workflow file went to this group too, and a repository got two action pull requests (the rule \"GitHub Actions\" keeps those of composite actions).",
+      "matchManagers": [
+        "custom.regex"
+      ],
       "matchFileNames": [
         ".github/workflows/**"
       ],
@@ -446,7 +449,11 @@
       "automerge": true
     },
     {
-      "description": "Docs/site dependencies (Jekyll gems, npm): patch updates merge once checks pass.",
+      "description": "Docs/site dependencies (Jekyll gems, npm): patch updates merge once checks pass. Only in the documentation and website repositories: the module frontends' npm patches stay in \"JavaScript non-major\", one pull request with the minors, and do not automerge.",
+      "matchRepositories": [
+        "Labs64/labs64.io-docs",
+        "Labs64/labs64.io"
+      ],
       "matchManagers": [
         "bundler",
         "npm"
