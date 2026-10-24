@@ -31,7 +31,7 @@
     },
     "ghcr.io/devcontainers/features/terraform:1": {
       // renovate: datasource=github-releases depName=hashicorp/terraform extractVersion=^v(?<version>.*)$
-      "version": "1.16.6"
+      "version": "1.17.0"
     },
     "ghcr.io/devcontainers/features/aws-cli:1": {
       "version": "latest"
