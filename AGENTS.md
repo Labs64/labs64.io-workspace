@@ -62,6 +62,28 @@ Non-negotiable. Violations break builds, deployments, or observability.
 8. **Each repo has its own git history** — never cross-commit between repositories.
 9. **Database-per-service.** Each service owns its logical database(s). Never share database credentials or connect to another service's database. New services must declare egress NetworkPolicies restricting outbound traffic to only their designated databases. See `labs64.io-helm-charts/DATABASES.md`.
 
+## Quality bar for every change
+
+Code, chart, Terraform, workflow, script or document: before a change is called done it is judged against
+the table below, and its pull request says how each row applies, or why it does not (`n/a: docs only`). A row is
+never skipped silently, and what was not verified is said, not implied.
+
+| Concern | The question | What it means here |
+| --- | --- | --- |
+| **Stability of the ecosystem** | Does everything that consumes this still work, unchanged? | Other modules, charts, environments, tenants and already published versions are consumers. An API change is OpenAPI-first and additive; a breaking one needs an RFC. Chart values keys, secret keys and published versions are contracts: a published version is never edited, only superseded. The previous release must stay installable (rollback is a pin, not a rebuild) |
+| **No regression** | Which test fails if this breaks again? | A fix comes with the test that failed before it. Behaviour that moves needs its test moved in the same change; a gate nobody tests reports "clean" forever |
+| **No network surprises** | What new connection does this open, and what does it need to reach? | Egress is explicit: a module's NetworkPolicy, the VPC CIDR and the edge allowlists are part of the change, never opened wide to make it work. Say which hosts, ports and credentials a new dependency needs |
+| **Performance** | What does this cost at load, and what grows without bound? | Hot paths, queries, batch sizes, pod requests and limits, HPA headroom (`module_scaling`). Nothing unbounded per request or per tenant: queues, caches, logs, retries |
+| **HA and resilience** | What happens with two replicas, a rolling update, a restart, a dependency down? | Safe with more than one replica and across restarts; every outbound call has a timeout and bounded retries; events are idempotent and replayable; a down broker, cache, IdP or policy service degrades visibly and authorization fails closed; no single point of failure is added |
+| **Testability** | Is it proven at the right level, automatically? | Unit and contract tests in the module, black-box in `labs64.io-tests`, the repository's gate (`just ci`) for charts, scripts and workflows. Logic lives where it can be tested, not in a workflow step or a template |
+| **Maintainability** | Will the next person find and change it in one place? | One owner per value (guardrail 6), the smallest change that does the job, in the style of the code around it, generated files regenerated and never hand-edited, no dead configuration, and the `AGENTS.md`, README or runbook that describes it updated in the same change |
+
+Done means the system is left in a better or equal state, not only that the change works: the gates are green,
+nothing is half-migrated or marked "later", what is deployed, documented and tested says the same thing, and an
+operator can see it failing (metrics, logs, alarms: observability is infrastructure-owned) and undo it. When two rows
+pull against each other, for example performance against resilience, the choice is made explicitly and written in
+the PR, not traded silently.
+
 ## Shared conventions
 
 | Convention | Detail |
