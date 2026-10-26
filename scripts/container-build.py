@@ -8,6 +8,7 @@ import sys
 import uuid
 
 WORKSPACE = Path(__file__).resolve().parents[1]
+MAVEN_CACHE_VOLUME = "labs64-m2-cache"
 
 
 def run_builder_container(command, name):
@@ -65,8 +66,11 @@ def run_build(base_image, source, output, script, cache, settings=None, network=
         str(WORKSPACE / "scripts"),
     ], check=True)
     mounts = []
-    for suffix in ("m2", "npm"):
-        volume, destination = f"{cache}-{suffix}", f"/home/builder/.{suffix}"
+    cache_mounts = (
+        (MAVEN_CACHE_VOLUME, "/home/builder/.m2"),
+        (f"{cache}-npm", "/home/builder/.npm"),
+    )
+    for volume, destination in cache_mounts:
         mount = f"type=volume,source={volume},target={destination}"
         # Also supports reuse by a developer with a different UID/GID.
         subprocess.run([
