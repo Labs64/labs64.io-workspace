@@ -32,6 +32,11 @@ class HostPathTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 builder.host_path(builder.WORKSPACE.parent.parent / "outside/settings.xml")
 
+    def test_devcontainer_and_builders_share_the_maven_cache(self):
+        devcontainer = (builder.WORKSPACE / ".devcontainer/devcontainer.json").read_text()
+        mount = f"source={builder.MAVEN_CACHE_VOLUME},target=/home/vscode/.m2,type=volume"
+        self.assertIn(mount, devcontainer)
+
 
 class BuilderContainerTests(unittest.TestCase):
     @patch.object(builder.subprocess, "run")

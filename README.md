@@ -42,6 +42,10 @@ Changing a platform that spans many repositories means the same toolchain, the s
 - **Knowledge graph and AI skills**: a graph of the ecosystem and skills for agents working across repositories.
 - **Version and release tooling**: pin checks, release and dependency-update recipes.
 
+The DevContainer mounts `labs64-m2-cache` at `/home/vscode/.m2`, so direct
+`mvn` commands and the shared container builder install and resolve artifacts from
+the same local Maven repository regardless of which module starts the build.
+
 ## Is this the right place to start?
 
 | You want to… | Start here |
