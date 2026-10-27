@@ -94,7 +94,7 @@ jobs:
         with:
           # Renovate's supported Node range lags the newest release; it runs in its own
           # container in renovate.yml, so this only needs to satisfy the validator.
-          node-version: "26"
+          node-version: "26.12.1"
           check-latest: true  # the runner's cached Node can lag the patch release (CVE-2026-111497)
 
       - name: Validate the Renovate preset
