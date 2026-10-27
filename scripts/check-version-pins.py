@@ -228,18 +228,20 @@ def check_toolchain(root: Path) -> None:
             {"tool-versions.env": tools.get(tool), workflow: str(default)},
         )
 
-    # Image bases must be the same runtime line the toolchain declares.
+    # Image bases must be the same runtime line the toolchain declares. Node's
+    # toolchain pin intentionally names its supported major, whereas frontend
+    # images are patch-pinned for reproducible Docker builds.
     for dockerfile in sorted(root.glob("labs64.io-*/**/Dockerfile")):
         if any(part in ("node_modules", "target", "_site") for part in dockerfile.parts):
             continue
         rel = dockerfile.relative_to(root).as_posix()
-        for image, tool in (
-            (r"eclipse-temurin", "JAVA_VERSION"),
-            (r"python", "PYTHON_VERSION"),
-            (r"node", "NODE_VERSION"),
+        for image, tool, normalize in (
+            (r"eclipse-temurin", "JAVA_VERSION", lambda version: version),
+            (r"python", "PYTHON_VERSION", lambda version: version),
+            (r"node", "NODE_VERSION", major),
         ):
             for found in re.findall(rf"^FROM\s+{image}:([0-9.]+)", dockerfile.read_text(), re.M):
-                if found != tools.get(tool):
+                if normalize(found) != tools.get(tool):
                     fail(f"{rel}: base image {image}:{found}, but tool-versions.env {tool}={tools.get(tool)}")
 
     # No workflow may carry a tool version of its own.
