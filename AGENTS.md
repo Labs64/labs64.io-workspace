@@ -4,11 +4,11 @@ Guidance for AI agents working in the Labs64.IO workspace. Read this before maki
 
 ## What this is
 
-Open-source digital commerce platform — polyglot microservices ecosystem. 10 independent git repos, shared Helm charts; environments install the published `labs64io-ecosystem` umbrella chart. **Not a monorepo.**
+Open-source digital commerce platform — polyglot microservices ecosystem. 11 independent git repos, shared Helm charts; environments install the published `labs64io-ecosystem` umbrella chart. **Not a monorepo.**
 
 ## Repository layout
 
-The 10 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not inside it:
+The 11 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not inside it:
 
 ```
 /workspaces/                    # ecosystem root (mounted by the DevContainer)
@@ -129,7 +129,7 @@ One gesture in every repository: **publish a GitHub Release whose tag is the ver
 | --- | --- |
 | `labs64.io-commons` | `labs64io-parent` + every Java library at `X.Y.Z` (Labs64 Nexus) |
 | `labs64.io-auditflow` | three images + `io.labs64:auditflow-api`, all `X.Y.Z`; chart PR |
-| `labs64.io-checkout`, `-payment-gateway`, `-customer-portal`, `-authproxy` | image(s) `X.Y.Z`; chart PR |
+| `labs64.io-checkout`, `-payment-gateway`, `-reporting`, `-customer-portal`, `-authproxy` | image(s) `X.Y.Z`; chart PR |
 | `labs64.io-helm-charts` | every push to `master` touching `charts/**` publishes the bumped charts |
 
 Releases go to **Labs64 Nexus only**, as often as needed. Maven Central has a deployment quota, so a

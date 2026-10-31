@@ -69,7 +69,8 @@ ensure_pinned_releases() {
         "${ROOT}/labs64.io-auditflow/auditflow-be/pom.xml" \
         "${ROOT}/labs64.io-checkout/checkout-be/pom.xml" \
         "${ROOT}/labs64.io-payment-gateway/payment-gateway-providers/pom.xml" \
-        "${ROOT}/labs64.io-payment-gateway/payment-gateway-be/pom.xml"; do
+        "${ROOT}/labs64.io-payment-gateway/payment-gateway-be/pom.xml" \
+        "${ROOT}/labs64.io-reporting/pom.xml"; do
         version="$(_pinned_version "$pom" parent)"
         [[ -n "$version" && "$version" != *-SNAPSHOT && "$seen" != *" commons:${version} "* ]] || continue
         seen+="commons:${version} "

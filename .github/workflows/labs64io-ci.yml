@@ -116,7 +116,7 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          for repo in docs tests helm-charts commons authproxy auditflow checkout customer-portal payment-gateway; do
+          for repo in docs tests helm-charts commons authproxy auditflow checkout customer-portal payment-gateway reporting; do
             git clone --depth 1 --quiet "https://github.com/Labs64/labs64.io-${repo}.git" "labs64.io-${repo}"
           done
           git clone --depth 1 --quiet https://github.com/Labs64/labs64.io.git labs64.io

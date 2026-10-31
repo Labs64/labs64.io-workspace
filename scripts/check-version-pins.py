@@ -50,6 +50,7 @@ REQUIRED_REPOS = (
     "labs64.io-checkout",
     "labs64.io-authproxy",
     "labs64.io-customer-portal",
+    "labs64.io-reporting",
 )
 
 
