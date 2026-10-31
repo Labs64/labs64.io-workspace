@@ -17,6 +17,10 @@
       "path": "../labs64.io-payment-gateway"
     },
     {
+      "name": "reporting",
+      "path": "../labs64.io-reporting"
+    },
+    {
       "name": "checkout",
       "path": "../labs64.io-checkout"
     },

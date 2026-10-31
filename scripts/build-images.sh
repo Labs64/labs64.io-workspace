@@ -10,7 +10,8 @@ required_repos() {
                 labs64.io-auditflow \
                 labs64.io-checkout \
                 labs64.io-customer-portal \
-                labs64.io-payment-gateway
+                labs64.io-payment-gateway \
+                labs64.io-reporting
             ;;
         commons) printf '%s\n' labs64.io-commons ;;
         traefik-authproxy|gateway) printf '%s\n' labs64.io-authproxy ;;
@@ -18,9 +19,10 @@ required_repos() {
         checkout) printf '%s\n' labs64.io-checkout ;;
         customer-portal|customer-portal-ui) printf '%s\n' labs64.io-customer-portal ;;
         payment-gateway) printf '%s\n' labs64.io-payment-gateway ;;
+        reporting) printf '%s\n' labs64.io-reporting ;;
         *)
             echo "Unknown target: $1" >&2
-            echo "Valid targets: all, commons, auditflow, checkout, payment-gateway, traefik-authproxy, customer-portal" >&2
+            echo "Valid targets: all, commons, auditflow, checkout, payment-gateway, reporting, traefik-authproxy, customer-portal" >&2
             return 2
             ;;
     esac
@@ -113,6 +115,11 @@ build_payment_gateway() {
     image_step "payment-gateway: backend image" "${ROOT}/labs64.io-payment-gateway/payment-gateway-be" payment-gateway
 }
 
+build_reporting() {
+    mvn_step "reporting: backend build" "${ROOT}/labs64.io-reporting" clean package -Dmaven.test.skip=true
+    image_step "reporting: backend image" "${ROOT}/labs64.io-reporting" reporting
+}
+
 build_customer_portal() {
     image_step "customer-portal: frontend image" "${ROOT}/labs64.io-customer-portal/customer-portal-fe" customer-portal-ui
 }
@@ -125,6 +132,7 @@ case "$TARGET" in
         build_checkout
         build_customer_portal
         build_payment_gateway
+        build_reporting
         ;;
     commons)
         build_commons
@@ -147,9 +155,13 @@ case "$TARGET" in
         ensure_pinned_releases
         build_payment_gateway
         ;;
+    reporting)
+        ensure_pinned_releases
+        build_reporting
+        ;;
     *)
         echo "Unknown target: $TARGET"
-        echo "Valid targets: all, commons, auditflow, checkout, payment-gateway, traefik-authproxy, customer-portal"
+        echo "Valid targets: all, commons, auditflow, checkout, payment-gateway, reporting, traefik-authproxy, customer-portal"
         exit 1
         ;;
 esac

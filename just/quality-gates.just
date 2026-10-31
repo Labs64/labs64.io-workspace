@@ -109,7 +109,8 @@ check-deps verbose="1":
     for dir in \
         {{ROOT}}/labs64.io-auditflow \
         {{ROOT}}/labs64.io-checkout/checkout-be \
-        {{ROOT}}/labs64.io-payment-gateway; do
+        {{ROOT}}/labs64.io-payment-gateway \
+        {{ROOT}}/labs64.io-reporting; do
         if [ -d "$dir" ]; then
             run_step "deps: $dir" -- bash -c "cd '$dir' && mvn -B dependency:go-offline"
         else

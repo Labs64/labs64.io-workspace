@@ -145,6 +145,7 @@ The workspace clones 10 repositories as siblings of itself — the runtime servi
 | [**labs64.io-auditflow**](https://github.com/Labs64/labs64.io-auditflow) | Multi-tenant Audit-as-a-Service platform for secure compliance logging. |
 | [**labs64.io-payment-gateway**](https://github.com/Labs64/labs64.io-payment-gateway) | Subscription billing engine and Payment Service Provider (PSP) integrations. |
 | [**labs64.io-checkout**](https://github.com/Labs64/labs64.io-checkout) | Core transaction processing and commerce workflow engine. |
+| [**labs64.io-reporting**](https://github.com/Labs64/labs64.io-reporting) | Read-only reports over the events AuditFlow stored, per customer. |
 | [**labs64.io-customer-portal**](https://github.com/Labs64/labs64.io-customer-portal) | Self-service SaaS management portal for end-users. |
 
 **Shared libraries, infrastructure & docs**
