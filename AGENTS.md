@@ -1,14 +1,14 @@
 # AGENTS.md — Labs64.IO Ecosystem
 
-Guidance for AI agents working in the Labs64.IO workspace. Read this before making changes.
+Guidance for AI agents working in the Labs64.IO workspace. Read this and [`STANDARDS.md`](STANDARDS.md) before making changes: this file says how the ecosystem is laid out and what must never break; the standards say what good engineering means here, for all ecosystem work.
 
 ## What this is
 
-Open-source digital commerce platform — polyglot microservices ecosystem. 11 independent git repos, shared Helm charts; environments install the published `labs64io-ecosystem` umbrella chart. **Not a monorepo.**
+Open-source digital commerce platform — polyglot microservices ecosystem. Independent git repositories, shared Helm charts; environments install the published `labs64io-ecosystem` umbrella chart. **Not a monorepo.**
 
 ## Repository layout
 
-The 11 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not inside it:
+The ecosystem repositories are cloned as **siblings** of `labs64.io-workspace`, not inside it:
 
 ```
 /workspaces/                    # ecosystem root (mounted by the DevContainer)
@@ -24,6 +24,7 @@ The 11 ecosystem repos are cloned as **siblings** of `labs64.io-workspace`, not 
 
 | What you need | Where to look |
 | --- | --- |
+| Engineering standards, quality bar, definition of done | [`STANDARDS.md`](STANDARDS.md) (applies to every change in every repository) |
 | Work on a module | `<module>/AGENTS.md` (always read before changes) |
 | Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS Staging/Prod, BYO Infra) |
 | Write public docs (onboarding, config, technical reference) | `labs64.io-docs/` (its `AGENTS.md` first — the ultimate reference for running/using/configuring modules; mirrors module ids from `labs64.io/_data/modules.yml`, never restates status/version) |
@@ -39,7 +40,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
 1. **Never edit OpenAPI-generated Java** under `target/`. Change the YAML spec and rebuild.
 2. **Never hardcode credentials.** Environment variables or K8s Secrets only.
 3. **Preserve non-root user `l64user`** (uid/gid 1064) in all Dockerfiles (exception: nginx-based UI frontends may use UID 101).
-4. **Observability is infrastructure-owned.** Never add OpenTelemetry SDK/starter dependencies or SDK bootstrap to services; the OTel Java Agent (bundled in images) / `opentelemetry-instrument` (entrypoint) provide instrumentation, toggled purely by deployment env (`observability.enabled` in Helm, obs compose overlay). Business telemetry goes through each service's thin `BusinessTelemetry` abstraction. See `labs64.io-helm-charts/OBSERVABILITY.md` (canonical model).
+4. **Observability is infrastructure-owned.** Never add OpenTelemetry SDK/starter dependencies or SDK bootstrap to services; the OTel Java Agent (bundled in images) / `opentelemetry-instrument` (entrypoint) provide instrumentation, toggled purely by deployment env (`observability.enabled` in Helm, obs compose overlay). Business telemetry goes through a thin module-owned abstraction (AuditFlow's `BusinessTelemetry` is the reference). See `labs64.io-helm-charts/OBSERVABILITY.md` (canonical model).
 5. **Keep transformer/sink ID validation regex consistent** across Java and Python (`^[a-zA-Z0-9_]+$`).
 6. **Every version has one owner — never restate a pin, never write a version into a pom.**
    - Chart versions and Helm repositories: `labs64.io-helm-charts/helmfile.yaml.gotmpl`.
@@ -60,36 +61,21 @@ Non-negotiable. Violations break builds, deployments, or observability.
    Traefik/AuthProxy for external routes and from the specific caller modules for direct
    in-cluster integrations.
 8. **Each repo has its own git history** — never cross-commit between repositories.
-9. **Database-per-service.** Each service owns its logical database(s). Never share database credentials or connect to another service's database. New services must declare egress NetworkPolicies restricting outbound traffic to only their designated databases. See `labs64.io-helm-charts/DATABASES.md`.
+9. **Database-per-service.** Each service owns its logical database(s). Never share database credentials or connect to another service's database. New services must declare egress NetworkPolicies restricting outbound traffic to only their designated databases. See `labs64.io-helm-charts/DATABASES.md`. A sink's store is not a service's database: Reporting reads what AuditFlow's sinks wrote, read-only, with its own credentials and row policies.
+10. **Public repositories are generic.** Nearly every repository is public; the private ones include the deployment repository (`labs64.io-devops`), internal docs and the commercial `*-ee` repositories. Public repositories carry no internal information or Labs64-specific setup, and never name a tenant: tenants are data in `labs64.io-devops`. Public charts get them as generic generated values.
+11. **Community code is never edition-aware.** No edition checks in public repositories; commercial editions are additive, through extension points, and no community capability moves out. An entitlement check never drops an audit event.
+12. **No wrapper charts for third-party tools.** Use the publisher's chart plus overrides.
 
 ## Quality bar for every change
 
-Code, chart, Terraform, workflow, script or document: before a change is called done it is judged against
-the table below, and its pull request says how each row applies, or why it does not (`n/a: docs only`). A row is
-never skipped silently, and what was not verified is said, not implied.
-
-| Concern | The question | What it means here |
-| --- | --- | --- |
-| **Stability of the ecosystem** | Does everything that consumes this still work, unchanged? | Other modules, charts, environments, tenants and already published versions are consumers. An API change is OpenAPI-first and additive; a breaking one needs an RFC. Chart values keys, secret keys and published versions are contracts: a published version is never edited, only superseded. The previous release must stay installable (rollback is a pin, not a rebuild) |
-| **No regression** | Which test fails if this breaks again? | A fix comes with the test that failed before it. Behaviour that moves needs its test moved in the same change; a gate nobody tests reports "clean" forever |
-| **No network surprises** | What new connection does this open, and what does it need to reach? | Egress is explicit: a module's NetworkPolicy, the VPC CIDR and the edge allowlists are part of the change, never opened wide to make it work. Say which hosts, ports and credentials a new dependency needs |
-| **Performance** | What does this cost at load, and what grows without bound? | Hot paths, queries, batch sizes, pod requests and limits, HPA headroom (`module_scaling`). Nothing unbounded per request or per tenant: queues, caches, logs, retries |
-| **HA and resilience** | What happens with two replicas, a rolling update, a restart, a dependency down? | Safe with more than one replica and across restarts; every outbound call has a timeout and bounded retries; events are idempotent and replayable; a down broker, cache, IdP or policy service degrades visibly and authorization fails closed; no single point of failure is added |
-| **Testability** | Is it proven at the right level, automatically? | Unit and contract tests in the module, black-box in `labs64.io-tests`, the repository's gate (`just ci`) for charts, scripts and workflows. Logic lives where it can be tested, not in a workflow step or a template |
-| **Maintainability** | Will the next person find and change it in one place? | One owner per value (guardrail 6), the smallest change that does the job, in the style of the code around it, generated files regenerated and never hand-edited, no dead configuration, and the `AGENTS.md`, README or runbook that describes it updated in the same change |
-
-Done means the system is left in a better or equal state, not only that the change works: the gates are green,
-nothing is half-migrated or marked "later", what is deployed, documented and tested says the same thing, and an
-operator can see it failing (metrics, logs, alarms: observability is infrastructure-owned) and undo it. When two rows
-pull against each other, for example performance against resilience, the choice is made explicitly and written in
-the PR, not traded silently.
+Every change is judged against [`STANDARDS.md`](STANDARDS.md), section 13: its pull request says how each row of the quality bar applies or why it does not, and what was not verified is said, not implied.
 
 ## Shared conventions
 
 | Convention | Detail |
 | --- | --- |
-| Java | 25, Maven 3.6.3+, Spring Boot 4.x, OpenAPI-first |
-| Python | 3.14, FastAPI, Uvicorn |
+| Java | Maven, Spring Boot 4.x, OpenAPI-first (Java version: `tool-versions.env`) |
+| Python | FastAPI, Uvicorn (Python version: `tool-versions.env`) |
 | Vue | 3, Composition API, Vite, Pinia, Bootstrap 5 |
 | Docker | All images run as `l64user` (uid/gid 1064) |
 | Tests | JUnit 5 (Java), pytest (Python), Vitest (Vue); black-box API-edge regression in `labs64.io-tests/` (Robot Framework) |
@@ -98,7 +84,7 @@ the PR, not traded silently.
 | CI building blocks | Reusable workflows and composite actions in `.github/` here, referenced as `…@v1` (see `.github/workflows/README.md`) |
 | Process self-checks | `just ci` (tests of the gate scripts + `just check`); this repo's `labs64io-ci.yml` runs them on every change and daily across all repositories |
 | Task runner | `just`, one convention in every repository (`docs/justfiles.md`). Run from this workspace: other repositories are modules (`just helm-charts <recipe>`, `just tests <recipe>`, `just ee <recipe>`), so no `cd`. `just ci` in a repository runs what its pull-request check runs. A recipe lives in `just/<group>.just`; a renamed one leaves a failing stub in `just/renamed.just`, and `just check-just --fix` rewrites the references |
-| Observability | Infrastructure-owned; runtime auto-instrumentation (OTel Java Agent / opentelemetry-instrument) → OTel Collector → Tempo (traces) / Loki compose (logs) / Prometheus (metrics) → Grafana; Java metrics via Micrometer `/actuator/prometheus`. Canonical model: `labs64.io-helm-charts/OBSERVABILITY.md` |
+| Observability | Infrastructure-owned; runtime auto-instrumentation (OTel Java Agent / opentelemetry-instrument) → OTel Collector → Tempo (traces) / Loki (logs) / Prometheus (metrics) → Grafana; Java metrics via Micrometer `/actuator/prometheus`. Canonical model: `labs64.io-helm-charts/OBSERVABILITY.md` |
 
 ## Service-to-service communication
 
@@ -176,13 +162,15 @@ gh project item-add 6 --owner Labs64 --url <PR URL>
 | Bump a CLI tool (dev container + CI) | `tool-versions.env` |
 | Bump a CRD set | `labs64.io-helm-charts/justfile.versions` (only there) |
 | Module status / website module list | `labs64.io/_data/modules.yml` (single source; rendered into nav, module pages, roadmap; `labs64.io-docs` must never restate this — link/copy from here) |
-| Module technical/integration docs | `labs64.io-docs/<module>/` (dir name must match the module's `id` in `labs64.io/_data/modules.yml`) |
+| Module technical/integration docs | `labs64.io-docs/modules/<module>/` (dir name must match the module's `id` in `labs64.io/_data/modules.yml`) |
 | Add/audit/run tests for a module | `labs64.io-<module>/tests/e2e/` (shared keywords in `labs64.io-tests/resources/`; see `test-suite-steward` skill) |
 
 ## Superpowers
 
-- **Plans:** `.agents/superpowers/plans/YYYY-MM-DD-{session-slug}.md`
-- **Specs:** `.agents/superpowers/specs/YYYY-MM-DD-{session-slug}.md`
+Working notes live at the ecosystem root, outside every repository, so they are never committed:
+
+- **Plans:** `.superpowers/plans/YYYY-MM-DD_{slug}.md`
+- **Specs:** `.superpowers/specs/YYYY-MM-DD_{slug}.md`
 
 ## Skills
 
@@ -208,6 +196,7 @@ matches the task at hand:
 - `helm-config-binding-check` — Helm chart config changes
 - `local-k8s-qa-audit` — QA against the local k3d cluster
 - `ecosystem-website-sync` — keep `labs64.io` module data in sync
+- `boxdiagram` — create and update architecture diagrams and wireframes kept in version control
 
 Adding a skill: create `.agents/skills/<name>/SKILL.md` with `name`/`description`
 frontmatter (Claude Code's skill format), then run `just sync-skills` (or rebuild the
