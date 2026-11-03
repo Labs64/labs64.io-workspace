@@ -62,7 +62,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
    in-cluster integrations.
 8. **Each repo has its own git history** — never cross-commit between repositories.
 9. **Database-per-service.** Each service owns its logical database(s). Never share database credentials or connect to another service's database. New services must declare egress NetworkPolicies restricting outbound traffic to only their designated databases. See `labs64.io-helm-charts/DATABASES.md`. A sink's store is not a service's database: Reporting reads what AuditFlow's sinks wrote, read-only, with its own credentials and row policies.
-10. **Public repositories are generic.** Nearly every repository is public; the private ones include the deployment repository (`labs64.io-devops`), internal docs and the commercial `*-ee` repositories. Public repositories carry no internal information or Labs64-specific setup, and never name a tenant: tenants are data in `labs64.io-devops`. Public charts get them as generic generated values.
+10. **Public repositories are generic.** Nearly every repository is public; the deployment repository, internal docs and the commercial `*-ee` repositories are private. Public repositories carry no internal information or Labs64-specific setup, and never name a tenant: tenants are deployment data, kept privately. Public charts get them as generic generated values.
 11. **Community code is never edition-aware.** No edition checks in public repositories; commercial editions are additive, through extension points, and no community capability moves out. An entitlement check never drops an audit event.
 12. **No wrapper charts for third-party tools.** Use the publisher's chart plus overrides.
 
