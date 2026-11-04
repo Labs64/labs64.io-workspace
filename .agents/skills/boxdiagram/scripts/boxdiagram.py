@@ -743,7 +743,26 @@ def load_spec(path):
             return wireframe.parse(text)
         except wireframe.WireError as e:
             raise ValueError(f"wireframe: {e}")
-    return json.loads(text), []
+    spec = json.loads(text)
+    _check_comments(spec)
+    return spec, []
+
+
+def _check_comments(spec):
+    """`_comment` (string) on any node/edge/root, `_notes` (list of strings) on the root: never drawn."""
+    def walk(n, where):
+        if not isinstance(n, dict):
+            return
+        if "_comment" in n and not isinstance(n["_comment"], str):
+            raise ValueError(f"{where}: _comment must be a string")
+        for i, c in enumerate(n.get("children", [])):
+            walk(c, f"{where}.children[{i}]")
+        for i, e in enumerate(n.get("edges", [])):
+            walk(e, f"{where}.edges[{i}]")
+    walk(spec, "root")
+    notes = spec.get("_notes", []) if isinstance(spec, dict) else []
+    if not isinstance(notes, list) or not all(isinstance(x, str) for x in notes):
+        raise ValueError("root: _notes must be a list of strings")
 
 
 def out_path(spec_path):

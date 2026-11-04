@@ -1,3 +1,5 @@
+//@ diagram: Platform overview for ops. Clients on the left, external providers on the right.
+
 +-- Clients --------------+        +-- External --+
 | [web]  [mobile]  [cli]  |        | [stripe]     |
 +-------------------------+        | [mail]       |
@@ -10,6 +12,7 @@
 +-------------------------------------------------+
 
 legend:
+//@ gw: Single entry point for all clients; do not split per client type.
 web    = Web App {client}
 mobile = Mobile App {client}
 cli    = CLI {client}
@@ -23,6 +26,7 @@ stripe = Stripe {external}
 mail   = Email Provider {external}
 
 edges:
+//@ orders -> mq: async on purpose; Orders must not wait for Notifications.
 web -> gw : HTTPS
 mobile -> gw : HTTPS
 cli -> gw : REST
