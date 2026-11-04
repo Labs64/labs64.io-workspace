@@ -90,6 +90,12 @@ gap: 80
   (`| gw |`) and as container titles.
 - Stacked rows of tokens that line up in columns become a grid; otherwise rows/columns as drawn.
 - Alignment (start/center/end/stretch) is inferred from how siblings line up in the drawing.
+- Spare width or height along a container's main axis: `{fill}` in the container's title shares it equally
+  among its children (each gets `grow: 1`), so a band of boxes fills its width with equal shares instead of
+  stopping short. `{grow:N}` gives one box its own weight (`0` = none): in a container's title, in a drawn
+  box's text, or on its legend row (`api = API {service} {grow:2}`); it overrides the parent's `{fill}`.
+  `{justify:start|center|end|between}` places the spare space instead of giving it to the boxes. A title turns
+  `-` into spaces, so a malformed tag such as `{grow:-1}` there is reported as an error.
 - `$BD --to-wire --compact foo.diagram.json` prints an existing spec in this form. Roughly 3x smaller than
   the fully boxed drawing and smaller than the JSON, so use it to show structure cheaply.
 
@@ -104,7 +110,7 @@ gap: 80
   that still parses).
 - `$BD --to-wire [--compact] foo.diagram.json` prints any JSON spec as a wireframe: a cheap way to show the
   user (or yourself) the current structure. `$BD --to-json foo.wire.txt` converts the other way when you need
-  options a wireframe cannot express (`align`, `justify`, `grow`, a grid's `cols`). After converting, delete
+  options a wireframe cannot express (`align`, a grid's `cols`). After converting, delete
   the `.wire.txt` so there is one source.
 - Edit an existing `.wire.txt` like any diagram: change the drawing or the edges, keep ids stable, render, look.
 - Do not keep `foo.wire.txt` and `foo.diagram.json` side by side (both would write `foo.svg`).
@@ -177,6 +183,7 @@ api -> jobs : enqueue
 | Two connectors overlap (`overlaps` > 0) | Widen the gap they share. |
 | Too many crossings | Reorder siblings; move a node to the other side of its main partner; consider two diagrams. |
 | Ugly stretched boxes | Set `align: "start"` or `"center"` on the container; `justify` for the main axis. |
+| A band of boxes stops short of its container's edge | `{fill}` in the container's title (JSON: `grow: 1` on each child), or `{justify:between}` to spread the gaps instead. |
 | A connector must leave a specific side | `from_side` / `to_side` (left/right/top/bottom). Use sparingly. |
 
 ## Writing good specs
