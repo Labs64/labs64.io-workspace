@@ -31,6 +31,11 @@ Drawing rules
     (start/center/end/between) packs that container's children along its main axis when
     they don't fill it, instead of the default `start`; most useful on a `{group}` row/col
     whose parent stretches it wider or taller than its children's own natural size.
+    `{fill}` in a container's title lets its children share the container's spare main-axis
+    space equally (each child `grow: 1`), so a row of boxes fills its band with equal shares
+    instead of leaving the space empty. `{grow:N}` gives one box a weight N for that spare
+    space in its parent: in a container's title, in a leaf box's text, or on its legend row
+    (`api = API {service} {grow:2}`); it overrides the parent's `{fill}` for that box.
   * Structure is inferred from POSITION only: siblings side by side = row, stacked = column,
     an aligned R x C block = grid. Exact distances are ignored (the tool picks gaps/padding).
     Layouts must be "sliceable": you can split the siblings by a straight line, recursively.
@@ -162,15 +167,33 @@ def interior_text(grid, rect):
 TOKEN_RE = re.compile(r"\[([^\[\]]+)\]")
 
 
-def split_tags(text):
-    """'Web App #web {client}' -> ('Web App', 'web', 'client')"""
+GROW_RE = re.compile(r"\s*\{grow:([^{}]*)\}")
+
+
+def _grow_value(val, where):
+    try:
+        g = float(val)
+    except ValueError:
+        g = -1.0
+    if g < 0:
+        raise WireError(f"{{grow}} in {where} needs a number >= 0, e.g. {{grow:2}}, got {val!r}")
+    return int(g) if g == int(g) else g
+
+
+def split_tags(text, where="box"):
+    """'Web App #web {client} {grow:2}' -> ('Web App', 'web', 'client', 2)"""
+    grow = None
+    m = GROW_RE.search(text)
+    if m:
+        grow = _grow_value(m.group(1), where)
+        text = GROW_RE.sub("", text)
     m = re.search(r"#([\w.-]+)", text)
     tid = m.group(1) if m else None
     m = re.search(r"\{(\w+)\}", text)
     style = m.group(1) if m else None
     clean = re.sub(r"\s*#[\w.-]+", "", text)
     clean = re.sub(r"\s*\{\w+\}", "", clean).strip()
-    return clean, tid, style
+    return clean, tid, style, grow
 
 
 def parse_legend_line(s):
@@ -180,13 +203,13 @@ def parse_legend_line(s):
     key = key.strip()
     if not re.fullmatch(r"[\w.-]+", key):
         raise WireError(f"bad legend alias {key!r} (use letters, digits, '-', '_', '.')")
-    val, tid, style = split_tags(val)
+    val, tid, style, grow = split_tags(val, f"legend for {key!r}")
     parts = [p.strip() for p in val.split("|")]
     if not parts[0]:
         raise WireError(f"legend alias {key!r} has no label")
     if style and style not in STYLES:
         raise WireError(f"unknown style {{{style}}} in legend for {key!r} (known: {sorted(STYLES)})")
-    ent = {"label": parts[0], "id": tid, "style": style}
+    ent = {"label": parts[0], "id": tid, "style": style, "grow": grow}
     if any(parts[1:]):
         ent["sub"] = "\n".join(p for p in parts[1:] if p)
     return key, ent
@@ -194,9 +217,11 @@ def parse_legend_line(s):
 
 def make_leaf(lines, legend, where):
     """Leaf spec from the text lines of a box, or from a single [alias] token."""
-    ids, styles, clean = [], [], []
+    ids, styles, clean, grows = [], [], [], []
     for ln in lines:
-        c, tid, st = split_tags(ln)
+        c, tid, st, gr = split_tags(ln, where)
+        if gr is not None:
+            grows.append(gr)
         if tid:
             ids.append(tid)
         if st:
@@ -207,12 +232,14 @@ def make_leaf(lines, legend, where):
         raise WireError(f"empty {where}: give it a label")
     tid = ids[-1] if ids else None
     style = styles[-1] if styles else None
+    grow = grows[-1] if grows else None
     if len(clean) == 1 and clean[0] in legend:
         ent = legend[clean[0]]
         leaf = {"id": tid or ent.get("id") or clean[0], "label": ent["label"]}
         if ent.get("sub"):
             leaf["sub"] = ent["sub"]
         style = style or ent.get("style")
+        grow = grow if grow is not None else ent.get("grow")
     else:
         leaf = {"id": tid or slug(clean[0]), "label": clean[0]}
         if len(clean) > 1:
@@ -221,6 +248,8 @@ def make_leaf(lines, legend, where):
         raise WireError(f"unknown style {{{style}}} in {where} (known: {sorted(STYLES)})")
     if style and style != "default":
         leaf["style"] = style
+    if grow is not None:
+        leaf["grow"] = grow
     return leaf
 
 
@@ -298,7 +327,7 @@ def infer(items, gap):
                     f"them (pinwheel); simplify or group some of them in a bigger box")
 
 
-TITLE_TAG_RE = re.compile(r"\s*\{(group|gap|pad|padding|justify)(?::([\w.]+))?\}")
+TITLE_TAG_RE = re.compile(r"\s*\{(group|gap|pad|padding|justify|fill|grow)(?::([\w.+-]+))?\}")
 JUSTIFY_VALUES = {"start", "center", "end", "between"}
 
 
@@ -311,15 +340,26 @@ def _consume_title_tags(title, where):
     any sibling or ancestor container; they work on a visible container too. {justify:V}
     (V one of start/center/end/between) controls how that container packs its children
     along its main axis when they don't fill it, the one layout knob otherwise JSON-only.
-    Returns (clean_title, frame, own_gap, own_pad, own_justify).
+    {fill} gives each child that sets no grow of its own a weight of 1 for the container's spare
+    main-axis space; {grow:N} is this container's own weight in its parent.
+    Returns (clean_title, frame, own_gap, own_pad, own_justify, fill, own_grow).
     """
     frame = True
-    own_gap = own_pad = own_justify = None
+    fill = False
+    own_gap = own_pad = own_justify = own_grow = None
 
     def repl(m):
-        nonlocal frame, own_gap, own_pad, own_justify
+        nonlocal frame, own_gap, own_pad, own_justify, fill, own_grow
         name, val = m.group(1), m.group(2)
-        if name == "group":
+        if name == "fill":
+            if val is not None:
+                raise WireError(f"{{fill}} in {where} takes no value; use {{grow:N}} on a child for its own weight")
+            fill = True
+        elif name == "grow":
+            if val is None:
+                raise WireError(f"{{grow}} in {where} needs a value, e.g. {{grow:2}}")
+            own_grow = _grow_value(val, where)
+        elif name == "group":
             if val is not None:
                 raise WireError(f"{{group}} in {where} takes no value")
             frame = False
@@ -337,14 +377,19 @@ def _consume_title_tags(title, where):
             own_pad = int(val)
         return ""
 
-    return TITLE_TAG_RE.sub(repl, title).strip(), frame, own_gap, own_pad, own_justify
+    clean = TITLE_TAG_RE.sub(repl, title).strip()
+    bad = re.search(r"\{\s*(group|gap|pad|padding|justify|fill|grow)\b[^}]*\}?", clean)
+    if bad:
+        raise WireError(f"malformed tag {bad.group(0)!r} in {where} (a title turns '-' into spaces; "
+                        f"write e.g. {{grow:2}}, {{gap:0}}, {{fill}})")
+    return clean, frame, own_gap, own_pad, own_justify, fill, own_grow
 
 
 def build_node(rect, grid, gap, legend):
     toks = area_tokens(grid, rect.r0 + 1, rect.r1 - 1, rect.c0 + 1, rect.c1 - 1, rect.children)
     if not rect.children and not toks:
         return make_leaf(interior_text(grid, rect), legend, rect.where()), None
-    title, frame, own_gap, own_pad, own_justify = _consume_title_tags(rect.title, rect.where())
+    title, frame, own_gap, own_pad, own_justify, fill, own_grow = _consume_title_tags(rect.title, rect.where())
     if title in legend:
         title = legend[title]["label"]
     stray = [re.sub(TOKEN_RE, "", ln).strip() for ln in interior_text(grid, rect)]
@@ -368,6 +413,13 @@ def build_node(rect, grid, gap, legend):
         node["padding"] = 0
     if own_justify is not None:
         node["justify"] = own_justify
+    if fill:
+        if node.get("type") == "grid":
+            raise WireError(f"{{fill}} in {rect.where()} has no effect on a grid; arrange the children in one row or column")
+        for c in node["children"]:
+            c.setdefault("grow", 1)
+    if own_grow is not None:
+        node["grow"] = own_grow
     if title and frame:
         node["title"] = title
     return node, warn
@@ -656,6 +708,26 @@ def _size(lines):
     return max((len(l) for l in lines), default=0), len(lines)
 
 
+def _grow_tag(g):
+    return f"{{grow:{g}}}"
+
+
+def _mark_grow(n, parent_fill=False):
+    """Annotate a copy of the tree with what --to-wire writes: `_wfill` on a container whose
+    children all set grow (written as {fill}), `_wgrow` on a node whose own grow must be
+    written as {grow:N} (any grow its parent's {fill} does not already imply)."""
+    g = n.get("grow")
+    if g is not None and not (parent_fill and g == 1):
+        n["_wgrow"] = g
+    kids = n.get("children") or []
+    fill = bool(kids) and n.get("type") != "grid" and all("grow" in c for c in kids) \
+        and any(c["grow"] == 1 for c in kids)
+    if fill:
+        n["_wfill"] = True
+    for c in kids:
+        _mark_grow(c, fill)
+
+
 def _box(n, compact=False):
     if compact:
         return ["[" + n["id"] + "]"]
@@ -665,6 +737,8 @@ def _box(n, compact=False):
         first += f"  #{n['id']}"
     if n.get("style", "default") != "default":
         first += f"  {{{n['style']}}}"
+    if n.get("_wgrow") is not None:
+        first += "  " + _grow_tag(n["_wgrow"])
     text = [first] + rest
     w = max(len(t) for t in text) + 2
     return ["+" + "-" * w + "+"] + ["| " + t.ljust(w - 1) + "|" for t in text] + ["+" + "-" * w + "+"]
@@ -717,6 +791,15 @@ def _render(n, depth, compact=False, gap_chars=2):
         body = body[:-1]
     framed = n.get("frame", depth > 0 or bool(n.get("title")))
     title = n.get("title", "")
+    tags = (" {fill}" if n.get("_wfill") else "") + \
+        (" " + _grow_tag(n["_wgrow"]) if n.get("_wgrow") is not None else "")
+    if tags and depth == 0 and not framed and not title:
+        # The implicit root has no box to carry a tag, and it has no parent to grow in.
+        if n.get("_wfill"):
+            print("warning: {fill} on the root cannot be written to a .wire.txt; draw a box around "
+                  "the root's children to keep it", file=sys.stderr)
+        tags = ""
+    title = (title + tags).strip()
     if not framed:
         if not title:
             return body
@@ -740,6 +823,9 @@ def _comment_lines(target, text):
 
 
 def to_wire(spec, compact=False):
+    import copy
+    spec = copy.deepcopy(spec)
+    _mark_grow(spec)
     lines = _render(spec, 0, compact)
     ids = {}
 
@@ -778,8 +864,9 @@ def to_wire(spec, compact=False):
             label = n["label"].replace("\n", " ")
             subs = [x for x in (n.get("sub", "").split("\n") if n.get("sub") else []) if x]
             style = n.get("style", "default")
-            if label != i or subs or style != "default":
-                rows.append((i, " | ".join([label] + subs) + (f" {{{style}}}" if style != "default" else "")))
+            gtag = (" " + _grow_tag(n["_wgrow"])) if n.get("_wgrow") is not None else ""
+            if label != i or subs or style != "default" or gtag:
+                rows.append((i, " | ".join([label] + subs) + (f" {{{style}}}" if style != "default" else "") + gtag))
         if rows:
             kw = max(len(k) for k, _ in rows)
             out += ["legend:"]
