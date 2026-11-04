@@ -127,6 +127,45 @@ with no shared title or meaning of their own); drawing a visible border around t
   through `--to-wire`/`--fmt`; an anonymous one (bare `{group}`, or no box drawn at all and left to position
   inference) renders as plain, undecorated rows/columns in the text, same as any other auto-inferred wrapper.
 
+## Comments: context for whoever edits the diagram next
+
+Diagram sources can carry notes (why a box sits where it does, constraints, open questions). They are
+never drawn, never change the SVG, and survive `--fmt`, `--to-json` and `--to-wire`.
+
+```
+//@ diagram: Ops overview. Keep it one screen wide.        <- header block (top of file)
+// free-form note, not tied to anything
+
++-- Backend ---+ ...drawing: no comments inside it...
+
+legend:
+//@ api: Must stay left of jobs; do not merge them.         <- a box (id or slug)
+edges:
+//@ "Backend": bounded context, keep together               <- a container, by title
+//@ api -> jobs: async on purpose; never make it synchronous <- an edge (any arrow form)
+// plain notes work here too
+api -> jobs : enqueue
+```
+
+| Wire | JSON |
+|---|---|
+| `//@ diagram: text` | root `"_comment"` |
+| `//@ api: text` / `//@ "Title": text` | `"_comment"` on that box / container |
+| `//@ a -> b: text` | `"_comment"` on the first edge a -> b |
+| `// text` | root `"_notes": ["text", ...]` |
+
+- Allowed in a **header block** (leading lines, before the drawing) and in the **trailer** (from the first
+  `edges:`/`legend:` line on); not inside the drawing. Several `//@` lines for one target are joined with newlines.
+- In JSON, put `"_comment": "text"` (string) on the root, any node or any edge and `"_notes": [...]` on the root.
+- `--fmt`/`--to-wire` write them back: root comment and notes in the header, box comments above their legend
+  row (or at the start of `edges:`), edge comments above the edge. A `"Title"` that names the root container
+  is the same as `diagram:`. A `_comment` on an untitled container cannot be written to a wireframe (warning).
+- A `//@` target that no longer exists is kept (root `_orphans`) and reported as a **warning**, so
+  `--check --strict` fails until the comment is updated or removed. A malformed `//@` line is an error.
+- **When you edit a diagram, read its comments first and honour them; update or delete the ones your change
+  makes untrue, and when you rename or delete an id, fix the `//@` lines that mention it.** Record a non-obvious
+  decision in a comment rather than only in the chat. Do not put secrets in comments: they are committed.
+
 ## Fixing problems: symptom -> spec change
 
 | Symptom | Fix |
@@ -195,6 +234,8 @@ Every node is an object. A node with `children` is a container, otherwise a leaf
 | `frame` | container | Draw the border box and title (default true; the root only if it has a title). `false` makes a purely structural, invisible box: it still sizes and places its children, and routes connectors through it with no border to avoid, but draws nothing of its own. |
 | `edges[]` | root | `from`, `to` (leaf ids), optional `label`, `from_side`, `to_side`, `dashed`, `arrow` (`end`/`both`/`none`). |
 | `transparent` | root | No background rectangle. |
+| `_comment` | root, node, edge | Free text for editors (string). Never drawn. See "Comments". |
+| `_notes` | root | List of free-text strings. Never drawn. |
 
 All sizes snap to a 10px grid. Connectors attach to **leaves only** (not to containers).
 

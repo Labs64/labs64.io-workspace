@@ -45,10 +45,21 @@ Connector lines (after a line `edges:`)
                                  (no `.side` or no `:fraction`) already searches every port on
                                  every side for the cheapest path and is usually the better
                                  choice, so reach for this only to match a hand-specified point.
-  References are ids or labels ("Web App" quoted, or web-app). `// comment` lines are ignored.
+  References are ids or labels ("Web App" quoted, or web-app).
+Comments (never drawn; kept by --fmt, --to-json and --to-wire)
+  Allowed in a header block at the very top of the file and in the trailer (from the first
+  `edges:`/`legend:` line on), never inside the drawing.
+    // free note                  -> JSON root "_notes" (list, in order)
+    //@ diagram: text             -> JSON root "_comment"
+    //@ api: text                 -> "_comment" on the box with id/slug `api`
+    //@ "Edge" : text             -> "_comment" on the container titled "Edge" (or leaf labelled so)
+    //@ api -> jobs: text         -> "_comment" on the edge api -> jobs (any arrow form)
+  Several `//@` lines for one target are joined with a newline. A `//@` target that no longer
+  exists is kept (JSON "_orphans") and reported as a warning.
   Options: `gap: 80`, `padding: 20` (defaults: gap 80 if any connector has a label, else 40).
 """
 import re
+import sys
 
 H, V = "-─━═", "|│┃║"
 TL, TR, BL, BR = "+┌╭┏╔", "+┐╮┓╗", "+└╰┗╚", "+┘╯┛╝"
@@ -368,10 +379,99 @@ EDGE_RE = re.compile(
     r'(?:"([^"]+)"|([\w-]+))(?:\.(left|right|top|bottom)(?::([\d.]+))?)?\s*(?::\s*(.*?))?\s*$')
 
 
+COMMENT_RE = re.compile(
+    r'^//@\s*("[^"]+"|[\w.-]+(?:\s*(?:<\.\.>|<->|\.\.>|->|---)\s*(?:"[^"]+"|[\w.-]+))?)\s*:(?:\s?(.*))?$')
+EDGE_TARGET_RE = re.compile(r'^("[^"]+"|[\w.-]+?)\s*(?:<\.\.>|<->|\.\.>|->|---)\s*("[^"]+"|[\w.-]+)$')
+
+
+def _take_comment(s, comments, notes):
+    """Sort one stripped `//...` line into targeted comments (`//@ target: text`) or free notes."""
+    if s.startswith("//@"):
+        m = COMMENT_RE.match(s)
+        if not m:
+            raise WireError(f"cannot parse comment line: {s!r} (expected: //@ target: text, "
+                            f"target = diagram, an id, \"Title\" or a -> b)")
+        comments.append((m.group(1).strip(), (m.group(2) or "").rstrip()))
+    else:
+        body = s[2:]
+        notes.append((body[1:] if body.startswith(" ") else body).rstrip())
+
+
+def _attach_comments(root, comments, resolve):
+    """Store `//@` comments as `_comment` on their target; unknown targets go to root `_orphans`."""
+    warnings = []
+
+    def put(node, text):
+        node["_comment"] = node["_comment"] + "\n" + text if "_comment" in node else text
+
+    def find(n, name):
+        if "children" in n and n.get("title") == name:
+            return n
+        for c in n.get("children", []):
+            f = find(c, name)
+            if f:
+                return f
+        return None
+
+    def leaf_by(n, name):
+        if "children" not in n:
+            return n if n.get("label") == name else None
+        for c in n["children"]:
+            f = leaf_by(c, name)
+            if f:
+                return f
+        return None
+
+    def leaf_by_id(n, i):
+        if "children" not in n:
+            return n if n["id"] == i else None
+        for c in n["children"]:
+            f = leaf_by_id(c, i)
+            if f:
+                return f
+        return None
+
+    for target, text in comments:
+        dest = None
+        try:
+            if target == "diagram":
+                dest = root
+            elif target.startswith('"') and not EDGE_TARGET_RE.match(target):
+                name = target[1:-1]
+                dest = find(root, name) or leaf_by(root, name)
+            else:
+                m = EDGE_TARGET_RE.match(target)
+                if m:
+                    a = resolve(m.group(1).strip('"') if m.group(1).startswith('"') else None,
+                                None if m.group(1).startswith('"') else m.group(1))
+                    b = resolve(m.group(2).strip('"') if m.group(2).startswith('"') else None,
+                                None if m.group(2).startswith('"') else m.group(2))
+                    dest = next((e for e in root["edges"] if e["from"] == a and e["to"] == b), None)
+                else:
+                    dest = leaf_by_id(root, resolve(None, target))
+        except WireError:
+            dest = None
+        if dest is None:
+            root.setdefault("_orphans", []).append({"target": target, "text": text})
+            warnings.append(f"comment target {target!r} does not exist (//@ {target}: ...): "
+                            f"update or remove the comment")
+        else:
+            put(dest, text)
+    return warnings
+
+
 def parse(text):
     """-> (spec dict, warnings list)"""
     text = text.expandtabs(4)
     lines = text.split("\n")
+    h = 0  # header block: leading blank / `//` lines are comments, not part of the drawing
+    while h < len(lines) and (not lines[h].strip() or lines[h].lstrip().startswith("//")):
+        h += 1
+    comments, notes = [], []
+    for l in lines[:h]:
+        if l.strip():
+            _take_comment(l.strip(), comments, notes)
+    lines = lines[h:]
     cut = next((i for i, l in enumerate(lines) if re.match(r"^\s*(edges|connectors|legend)\s*:\s*$", l, re.I)), None)
     drawing, trailer = (lines[:cut], lines[cut + 1:]) if cut is not None else (lines, [])
     width = max((len(l) for l in drawing), default=0)
@@ -381,7 +481,10 @@ def parse(text):
     opts, edge_lines, legend, section = {}, [], {}, ("legend" if first == "legend" else "edges")
     for l in trailer:
         s_ = l.strip()
-        if not s_ or s_.startswith("//"):
+        if not s_:
+            continue
+        if s_.startswith("//"):
+            _take_comment(s_, comments, notes)
             continue
         m = re.match(r"^(edges|connectors|legend)\s*:\s*$", s_, re.I)
         if m:
@@ -514,6 +617,9 @@ def parse(text):
             e["arrow"] = "none"
         edges.append(e)
     root["edges"] = edges
+    if notes:
+        root["_notes"] = notes
+    warnings += _attach_comments(root, comments, resolve)
     return root, warnings
 
 
@@ -626,6 +732,13 @@ def _render(n, depth, compact=False, gap_chars=2):
     return out
 
 
+def _comment_lines(target, text):
+    """`//@ target: line` for each line of a comment (none if there is no comment)."""
+    if text is None or text == "":
+        return []
+    return [f"//@ {target}: {ln}".rstrip() for ln in str(text).split("\n")]
+
+
 def to_wire(spec, compact=False):
     lines = _render(spec, 0, compact)
     ids = {}
@@ -638,6 +751,27 @@ def to_wire(spec, compact=False):
             ids[n["id"]] = n
     walk(spec)
     out = [l.rstrip() for l in lines] + [""]
+    head = _comment_lines("diagram", spec.get("_comment"))
+    head += [("// " + n).rstrip() for n in spec.get("_notes", [])]
+    for o in spec.get("_orphans", []):
+        head += _comment_lines(o["target"], o["text"])
+    if head:
+        out = head + [""] + out
+    node_cm = {}  # target text -> comment lines, for boxes and containers, in tree order
+
+    def collect(n):
+        if n.get("_comment"):
+            if "children" not in n:
+                node_cm[n["id"]] = _comment_lines(n["id"], n["_comment"])
+            elif n.get("title"):
+                node_cm['"%s"' % n["title"]] = _comment_lines('"%s"' % n["title"], n["_comment"])
+            else:
+                print("warning: _comment on an untitled container cannot be written to a .wire.txt; dropped",
+                      file=sys.stderr)
+        for c in n.get("children", []):
+            collect(c)
+    for c in spec.get("children", []):
+        collect(c)
     if compact:
         rows = []
         for i, n in ids.items():
@@ -648,8 +782,13 @@ def to_wire(spec, compact=False):
                 rows.append((i, " | ".join([label] + subs) + (f" {{{style}}}" if style != "default" else "")))
         if rows:
             kw = max(len(k) for k, _ in rows)
-            out += ["legend:"] + [f"{k.ljust(kw)} = {v}" for k, v in rows] + [""]
+            out += ["legend:"]
+            for k, v in rows:
+                out += node_cm.pop(k, []) + [f"{k.ljust(kw)} = {v}"]
+            out += [""]
     out += ["edges:"]
+    for lns in node_cm.values():
+        out += lns
     for e in spec.get("edges", []):
         op = "..>" if e.get("dashed") else "->"
         if e.get("arrow") == "both":
@@ -662,6 +801,7 @@ def to_wire(spec, compact=False):
         b = e["to"] + (f".{e['to_side']}" if e.get("to_side") else "")
         if e.get("to_side") and e.get("to_at") is not None:
             b += f":{e['to_at']}"
+        out += _comment_lines(f"{e['from']} -> {e['to']}", e.get("_comment"))
         out.append(f"{a} {op} {b}" + (f" : {e['label']}" if e.get("label") else ""))
 
     def first_gap(n):

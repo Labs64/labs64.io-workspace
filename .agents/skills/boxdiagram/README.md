@@ -76,6 +76,13 @@ then add a `legend:` table (`alias = Label | sub {style}`) and the connectors (`
 = row, stacked = column, aligned block = grid. The parser infers the structure from positions.
 Full notation: `SKILL.md`. Examples: `examples/`.
 
+### Comments for later editors
+
+`//@ api: must stay left of jobs` (a box), `//@ a -> b: async on purpose` (an edge), `//@ diagram: ...` and plain
+`// notes` live in the header block and the `legend:`/`edges:` trailer of a `.wire.txt`, or as `"_comment"` /
+`"_notes"` in a JSON spec. They are never drawn, `--fmt` and the JSON/wireframe conversions keep them, and a
+`//@` that points at a removed box is a `--strict` warning. See "Comments" in `SKILL.md`.
+
 ## Git hook: keep SVGs in sync with their sources
 
 `scripts/git-pre-commit` refuses a commit when any `*.diagram.json` / `*.wire.txt` tracked in the repo has a
