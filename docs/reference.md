@@ -60,7 +60,7 @@ After `just clone`, the folder you started in looks like this:
 
 All `just` recipes are run from `labs64.io-workspace/` and resolve the other repos via `../`. The DevContainer mounts `<ecosystem-root>` at `/workspaces`, so the whole ecosystem is visible inside the container.
 
-`just up` deploys what `labs64.io-helm-charts/overrides/helmfile/values.local.yaml` describes. That override decides whether mock OIDC, bundled Keycloak, or neither is installed; the API Gateway override selects the corresponding issuer.
+`just up` deploys what `labs64.io-helm-charts/overrides/helmfile/values.local.yaml` describes. That override decides whether mock OIDC, bundled Keycloak, or neither is installed; the Auth Gateway override selects the corresponding issuer.
 
 Something not working? See [Troubleshooting your first run](https://labs64.io/docs/getting-started/troubleshooting.html).
 
@@ -141,7 +141,7 @@ The workspace clones 10 repositories as siblings of itself — the runtime servi
 
 | Repository | Description |
 |------------|-------------|
-| [**labs64.io-authproxy**](https://github.com/Labs64/labs64.io-authproxy) | Traefik-based API gateway handling ecosystem ingress and authentication proxying. |
+| [**labs64.io-authproxy**](https://github.com/Labs64/labs64.io-authproxy) | The Auth Gateway: the authenticated edge for the ecosystem. It verifies OIDC/JWT tokens, matches the route and asks Cerbos before a request reaches a module. |
 | [**labs64.io-auditflow**](https://github.com/Labs64/labs64.io-auditflow) | Multi-tenant Audit-as-a-Service platform for secure compliance logging. |
 | [**labs64.io-payment-gateway**](https://github.com/Labs64/labs64.io-payment-gateway) | Subscription billing engine and Payment Service Provider (PSP) integrations. |
 | [**labs64.io-checkout**](https://github.com/Labs64/labs64.io-checkout) | Core transaction processing and commerce workflow engine. |

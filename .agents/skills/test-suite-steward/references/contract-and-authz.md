@@ -3,7 +3,7 @@
 Treat each module's OpenAPI
 spec — standard OAuth `security` plus `x-labs64.auth` tenant/resource metadata — as the single
 source of truth for both **what to test** and **what auth the test should expect**. That same
-contract drives Cerbos policy generation at the authproxy edge, so this reads the same contract
+contract drives Cerbos policy generation at the Auth Gateway edge, so this reads the same contract
 the enforcement layer reads, not a parallel guess at it.
 
 ## When to use this
@@ -60,7 +60,7 @@ passing multiple space-separated scopes to one call covers case #6.
 ## Optional: local-k8s log corroboration
 
 For the auth/authz path only, a test can *additionally* confirm the edge actually made the
-decision it appears to have made (authproxy Cerbos decision log) and that an allowed request was
+decision it appears to have made (the Auth Gateway's Cerbos decision log) and that an allowed request was
 actually *delivered* past the gateway (backend log, matched on a per-event `correlationId` where
 the module's schema has one). This is a deliberate, narrow exception to the suite's "gateway
 edge only, no kubectl" rule — see `labs64.io-tests/AGENTS.md` "Local-only pod-log

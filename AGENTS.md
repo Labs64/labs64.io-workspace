@@ -58,7 +58,7 @@ Non-negotiable. Violations break builds, deployments, or observability.
    - A pin that two places genuinely must share is verified by `just check-pins`; add it there
      instead of writing "keep in sync" in a comment.
 7. **Network policies must preserve explicit communication paths** — allow ingress from
-   Traefik/AuthProxy for external routes and from the specific caller modules for direct
+   Traefik and the Auth Gateway for external routes and from the specific caller modules for direct
    in-cluster integrations.
 8. **Each repo has its own git history** — never cross-commit between repositories.
 9. **Database-per-service.** Each service owns its logical database(s). Never share database credentials or connect to another service's database. New services must declare egress NetworkPolicies restricting outbound traffic to only their designated databases. See `labs64.io-helm-charts/DATABASES.md`. A sink's store is not a service's database: Reporting reads what AuditFlow's sinks wrote, read-only, with its own credentials and row policies.
@@ -88,14 +88,14 @@ Every change is judged against [`STANDARDS.md`](STANDARDS.md), section 13: its p
 
 ## Service-to-service communication
 
-- External traffic enters the Kubernetes cluster through Traefik/AuthProxy.
+- External traffic enters the Kubernetes cluster through Traefik and the Auth Gateway.
 - HTTP calls between modules in the same cluster use the target module's Kubernetes
   Service directly and must not route through Traefik.
-- Traefik/AuthProxy removes caller-supplied `X-Auth-*` headers and creates the trusted
+- The Auth Gateway removes caller-supplied `X-Auth-*` headers and creates the trusted
   auth context from the validated JWT.
 - Internal callers construct the same standard context:
   `X-Auth-User`, `X-Auth-Scopes`, `X-Auth-Tenant`, and `X-Request-ID`.
-- `X-Auth-User` identifies the immediate caller as `service:<module>`; do not forward
+- `X-Auth-User` identifies the immediate caller as `svc:<module>`; do not forward
   the original end-user as the authenticated caller.
 - Internal scopes come from the caller integration configuration.
 - Tenant comes from the trusted current context or verified domain state. For example,
