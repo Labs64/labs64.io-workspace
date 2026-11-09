@@ -115,6 +115,11 @@ if ! command -v k9s &> /dev/null; then
     sudo chmod +x /usr/local/bin/k9s
 fi
 
+# gh copies its device-flow login code through xclip. The real xclip needs an X server, which
+# a host without one (macOS without XQuartz) does not have; this one copies through the
+# terminal instead (see the script).
+sudo install -m 0755 "$(dirname "$0")/xclip-osc52.sh" /usr/local/bin/xclip
+
 echo "=== Setup Complete ==="
 echo "To get started, run (from labs64.io-workspace):"
 echo "  just clone   # clone the ecosystem repositories as siblings of this workspace"
