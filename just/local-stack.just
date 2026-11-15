@@ -75,7 +75,7 @@ build module="all" verbose="1":
         builder_command=(./scripts/build-images.sh "${MODULE:-all}")
     fi
     if [[ -t 1 ]]; then tty_args=(-it); else tty_args=(); fi
-    docker run "${tty_args[@]}" --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
+    docker run ${tty_args[@]+"${tty_args[@]}"} --rm --network host --name "labs64io-builder-${MODULE:-all}-$$" \
         --user "${builder_uid}:${builder_gid}" \
         --group-add "${docker_gid}" \
         -e VERBOSE="{{verbose}}" \
