@@ -5,8 +5,8 @@
       "path": "."
     },
     {
-      "name": "authproxy",
-      "path": "../labs64.io-authproxy"
+      "name": "authgateway",
+      "path": "../labs64.io-authgateway"
     },
     {
       "name": "auditflow",

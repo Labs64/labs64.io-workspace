@@ -48,7 +48,7 @@ REQUIRED_REPOS = (
     "labs64.io-auditflow",
     "labs64.io-payment-gateway",
     "labs64.io-checkout",
-    "labs64.io-authproxy",
+    "labs64.io-authgateway",
     "labs64.io-customer-portal",
     "labs64.io-reporting",
 )

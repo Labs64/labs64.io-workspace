@@ -39,7 +39,7 @@ The workspace clones 10 repositories as siblings of itself — the runtime servi
 
 | Repository | Description |
 |------------|-------------|
-| [**labs64.io-authproxy**](https://github.com/Labs64/labs64.io-authproxy) | The Auth Gateway: the authenticated edge for the ecosystem. It verifies OIDC/JWT tokens, matches the route and asks Cerbos before a request reaches a module. |
+| [**labs64.io-authgateway**](https://github.com/Labs64/labs64.io-authgateway) | The Auth Gateway: the authenticated edge for the ecosystem. It verifies OIDC/JWT tokens, matches the route and asks Cerbos before a request reaches a module. |
 | [**labs64.io-auditflow**](https://github.com/Labs64/labs64.io-auditflow) | Multi-tenant Audit-as-a-Service platform for secure compliance logging. |
 | [**labs64.io-payment-gateway**](https://github.com/Labs64/labs64.io-payment-gateway) | Subscription billing engine and Payment Service Provider (PSP) integrations. |
 | [**labs64.io-checkout**](https://github.com/Labs64/labs64.io-checkout) | Core transaction processing and commerce workflow engine. |

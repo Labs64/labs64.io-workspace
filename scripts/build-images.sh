@@ -6,7 +6,7 @@ required_repos() {
         all)
             printf '%s\n' \
                 labs64.io-commons \
-                labs64.io-authproxy \
+                labs64.io-authgateway \
                 labs64.io-auditflow \
                 labs64.io-checkout \
                 labs64.io-customer-portal \
@@ -14,7 +14,7 @@ required_repos() {
                 labs64.io-reporting
             ;;
         commons) printf '%s\n' labs64.io-commons ;;
-        traefik-authproxy|gateway) printf '%s\n' labs64.io-authproxy ;;
+        traefik-authproxy|gateway) printf '%s\n' labs64.io-authgateway ;;
         auditflow) printf '%s\n' labs64.io-auditflow ;;
         checkout) printf '%s\n' labs64.io-checkout ;;
         customer-portal|customer-portal-ui) printf '%s\n' labs64.io-customer-portal ;;
@@ -94,7 +94,7 @@ build_commons() {
 }
 
 build_traefik_authproxy() {
-    image_step "traefik-authproxy: image" "${ROOT}/labs64.io-authproxy/traefik-authproxy" traefik-authproxy
+    image_step "traefik-authproxy: image" "${ROOT}/labs64.io-authgateway/traefik-authproxy" traefik-authproxy
 }
 
 build_auditflow() {

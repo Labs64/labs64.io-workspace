@@ -245,7 +245,7 @@ jobs:
 ```
 
 Every release publisher in the ecosystem is wired this way — `auditflow` (3 images),
-`checkout` (2), `authproxy` -> `charts/api-gateway`, `customer-portal`,
+`checkout` (2), `authgateway` -> `charts/api-gateway`, `customer-portal`,
 `payment-gateway` and `reporting`. `just check-release-wiring` (in this repo) verifies the whole
 chain across repos: each `mode: release` publisher must dispatch a chart update
 naming a real chart and supplying exactly the first-party images that chart
