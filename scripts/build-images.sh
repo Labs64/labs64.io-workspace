@@ -14,7 +14,7 @@ required_repos() {
                 labs64.io-reporting
             ;;
         commons) printf '%s\n' labs64.io-commons ;;
-        traefik-authproxy|gateway) printf '%s\n' labs64.io-authgateway ;;
+        authgateway-traefik|authgateway|gateway) printf '%s\n' labs64.io-authgateway ;;
         auditflow) printf '%s\n' labs64.io-auditflow ;;
         checkout) printf '%s\n' labs64.io-checkout ;;
         customer-portal|customer-portal-ui) printf '%s\n' labs64.io-customer-portal ;;
@@ -22,7 +22,7 @@ required_repos() {
         reporting) printf '%s\n' labs64.io-reporting ;;
         *)
             echo "Unknown target: $1" >&2
-            echo "Valid targets: all, commons, auditflow, checkout, payment-gateway, reporting, traefik-authproxy, customer-portal" >&2
+            echo "Valid targets: all, commons, auditflow, checkout, payment-gateway, reporting, authgateway-traefik, customer-portal" >&2
             return 2
             ;;
     esac
@@ -93,8 +93,8 @@ build_commons() {
     ensure_pinned_releases
 }
 
-build_traefik_authproxy() {
-    image_step "traefik-authproxy: image" "${ROOT}/labs64.io-authgateway/traefik" traefik-authproxy
+build_authgateway() {
+    image_step "authgateway-traefik: image" "${ROOT}/labs64.io-authgateway/traefik" authgateway-traefik
 }
 
 build_auditflow() {
@@ -127,7 +127,7 @@ build_customer_portal() {
 case "$TARGET" in
     all)
         build_commons
-        build_traefik_authproxy
+        build_authgateway
         build_auditflow
         build_checkout
         build_customer_portal
@@ -137,8 +137,8 @@ case "$TARGET" in
     commons)
         build_commons
         ;;
-    traefik-authproxy|gateway)
-        build_traefik_authproxy
+    authgateway-traefik|authgateway|gateway)
+        build_authgateway
         ;;
     auditflow)
         ensure_pinned_releases
@@ -161,7 +161,7 @@ case "$TARGET" in
         ;;
     *)
         echo "Unknown target: $TARGET"
-        echo "Valid targets: all, commons, auditflow, checkout, payment-gateway, reporting, traefik-authproxy, customer-portal"
+        echo "Valid targets: all, commons, auditflow, checkout, payment-gateway, reporting, authgateway-traefik, customer-portal"
         exit 1
         ;;
 esac
