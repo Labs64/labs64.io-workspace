@@ -1,4 +1,7 @@
-ARG BASE_IMAGE=maven:3.10-eclipse-temurin-25
+# The local image builder runs Maven from this image, so its tag is the pinned Maven and Java:
+# MAVEN_VERSION and JAVA_VERSION in tool-versions.env own the numbers, and `just check-pins` fails when
+# they differ. A floating `maven:3.10-...` moved this build to Maven 3.10 while CI ran 3.9.16.
+ARG BASE_IMAGE=maven:3.9.16-eclipse-temurin-25
 FROM ${BASE_IMAGE}
 
 # Docker CLI for Docker-outside-of-Docker (DooD); git to rebuild pinned internal
