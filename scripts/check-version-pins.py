@@ -245,6 +245,23 @@ def check_toolchain(root: Path) -> None:
                 if normalize(found) != tools.get(tool):
                     fail(f"{rel}: base image {image}:{found}, but tool-versions.env {tool}={tools.get(tool)}")
 
+    # The local image builder runs Maven from its base image, so the tag has to name the pinned Maven and
+    # Java exactly. A floating `maven:3.10-...` built the local images with a different Maven than CI.
+    builder = read(ws / "scripts" / "Dockerfile.builder")
+    if builder is not None:
+        base = re.search(r"^ARG\s+BASE_IMAGE=maven:([^-\s]+)-eclipse-temurin-(\d+)\s*$", builder, re.M)
+        if base is None:
+            fail(
+                "labs64.io-workspace/scripts/Dockerfile.builder: BASE_IMAGE must be "
+                "maven:<MAVEN_VERSION>-eclipse-temurin-<JAVA_VERSION>"
+            )
+        else:
+            for label, tool, value in (("maven", "MAVEN_VERSION", base.group(1)), ("java", "JAVA_VERSION", base.group(2))):
+                expect_equal(
+                    f"{label}: tool-versions.env vs Dockerfile.builder",
+                    {"tool-versions.env": tools.get(tool), "Dockerfile.builder": value},
+                )
+
     # No workflow may carry a tool version of its own.
     hardcoded = re.compile(
         r"helm/helm/v\d|get-helm-\d\b.*DESIRED_VERSION=v\d|HELMFILE_VERSION=\d|K3D_VERSION=v?\d"

@@ -490,7 +490,44 @@ def test_devcontainer_maven_equal_to_the_pin_is_clean(tmp_path):
     assert "maven: tool-versions.env vs devcontainer.json" in proc.stdout
 
 
-MVN_WORKFLOW = "jobs:\n  a:\n    steps:\n%s      - run: mvn -B verify\n"
+BUILDER = "ARG BASE_IMAGE=maven:%s-eclipse-temurin-%s\nFROM ${BASE_IMAGE}\n"
+
+
+def builder_ecosystem(root: Path, maven: str, java: str) -> Path:
+    root = ecosystem(root)
+    write(root, "labs64.io-workspace/tool-versions.env", TOOLS + "MAVEN_VERSION=3.9.16\n")
+    write(root, "labs64.io-workspace/scripts/Dockerfile.builder", BUILDER % (maven, java))
+    return root
+
+
+def test_builder_with_a_floating_maven_tag_is_rejected(tmp_path):
+    proc = run(builder_ecosystem(tmp_path, "3.10", "25"))
+    assert proc.returncode == 1
+    assert "maven: tool-versions.env vs Dockerfile.builder differs" in proc.stdout
+
+
+def test_builder_with_another_java_than_the_pin_is_rejected(tmp_path):
+    proc = run(builder_ecosystem(tmp_path, "3.9.16", "21"))
+    assert proc.returncode == 1
+    assert "java: tool-versions.env vs Dockerfile.builder differs" in proc.stdout
+
+
+def test_builder_that_does_not_name_maven_and_java_in_its_tag_is_rejected(tmp_path):
+    root = builder_ecosystem(tmp_path, "3.9.16", "25")
+    write(root, "labs64.io-workspace/scripts/Dockerfile.builder", "ARG BASE_IMAGE=maven:latest\nFROM ${BASE_IMAGE}\n")
+    proc = run(root)
+    assert proc.returncode == 1
+    assert "BASE_IMAGE must be maven:<MAVEN_VERSION>-eclipse-temurin-<JAVA_VERSION>" in proc.stdout
+
+
+def test_builder_equal_to_the_pins_is_clean(tmp_path):
+    proc = run(builder_ecosystem(tmp_path, "3.9.16", "25"))
+    assert proc.returncode == 0, proc.stdout
+    assert "maven: tool-versions.env vs Dockerfile.builder" in proc.stdout
+    assert "java: tool-versions.env vs Dockerfile.builder" in proc.stdout
+
+
+MVN_WORKFLOW ="jobs:\n  a:\n    steps:\n%s      - run: mvn -B verify\n"
 SETUP_MAVEN = "      - uses: Labs64/labs64.io-workspace/.github/actions/setup-maven@v1\n"
 
 
