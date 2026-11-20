@@ -1,6 +1,6 @@
 # AGENTS.md — Labs64.IO Ecosystem
 
-Guidance for AI agents working in the Labs64.IO workspace. Read this and [`STANDARDS.md`](STANDARDS.md) before making changes: this file says how the ecosystem is laid out and what must never break; the standards say what good engineering means here, for all ecosystem work.
+Guidance for AI agents working in the Labs64.IO workspace. Read this before making changes: it says how the ecosystem is laid out and what must never break. What good engineering means here, for all ecosystem work, is split into `standards-*` skills that you load by activity (see [Engineering standards](#engineering-standards)).
 
 ## What this is
 
@@ -24,7 +24,7 @@ The ecosystem repositories are cloned as **siblings** of `labs64.io-workspace`, 
 
 | What you need | Where to look |
 | --- | --- |
-| Engineering standards, quality bar, definition of done | [`STANDARDS.md`](STANDARDS.md) (applies to every change in every repository) |
+| Engineering standards, quality bar, definition of done | The `standards-*` skills, loaded by activity: see [Engineering standards](#engineering-standards) |
 | Work on a module | `<module>/AGENTS.md` (always read before changes) |
 | Deploy to Kubernetes | `labs64.io-helm-charts/` (see its README's Deployment Modes: Local Development, AWS Staging/Prod, BYO Infra) |
 | Write public docs (onboarding, config, technical reference) | `labs64.io-docs/` (its `AGENTS.md` first — the ultimate reference for running/using/configuring modules; mirrors module ids from `labs64.io/_data/modules.yml`, never restates status/version) |
@@ -66,9 +66,26 @@ Non-negotiable. Violations break builds, deployments, or observability.
 11. **Community code is never edition-aware.** No edition checks in public repositories; commercial editions are additive, through extension points, and no community capability moves out. An entitlement check never drops an audit event.
 12. **No wrapper charts for third-party tools.** Use the publisher's chart plus overrides.
 
-## Quality bar for every change
+## Engineering standards
 
-Every change is judged against [`STANDARDS.md`](STANDARDS.md), section 13: its pull request says how each row of the quality bar applies or why it does not, and what was not verified is said, not implied.
+The standards for every change in every repository are skills, not one long file: load the ones whose activity you are about to do, **before** you start (the guardrails above always win). A change often touches several.
+
+| When you are about to… | Load |
+| --- | --- |
+| call a change done, write or review a PR description, or weigh two concerns against each other | `standards-quality-bar` |
+| add or change outbound calls, timeouts, retries, probes, replicas, rolling updates, or handle a dependency being down | `standards-reliability` |
+| touch hot paths, queues, caches, result sets, HPA/resources, per-tenant limits, or anything that can grow without bound | `standards-performance` |
+| touch authn/authz, scopes, tenants, `X-Auth-*`, input handling, secrets, logging of payloads, or anything going into a public repo | `standards-security` |
+| change an API, chart value or secret key, queue name, event field, a default, a dependency, a published version, or plan an upgrade/rollback | `standards-compatibility` |
+| work on brokers, queues, consumers/producers, dead-letter queues, replay, or calls between services | `standards-messaging` |
+| edit Helm charts, chart-libs, Dockerfiles, manifests, resources, probes, NetworkPolicies, pod security | `standards-kubernetes` |
+| add or change logs, metrics, traces, alerts, dashboards, business telemetry | `standards-observability` |
+| design or refactor a module, decide where shared code lives, add an abstraction/technology/dependency, reopen a settled decision, or update docs with a change | `standards-maintainability` |
+| change a schema, migration, persistence, retention, backup/restore, or transaction boundaries | `standards-data-integrity` |
+| write, fix or review tests, fix a bug, add a gate or CI check, or report that tests passed | `standards-testing` |
+| add services, replicas, storage, traffic, background work, or choose between architectures on cost | `standards-cost` |
+
+Every change is judged against the quality bar in `standards-quality-bar`: its pull request says how each row applies or why it does not, and what was not verified is said, not implied.
 
 ## Shared conventions
 
@@ -197,6 +214,7 @@ matches the task at hand:
 - `local-k8s-qa-audit` — QA against the local k3d cluster
 - `ecosystem-website-sync` — keep `labs64.io` module data in sync
 - `boxdiagram` — create and update architecture diagrams and wireframes kept in version control
+- `standards-*` — engineering standards per work area (`standards-quality-bar`, `-reliability`, `-performance`, `-security`, `-compatibility`, `-messaging`, `-kubernetes`, `-observability`, `-maintainability`, `-data-integrity`, `-testing`, `-cost`); load by activity, see "Engineering standards"
 
 Adding a skill: create `.agents/skills/<name>/SKILL.md` with `name`/`description`
 frontmatter (Claude Code's skill format), then run `just sync-skills` (or rebuild the

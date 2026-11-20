@@ -73,6 +73,7 @@ The workspace is equipped with custom AI agent skills located in `.agents/skills
 - `rfc-writing`: For drafting architecture and technical RFCs.
 - `ecosystem-website-sync`: For keeping the public website in sync with the ecosystem.
 - `test-suite-steward`: For auditing and extending the black-box test suite.
+- `standards-*` (quality-bar, reliability, performance, security, compatibility, messaging, kubernetes, observability, maintainability, data-integrity, testing, cost): The engineering standards, one skill per work area, loaded when a change touches that area.
 
 ## 🔧 Development Commands
 
