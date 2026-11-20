@@ -94,7 +94,7 @@ build_commons() {
 }
 
 build_traefik_authproxy() {
-    image_step "traefik-authproxy: image" "${ROOT}/labs64.io-authgateway/traefik-authproxy" traefik-authproxy
+    image_step "traefik-authproxy: image" "${ROOT}/labs64.io-authgateway/traefik" traefik-authproxy
 }
 
 build_auditflow() {
