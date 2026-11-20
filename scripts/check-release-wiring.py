@@ -10,7 +10,7 @@ nothing else catches the ways it silently rots:
   * a repo gains a second image and keeps dispatching only the first — the
     chart updater then refuses the event at release time (all-or-nothing), and
     the release is already published by the time anyone finds out;
-  * a chart is renamed (`authproxy` publishes into `charts/api-gateway`, not
+  * a chart is renamed (`authproxy` publishes into `charts/authgateway`, not
     `charts/authproxy`) and the dispatch keeps naming the old one;
   * a new module ships images with no propagation at all, so its chart quietly
     keeps deploying by tag.
