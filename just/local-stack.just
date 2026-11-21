@@ -18,6 +18,9 @@ build module="all" verbose="1":
 
     # Get the GID of the docker socket inside the container (solves macOS root:root mapping)
     docker_gid="$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock labs64io-builder stat -c '%g' /var/run/docker.sock 2>/dev/null || echo 0)"
+    # A probe that exits 0 without output (seen when run detached from a terminal) must not turn
+    # into `--group-add ""`, which docker rejects ("Unable to find group").
+    docker_gid="${docker_gid:-0}"
 
     # Existing installations used /root/.m2 and left this named volume owned
     # by root. Migrate it once (and again only if the invoking UID/GID changes).

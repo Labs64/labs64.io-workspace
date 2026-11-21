@@ -41,7 +41,10 @@ sudo apt-get install -y --no-install-recommends iptables ipset dnsutils aggregat
 sudo install -m 0755 "$(dirname "$0")/init-firewall.sh" /usr/local/bin/init-firewall.sh
 
 echo "Installing python dependencies..."
-pip3 install pyyaml
+# The gate scripts and their tests (`just ci` in labs64.io-helm-charts, `just doctor` checks both)
+# run with this `python3`; `python3 -m pip` installs into exactly that interpreter, whichever
+# pip3 comes first on PATH.
+python3 -m pip install pyyaml pytest
 
 # Install graphify (knowledge graph CLI backing the ecosystem-wide graph at
 # ../graphify-out/ — see AGENTS.md). PyPI package name is "graphifyy"; the
