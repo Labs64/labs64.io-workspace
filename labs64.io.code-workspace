@@ -52,6 +52,9 @@
   "settings": {
     "java.jdt.ls.java.home": "/usr/local/sdkman/candidates/java/current",
     "java.configuration.updateBuildConfiguration": "interactive",
+    // The Java language server must not compile into target/ while `just build` does: concurrent
+    // writes corrupted class files and jars (ClassFormatError, "error while writing"). Build with `just`.
+    "java.autobuild.enabled": false,
     "files.exclude": {
       "**/.git": true
     },
