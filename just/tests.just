@@ -11,10 +11,20 @@ _test-with-identity recipe:
         keycloak_installed=false
         mock_installed=false
 
-        if helm status keycloak --namespace tools >/dev/null 2>&1; then
+        # The suites call the gateway at GATEWAY_BASE_URL, the local k3d one by default. Ask the cluster
+        # behind that gateway, not whichever kubectl context happens to be current: after an AWS recipe
+        # switched it, this picked the identity provider of the EKS cluster and the local gateway
+        # answered 404 on the Keycloak token URL. An external gateway has no context to ask: set
+        # IDENTITY_PROVIDER for it (the message below says so).
+        context_args=()
+        if [ -z "${GATEWAY_BASE_URL:-}" ]; then
+            context_args=(--kube-context "${LOCAL_K8S_CONTEXT:-k3d-labs64io}")
+        fi
+
+        if helm status keycloak --namespace tools ${context_args[@]+"${context_args[@]}"} >/dev/null 2>&1; then
             keycloak_installed=true
         fi
-        if helm status mock-oidc --namespace tools >/dev/null 2>&1; then
+        if helm status mock-oidc --namespace tools ${context_args[@]+"${context_args[@]}"} >/dev/null 2>&1; then
             mock_installed=true
         fi
 
