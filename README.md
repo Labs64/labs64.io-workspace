@@ -1,7 +1,6 @@
 # Labs64.IO :: Workspace
 
-**Work on the whole Labs64.IO Ecosystem from source, in one command.**
-*Part of the [Labs64.IO Ecosystem](https://labs64.io): the contributor entry point: every repository, one toolchain, one local platform.*
+**Work on the whole Labs64.IO Ecosystem from source, in one command.** Workspace is the contributor entry point: `just clone` fetches every ecosystem repository next to it, a dev container carries every tool at the version the repositories expect, and `just up` builds every first-party image and deploys it to a local k3d cluster. Labs64.IO is a set of independent Git repositories, not a monorepo.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Labs64/labs64.io-workspace/labs64io-ci.yml?label=CI&logo=github)](https://github.com/Labs64/labs64.io-workspace/actions/workflows/labs64io-ci.yml)
 [![📖 Documentation](https://img.shields.io/badge/📖-Documentation-AB6543.svg)](https://labs64.io/docs/development/)
@@ -9,67 +8,9 @@
 
 <p align="center"><img src="assets/workspace-hero.svg" alt="Workspace: One command, just up, builds and deploys every ecosystem repository to a local k3d cluster; repository tiles light up as they build until the gateway is ready." width="880"></p>
 
-[**Get started**](https://labs64.io/docs/getting-started/run-the-full-ecosystem-locally.html) · [Features](#features) · [AI agents](#using-it-with-ai-agents) · [Ecosystem](#the-labs64io-ecosystem) · [Documentation](https://labs64.io/docs/development/) · [labs64.io](https://labs64.io)
-
-> [!NOTE]
-> Labs64.IO is ten independent Git repositories, not a monorepo. If you only want to **see** it running you do not need the workspace: use `install.sh`.
-
-## Why Workspace?
-
-Changing a platform that spans many repositories means the same toolchain, the same pinned versions and a local cluster that behaves like the real thing. Setting that up by hand is a day you do not get back; Workspace makes it a command.
-
-1. **One checkout command.** `just clone` fetches every ecosystem repository next to the workspace.
-2. **One pinned toolchain.** A dev container carries every tool at the version the repositories expect.
-3. **One local platform.** `just up` builds every first-party image and deploys it to a k3d cluster; `just smoke` checks it.
-
-**A good fit if**
-
-- You are about to change code in one or more Labs64.IO repositories and want a working environment fast.
-- You review pull requests that span repositories.
-- You want an AI agent to work across the ecosystem with the same tools you have.
-
-**Probably not what you need if**
-
-- You only want to see Labs64.IO running: `install.sh` is quicker and needs no checkouts.
-- You are using one module in your own project: use that module's Docker or Kubernetes option instead.
-
-## Features
-
-- **Multi-repo bootstrap**: `just clone` fetches every ecosystem repository next to the workspace.
-- **Pinned dev container**: every tool at the version the repositories expect, with Docker-outside-of-Docker.
-- **Local platform**: `just up` builds first-party images in a builder container and deploys them to k3d with a local registry.
-- **Smoke tests**: `just smoke` checks the running platform through the gateway.
-- **Knowledge graph and AI skills**: a graph of the ecosystem and skills for agents working across repositories.
-- **Version and release tooling**: pin checks, release and dependency-update recipes.
-
-The DevContainer mounts `labs64-m2-cache` at `/home/vscode/.m2`, so direct
-`mvn` commands and the shared container builder install and resolve artifacts from
-the same local Maven repository regardless of which module starts the build.
-
-## Is this the right place to start?
-
-| You want to… | Start here |
-|---|---|
-| **See Labs64.IO running** and call an API | You do not need this workspace: the [Quickstart](https://labs64.io/docs/getting-started/quickstart.html) installs published images in about five minutes |
-| **Try one service** without Kubernetes | [Run one module locally](https://labs64.io/docs/getting-started/run-one-module-locally.html) |
-| **Deploy for your team** on AWS, Azure, Google Cloud or your own cluster | [Deploy to your Kubernetes cluster](https://labs64.io/docs/getting-started/deploy-to-kubernetes.html) |
-| **Change the code**, build from source, contribute | You are in the right place |
-
-## Using it with AI agents
-
-Agents get the same environment a human contributor does, with one `just` entry point and a knowledge graph for following changes across repositories. The [guide for AI agents](https://labs64.io/docs/introduction/ai-agents.html) covers authentication, retries and errors across all modules. Working on this repository with an agent? [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) describe the layout and conventions.
-
 ## The Labs64.IO Ecosystem
 
-Workspace is one module of the [Labs64.IO Ecosystem](https://labs64.io). [All modules are listed in the documentation](https://labs64.io/docs/services/).
-
-## Contributing
-
-We would love your help. The workspace is where contributors spend their first hour, so every rough edge you smooth here helps the next person. Fork the repository, make your change on a branch, run the checks described in [`AGENTS.md`](AGENTS.md) and open a pull request. Not sure whether an idea fits? Open an issue first and we will talk it through; that is a perfectly good way to start.
-
-## License
-
-Everything in this repository is open source under the [Apache License 2.0](LICENSE): you can use it, change it and ship it commercially. The core of the *Labs64.IO Ecosystem* is free forever; community modules are Apache-2.0 licensed.
+The workspace is part of the [Labs64.IO Ecosystem](https://labs64.io). Its documentation is at [labs64.io/docs/development/workspace-repositories](https://labs64.io/docs/development/workspace-repositories.html); [all modules are listed in the documentation](https://labs64.io/docs/services/).
 
 ---
 
