@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Symlinks each shared skill (.agents/skills/<name>/SKILL.md, here and in every labs64.io*
 # repository cloned next to this one) individually, by name, into
-# Claude Code's and Codex CLI's user-level skills directories ($CLAUDE_CONFIG_DIR/skills,
-# $CODEX_HOME/skills).
+# Claude Code's, Codex CLI's, and Antigravity's user-level skills directories
+# ($CLAUDE_CONFIG_DIR/skills, $CODEX_HOME/skills, $GEMINI_CONFIG_DIR/skills).
 #
-# Each skill is linked on its own because both tools also auto-manage their own content in
+# Each skill is linked on its own because the tools also auto-manage their own content in
 # that same directory (Codex writes .system/, .curated/ there). Aliasing the whole directory
 # would let that content leak into this repo and make Codex's internal skills visible to
 # Claude Code. The target is user-level because neither tool walks up past a repo's own git
@@ -19,8 +19,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ship skills of its own; unrelated projects that happen to share the parent directory are ignored.
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-echo "Syncing shared skills into Claude Code and Codex CLI (user-level)..."
-for skills_dir in "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" "${CODEX_HOME:-$HOME/.codex}/skills"; do
+echo "Syncing shared skills into Claude Code, Codex CLI, and Antigravity (user-level)..."
+for skills_dir in \
+  "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" \
+  "${CODEX_HOME:-$HOME/.codex}/skills" \
+  "${GEMINI_CONFIG_DIR:-$HOME/.gemini/config}/skills"; do
   mkdir -p "$skills_dir"
 
   # Drop symlinks pointing at shared skills that no longer exist (renamed or removed).
