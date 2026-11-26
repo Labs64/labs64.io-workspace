@@ -269,8 +269,20 @@ resolve_and_add optional \
     "statsig.anthropic.com" \
     "statsig.com" \
     "marketplace.visualstudio.com" \
+    "open-vsx.org" \
     "vscode.blob.core.windows.net" \
     "update.code.visualstudio.com"
+
+# --- Optional: Gemini Code Assist / Antigravity / Google sign-in and API ---
+resolve_and_add optional \
+    "accounts.google.com" \
+    "oauth2.googleapis.com" \
+    "cloudcode-pa.googleapis.com" \
+    "cloudaicompanion.googleapis.com" \
+    "generativelanguage.googleapis.com" \
+    "storage.googleapis.com" \
+    "antigravity.google" \
+    "antigravity-cli-auto-updater-974169037036.us-central1.run.app"
 
 # Marketplace API responses point to publisher-specific asset hosts. Include
 # both documented suffixes for the configured extensions and extension-pack
@@ -495,6 +507,15 @@ DYNAMIC_DOMAINS=(
     "registry-1.docker.io"
     "production.cloudfront.docker.com"
     "charts.external-secrets.io"
+    "accounts.google.com"
+    "oauth2.googleapis.com"
+    "cloudcode-pa.googleapis.com"
+    "cloudaicompanion.googleapis.com"
+    "generativelanguage.googleapis.com"
+    "storage.googleapis.com"
+    "antigravity.google"
+    "antigravity-cli-auto-updater-974169037036.us-central1.run.app"
+    "open-vsx.org"
     # charts.bitnami.com is CloudFront-fronted and rotates across entire /24s, not just
     # within one: observed 18.172.112.{8,76,80,82} and, twenty minutes later,
     # 54.230.228.{10,30,45,58}. Seeding it once above is therefore not enough — the

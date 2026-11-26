@@ -59,10 +59,15 @@ def test_skills_are_linked_from_sibling_checkouts(tmp_path):
         d.mkdir(parents=True)
         (d / "SKILL.md").write_text(f"---\nname: {skill}\n---\n")
     home = tmp_path / "home"
-    env = {**os.environ, "CLAUDE_CONFIG_DIR": str(home / "claude"), "CODEX_HOME": str(home / "codex")}
+    env = {
+        **os.environ,
+        "CLAUDE_CONFIG_DIR": str(home / "claude"),
+        "CODEX_HOME": str(home / "codex"),
+        "GEMINI_CONFIG_DIR": str(home / "gemini"),
+    }
     proc = subprocess.run(["bash", str(root / "labs64.io-workspace" / "scripts" / "sync-skills.sh")], env=env, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
-    for tool in ("claude", "codex"):
+    for tool in ("claude", "codex", "gemini"):
         assert (home / tool / "skills" / "shared" / "SKILL.md").is_file()
         assert (home / tool / "skills" / "extra" / "SKILL.md").is_file()
 
@@ -77,13 +82,20 @@ def test_a_skill_whose_checkout_went_away_is_unlinked(tmp_path):
     gone.mkdir(parents=True)
     (gone / "SKILL.md").write_text("---\nname: extra\n---\n")
     home = tmp_path / "home"
-    env = {**os.environ, "CLAUDE_CONFIG_DIR": str(home / "claude"), "CODEX_HOME": str(home / "codex")}
+    env = {
+        **os.environ,
+        "CLAUDE_CONFIG_DIR": str(home / "claude"),
+        "CODEX_HOME": str(home / "codex"),
+        "GEMINI_CONFIG_DIR": str(home / "gemini"),
+    }
     subprocess.run(["bash", str(script)], env=env, check=True, capture_output=True)
-    assert (home / "claude" / "skills" / "extra").is_symlink()
+    for tool in ("claude", "codex", "gemini"):
+        assert (home / tool / "skills" / "extra").is_symlink()
     (gone / "SKILL.md").unlink()
     gone.rmdir()
     subprocess.run(["bash", str(script)], env=env, check=True, capture_output=True)
-    assert not (home / "claude" / "skills" / "extra").is_symlink()
+    for tool in ("claude", "codex", "gemini"):
+        assert not (home / tool / "skills" / "extra").is_symlink()
 
 
 def test_skills_of_unrelated_sibling_directories_are_not_linked(tmp_path):
@@ -97,7 +109,13 @@ def test_skills_of_unrelated_sibling_directories_are_not_linked(tmp_path):
     foreign.mkdir(parents=True)
     (foreign / "SKILL.md").write_text("---\nname: foreign\n---\n")
     home = tmp_path / "home"
-    env = {**os.environ, "CLAUDE_CONFIG_DIR": str(home / "claude"), "CODEX_HOME": str(home / "codex")}
+    env = {
+        **os.environ,
+        "CLAUDE_CONFIG_DIR": str(home / "claude"),
+        "CODEX_HOME": str(home / "codex"),
+        "GEMINI_CONFIG_DIR": str(home / "gemini"),
+    }
     proc = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
-    assert not (home / "claude" / "skills" / "foreign").exists()
+    for tool in ("claude", "codex", "gemini"):
+        assert not (home / tool / "skills" / "foreign").exists()

@@ -193,15 +193,16 @@ Working notes live at the ecosystem root, outside every repository, so they are 
 
 Ecosystem-wide skills live in `.agents/skills/<name>/SKILL.md` (git-tracked here, so every
 developer gets them by cloning this repo). The devcontainer's `post-create.sh` (via
-`scripts/sync-skills.sh`) symlinks each one, by name, into Claude Code's and Codex CLI's
-user-level skills directories (`$CLAUDE_CONFIG_DIR/skills`, `$CODEX_HOME/skills`) at
+`scripts/sync-skills.sh`) symlinks each one, by name, into Claude Code's, Codex CLI's, and
+Antigravity's user-level skills directories (`$CLAUDE_CONFIG_DIR/skills`, `$CODEX_HOME/skills`,
+`$GEMINI_CONFIG_DIR/skills` — default `~/.gemini/config/skills`) at
 container creation; see `scripts/sync-skills.sh` for why this has to be per-skill and
 user-level rather than a single project-level symlink. Run `just sync-skills` to pick up a
 newly-added skill without a rebuild. Another `labs64.io*` repository cloned next to this one
 may ship skills of its own under `.agents/skills/`; `sync-skills.sh` links those too.
 
 Keep personal skills out of `.agents/skills/`; add them directly under your own
-`$CLAUDE_CONFIG_DIR/skills` / `$CODEX_HOME/skills` instead, or promote one into this repo
+`$CLAUDE_CONFIG_DIR/skills` / `$CODEX_HOME/skills` / `~/.gemini/config/skills` instead, or promote one into this repo
 with `just import-skills`.
 
 Agents without native skill-tool support (e.g. reading only `AGENTS.md`) should still open
