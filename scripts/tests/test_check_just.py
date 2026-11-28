@@ -1,6 +1,6 @@
 """Tests for scripts/check-just.py.
 
-The gate holds every justfile that adopted docs/justfiles.md to it, and every `just <recipe>` in a workflow, script
+The gate holds every justfile that adopted the justfile convention to it, and every `just <recipe>` in a workflow, script
 or document to a recipe that exists. Each test builds a small ecosystem that is right, breaks one thing, and checks
 that the gate names it. Needs `just` on the PATH (the dev container and CI install it).
 

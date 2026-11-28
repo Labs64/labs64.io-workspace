@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Hold every justfile to the convention of docs/justfiles.md, and every `just <recipe>` to a recipe that exists.
+"""Hold every justfile to the justfile convention, and every `just <recipe>` to a recipe that exists.
+
+The convention is the page "Justfiles" of labs64.io-docs (development/justfiles.md); the group list it
+shows is held in GROUPS below, which also covers the groups of repositories that are not public.
 
     scripts/check-just.py                      # the labs64.io* repositories cloned next to this workspace
     scripts/check-just.py --repo labs64.io-x   # one of them (repeatable)
@@ -9,7 +12,7 @@
 A repository adopts the convention by moving its recipes into `just/<group>.just`; from then on its justfiles must:
 
   - keep only settings, variables, `default`, imports and modules in the root `justfile`;
-  - give every public recipe a description and the `[group]` of the file it lives in (the table in docs/justfiles.md);
+  - give every public recipe a description and the `[group]` of the file it lives in (the table of the Justfiles page in labs64.io-docs);
   - have the reserved `ci` and `doctor`;
   - never give a parameter named `env` a default: a cloud environment is always named on the command line;
   - name private recipes `_…`, except the renamed ones in `just/renamed.just`, which must not outlive their date.
@@ -32,7 +35,25 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ELSEWHERE: set[str] = set()  # recipes of nested justfiles (sub-projects of a module repository)
-CONVENTION = HERE.parent / "docs" / "justfiles.md"
+# {group: file stem}: the groups a justfile may use, each in just/<stem>.just. Keep it equal to the table on the
+# Justfiles page of labs64.io-docs (development/justfiles.md); the page lists the groups of every repository,
+# including the ones that are not public.
+GROUPS = {
+    "setup": "setup",
+    "repositories": "repositories",
+    "local stack": "local-stack",
+    "local apps": "local-apps",
+    "local tools": "local-tools",
+    "charts": "charts",
+    "aws infrastructure": "aws-infrastructure",
+    "aws cluster": "aws-cluster",
+    "aws operations": "aws-operations",
+    "aws tenants": "aws-tenants",
+    "tests": "tests",
+    "psp stub": "psp-stub",
+    "quality gates": "quality-gates",
+    "cockpit": "cockpit",
+}
 RESERVED = ("ci", "doctor")
 NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 HEADER = re.compile(r"^@?([A-Za-z_][A-Za-z0-9_-]*)(?:\s[^:]*)?:(?!=)")
@@ -86,18 +107,6 @@ class Repo:
         return repo
 
 
-def groups_from_convention() -> dict[str, str]:
-    """{group: file stem} from the table in docs/justfiles.md: the convention has one owner."""
-    groups = {}
-    for line in CONVENTION.read_text().splitlines():
-        m = re.match(r"^\| `([a-z ]+)` \| `just/([a-z-]+)\.just` \|", line)
-        if m:
-            groups[m.group(1)] = m.group(2)
-    if not groups:
-        sys.exit(f"check-just: no group table in {CONVENTION}")
-    return groups
-
-
 def dump(justfile: Path) -> dict:
     proc = subprocess.run(
         ["just", "--justfile", str(justfile), "--working-directory", str(justfile.parent),
@@ -131,7 +140,7 @@ def check_structure(repo: Repo, groups: dict[str, str], today: dt.date) -> list[
     stems = set(groups.values()) | {"renamed"}
     for f in sorted((repo.path / "just").glob("*.just")):
         if f.stem not in stems:
-            out.append(f"just/{f.name}: not a group file of docs/justfiles.md (or just/renamed.just)")
+            out.append(f"just/{f.name}: not a group file of the justfile convention (or just/renamed.just)")
         for _, name in top_level_recipes(f.read_text().splitlines()):
             files[name] = f.stem
     for name, r in sorted(repo.data["recipes"].items()):
@@ -150,7 +159,7 @@ def check_structure(repo: Repo, groups: dict[str, str], today: dt.date) -> list[
         if len(tagged) != 1:
             out.append(f"`{name}` ({where}): needs exactly one [group('…')], has {tagged or 'none'}")
         elif tagged[0] not in groups:
-            out.append(f"`{name}` ({where}): group `{tagged[0]}` is not one of docs/justfiles.md")
+            out.append(f"`{name}` ({where}): group `{tagged[0]}` is not one of the convention's groups")
         elif files.get(name) != groups[tagged[0]]:
             out.append(f"`{name}` ({where}): its group `{tagged[0]}` lives in just/{groups[tagged[0]]}.just")
         for p in r["parameters"]:
@@ -158,7 +167,7 @@ def check_structure(repo: Repo, groups: dict[str, str], today: dt.date) -> list[
                 out.append(f"`{name}` ({where}): `env` has a default; a cloud environment is always named explicitly")
     for reserved in RESERVED:
         if reserved not in repo.public:
-            out.append(f"no `{reserved}` recipe (reserved, docs/justfiles.md)")
+            out.append(f"no `{reserved}` recipe (reserved by the justfile convention)")
     renamed = repo.path / "just" / "renamed.just"
     if renamed.exists():
         m = REMOVE_AFTER.search(renamed.read_text())
@@ -323,7 +332,7 @@ def main() -> int:
     args = parser.parse_args()
     root = Path(args.root).resolve()
     today = dt.date.fromisoformat(args.today) if args.today else dt.date.today()
-    groups = groups_from_convention()
+    groups = GROUPS
 
     repos: dict[str, Repo] = {}
     failures: list[str] = []
@@ -342,11 +351,11 @@ def main() -> int:
     failures += check_references(repos, [root / n for n in selected if (root / n / ".git").exists()], fix=args.fix)
 
     if failures:
-        print(f"check-just: {len(failures)} finding(s) (docs/justfiles.md)", file=sys.stderr)
+        print(f"check-just: {len(failures)} finding(s) (the justfile convention)", file=sys.stderr)
         for f in failures:
             print(f"  {f}", file=sys.stderr)
         return 1
-    print(f"check-just: clean — {len(adopted)} justfile(s) follow docs/justfiles.md; "
+    print(f"check-just: clean — {len(adopted)} justfile(s) follow the justfile convention; "
           f"every `just <recipe>` in {len(selected)} repositories exists")
     return 0
 

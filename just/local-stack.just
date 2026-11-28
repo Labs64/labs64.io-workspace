@@ -1,4 +1,4 @@
-# Group `local stack` (docs/justfiles.md in labs64.io-workspace). Imported by the justfile.
+# Group `local stack` (development/justfiles.md in labs64.io-docs). Imported by the justfile.
 
 # Build the module images (all by default) and push them to the local registry at localhost:5005
 [group('local stack')]

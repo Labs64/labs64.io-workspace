@@ -7,7 +7,7 @@ name: Labs64.IO - Workspace - CI
 #   tooling    — tests for the gate scripts themselves, actionlint over every workflow, and the
 #                Renovate preset validated. On every change to this repository.
 #   ecosystem  — the cross-repository gates (`just check`, strict) across the public ecosystem repositories' `master`,
-#                the justfile convention (docs/justfiles.md) included. Also daily, so
+#                the justfile convention (labs64.io-docs: development/justfiles.md) included. Also daily, so
 #                drift that lands in another repository (a bumped Cerbos tag, a hard-coded tool
 #                version) is reported here instead of being found at release time.
 
@@ -17,7 +17,6 @@ on:
     paths:
       - "justfile"
       - "just/**"
-      - "docs/justfiles.md"
       - "scripts/**"
       - ".github/**"
       - "tool-versions.env"
@@ -27,7 +26,6 @@ on:
     paths:
       - "justfile"
       - "just/**"
-      - "docs/justfiles.md"
       - "scripts/**"
       - ".github/**"
       - "tool-versions.env"
@@ -143,5 +141,5 @@ jobs:
         # --strict: a repository that failed to clone must fail the job, not silently weaken it.
         run: just check-pins --strict
 
-      - name: Justfiles follow docs/justfiles.md and every recipe they name exists
+      - name: Justfiles follow the justfile convention and every recipe they name exists
         run: just check-just

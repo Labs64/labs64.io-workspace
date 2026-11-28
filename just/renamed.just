@@ -1,5 +1,5 @@
 # Recipes that were renamed. Each old name fails and names its replacement, so muscle memory and old scripts
-# get a clear message instead of a different behaviour (docs/justfiles.md in labs64.io-workspace).
+# get a clear message instead of a different behaviour (development/justfiles.md in labs64.io-docs).
 # Remove this file after 2027-01-31.
 
 # Fail with the new name of a renamed recipe

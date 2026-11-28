@@ -14,12 +14,12 @@ mod? tests '../labs64.io-tests/justfile'
 # Internal repositories and EE modules (the private EE workspace, when it is cloned)
 mod? ee '../labs64.io-workspace-ee/justfile'
 
-# List the recipes by group, and the repositories mounted as modules (docs/justfiles.md)
+# List the recipes by group, and the repositories mounted as modules (development/justfiles.md in labs64.io-docs)
 default:
-    @echo 'labs64.io-workspace: start here. Other repositories: just helm-charts | just tests | just ee  (docs/justfiles.md)'
+    @echo 'labs64.io-workspace: start here. Other repositories: just helm-charts | just tests | just ee  (development/justfiles.md in labs64.io-docs)'
     @just --list --unsorted --list-heading ''
 
-# Recipes by group (docs/justfiles.md in labs64.io-workspace): one file per group, in list order.
+# Recipes by group (development/justfiles.md in labs64.io-docs): one file per group, in list order.
 import 'just/setup.just'
 import 'just/repositories.just'
 import 'just/local-stack.just'

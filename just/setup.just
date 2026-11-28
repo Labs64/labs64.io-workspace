@@ -1,4 +1,4 @@
-# Group `setup` (docs/justfiles.md in labs64.io-workspace). Imported by the justfile.
+# Group `setup` (development/justfiles.md in labs64.io-docs). Imported by the justfile.
 
 # Sync the shared skills into the user-level skill folders of Claude Code and Codex CLI
 [group('setup')]

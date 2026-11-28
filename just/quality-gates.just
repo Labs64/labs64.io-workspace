@@ -1,4 +1,4 @@
-# Group `quality gates` (docs/justfiles.md in labs64.io-workspace). Imported by the justfile.
+# Group `quality gates` (development/justfiles.md in labs64.io-docs). Imported by the justfile.
 
 # What the workspace's CI (.github/workflows/labs64io-ci.yml) runs, in the same order: the gate scripts' own tests,
 # actionlint over the workflows, the Renovate preset, then the cross-repository gates over the clones next to this
@@ -73,7 +73,7 @@ check-pins *args:
 check-renovate-wiring:
     @python3 scripts/check-renovate-wiring.py --root {{ROOT}}
 
-# The justfile convention (docs/justfiles.md) over every repository cloned next to this one that has a justfile:
+# The justfile convention (development/justfiles.md in labs64.io-docs) over every repository cloned next to this one that has a justfile:
 # groups and descriptions, the reserved recipes, environment parameters without a default, and every `just <recipe>`
 # named by a workflow, a script or the documentation exists. Needs `just` itself.
 #

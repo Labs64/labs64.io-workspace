@@ -40,6 +40,9 @@ permissions:
 jobs:
   tick:
     # Renovate writes unticked boxes as "- [ ]"; GitHub writes a ticked one as "- [x]".
+    # Only a dashboard issue written by an organisation member or collaborator counts: anyone may open an issue
+    # titled "Dependency Dashboard" on a public repository. If the Renovate runner's token ever belongs to an
+    # account outside the organisation, its dashboards stop starting runs until that is allowed here.
     if: >-
       github.event_name == 'issues'
       && startsWith(github.event.issue.title, 'Dependency Dashboard')

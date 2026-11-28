@@ -1,4 +1,4 @@
-# Group `repositories` (docs/justfiles.md in labs64.io-workspace). Imported by the justfile.
+# Group `repositories` (development/justfiles.md in labs64.io-docs). Imported by the justfile.
 
 # Clone all ecosystem repositories (as siblings of this workspace)
 [group('repositories')]

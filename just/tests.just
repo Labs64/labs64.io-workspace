@@ -1,4 +1,4 @@
-# Group `tests` (docs/justfiles.md in labs64.io-workspace). Imported by the justfile.
+# Group `tests` (development/justfiles.md in labs64.io-docs). Imported by the justfile.
 
 # Run a test recipe against the selected or deployed identity provider
 [private]
